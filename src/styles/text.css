@@ -1,0 +1,17 @@
+.text-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+}
+
+.text-muted {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-muted);
+}
+
+.text-muted-strong {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-muted-strong);
+}

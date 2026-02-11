@@ -1,0 +1,219 @@
+/* src/styles/flightCard3x3.css */
+
+.flightCard {
+  line-height: 1.15;
+}
+
+/* Header */
+.flightCard-headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: var(--space-4);
+}
+
+.flightCard-headerColLeft,
+.flightCard-headerColCenter,
+.flightCard-headerColRight {
+  flex: 1;
+  min-width: 0;
+}
+
+.flightCard-headerColCenter {
+  display: flex;
+  justify-content: center;
+}
+
+.flightCard-headerTitle {
+  font-size: 14px;
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flightCard-headerDate {
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  color: var(--accent-date);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+
+
+/* Grid wrapper */
+.flightCard-grid {
+  margin-top: var(--space-4);
+}
+
+/* Rows */
+.flightCard-row {
+  display: flex;
+  align-items: center;
+  column-gap: var(--space-4);
+}
+
+.flightCard-rowSpaced {
+  margin-top: 10px;
+}
+
+.flightCard-rowFooter {
+  margin-top: 14px;
+}
+
+/* Cells */
+.flightCard-cell {
+  flex: 1;
+  min-width: 0;
+}
+
+.flightCard-centerCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flightCard-rightCell {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Airline logo + flight number */
+.flightCard-logoFlightRow {
+  display: flex;
+  align-items: center;
+  column-gap: 10px;
+}
+
+.flightCard-airlineLogo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.flightCard-flightNo {
+  font-size: 14px;
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Route */
+.flightCard-route {
+  font-size: 14px;
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status pill (colour comes from inline mapping) */
+.flightCard-statusPill {
+  border-width: 1px;
+  border-style: solid;
+  padding: 4px 6px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flightCard-status {
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Times */
+.flightCard-timeRow {
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+}
+
+.flightCard-arrow {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.flightCard-time {
+  font-size: 14px;
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+}
+
+.flightCard-timeCancelled {
+  color: var(--text-primary);
+  text-decoration: line-through;
+}
+
+/* Meta + footer */
+.flightCard-meta {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flightCard-footer {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-muted-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Listing right */
+.flightCard-listingRightRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  column-gap: 10px;
+}
+
+.flightCard-listingStatusIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Error box (contract breach visible) */
+.flightCard-errorBox {
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: rgba(127, 29, 29, 0.95);
+  font-size: 9px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 0 2px;
+  min-height: 20px;
+}

@@ -1,0 +1,72 @@
+Quick answer: yes, absolutely — a few good options
+✅ Best immediate option (zero setup): same Wi-Fi
+
+If your phone and dev machine are on the same network:
+
+Start Vite with host exposed:
+
+npm run dev -- --host
+
+
+or in vite.config.ts:
+
+server: { host: true }
+
+
+Vite will show something like:
+
+Network: http://192.168.1.42:5173
+
+
+Open that URL on your phone’s browser.
+
+This gives you:
+
+real mobile viewport
+
+touch interactions
+
+real scroll / tap / focus behaviour
+Perfect for Home + SelectAirports parity checks.
+
+✅ Best “proper” preview (still easy): temporary public URL
+
+If you want to test away from your network:
+
+Option A — ngrok
+ngrok http 5173
+
+
+You get a public HTTPS URL → open on phone.
+
+Option B — Cloudflare Tunnel
+cloudflared tunnel --url http://localhost:5173
+
+
+Both are excellent for quick mobile review.
+
+✅ Best long-term workflow
+
+When you’re ready:
+
+Push to a preview branch
+
+Deploy to Vercel / Netlify preview
+
+Review on any device, anytime
+
+This is ideal once the airports + home flows are locked.
+
+What you cannot get from Chrome DevTools
+
+Just to be clear (you already know this instinctively):
+
+iOS Safari quirks ❌
+
+touch hit-slop feel ❌
+
+virtual keyboard behaviour ❌
+
+real scroll inertia ❌
+
+So real-device testing is 100% the right instinct here.

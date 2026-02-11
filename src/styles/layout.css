@@ -1,0 +1,18 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family-base);
+  color: var(--text-primary);
+  background: var(--bg-app);
+}
+
+.app-screen {
+  min-height: 100vh;
+  background: var(--bg-app);
+}
+
+.app-container {
+  max-width: var(--max-width-mobile);
+  margin: 0 auto;
+  padding: var(--space-6);
+}

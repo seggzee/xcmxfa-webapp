@@ -1,0 +1,55 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-black);
+
+  cursor: pointer;
+  border: none;
+  background: none;
+
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary = ACTION */
+.btn-primary {
+  background: var(--klm-blue);
+  color: #fff;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* Secondary */
+.btn-secondary {
+  background: #fff;
+  color: var(--text-primary);
+  border: var(--border-2) solid var(--border-card);
+}
+
+.btn-secondary:active {
+  transform: scale(0.97);
+}
+
+/* Ghost */
+.btn-ghost {
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.btn-ghost:active {
+  opacity: 0.7;
+}

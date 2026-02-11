@@ -1,0 +1,245 @@
+/* src/styles/home.css
+   Home screen only. Keep RN parity structure here.
+*/
+
+.homeScreen {
+  min-height: 100vh;
+  background: #f6f7f9;
+}
+
+.homeInner {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Hero image inside the flush card */
+.card-hero img {
+  width: 100%;
+  height: 175px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Section title row + info dot */
+.sectionTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: #132333;
+}
+
+.infoDot {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  border: 1px solid #d9e2ee;
+  background: #ffffff;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.75);
+  cursor: pointer;
+}
+
+/* Airports block */
+.airportsBlock {
+  margin-top: 10px;
+}
+
+.airportsBlock--scroll .airportsScroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.airportsScrollItem {
+  flex: 0 0 auto;
+  width: 48%;
+  min-width: 200px;
+}
+
+.airportsSingle {
+  width: 100%;
+}
+
+/* Airport chip */
+.airportChipWrap {
+  position: relative;
+  width: 100%;
+}
+
+.airportChipRemove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  border: 1px solid #d9e2ee;
+  background: rgba(255, 255, 255, 0.95);
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.75);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.airportChipBtn {
+  width: 100%;
+  border-radius: 18px;
+  border: 2px solid #d9e2ee;
+  background: #ffffff;
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.airportChipTop {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.airportChipLogo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.airportChipLogoFallback {
+  font-weight: 900;
+  color: #132333;
+}
+
+.airportChipPlus {
+  font-size: 28px;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.45);
+}
+
+.airportChipBottom {
+  padding: 8px 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.airportChipLabel {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: rgba(19, 35, 51, 0.55);
+  text-align: center;
+}
+
+/* Quick actions (2-column grid) */
+.quickWrap {
+  margin-top: 18px;
+}
+
+.quickTitle {
+  font-weight: 900;
+  color: #132333;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.quickGridRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.quickTile {
+  border-radius: 16px;
+  border: 2px solid #d9e2ee;
+  background: #ffffff;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quickTileTitle {
+  font-weight: 900;
+  color: #132333;
+}
+
+.quickTileSub {
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 12px;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+.quickTile--disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Modals */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modalCard {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #d9e2ee;
+}
+
+.modalTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: #132333;
+}
+
+.modalBody {
+  margin-top: 10px;
+  color: rgba(19, 35, 51, 0.75);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.modalBtnRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.modalBtn {
+  flex: 1;
+  border-radius: 14px;
+  padding: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  border: 1px solid #d9e2ee;
+  background: #ffffff;
+  color: #132333;
+}
+
+.modalBtnGhost {
+  background: #ffffff;
+}
+
+.modalBtnPrimary {
+  background: #e8f0ff;
+  border-color: #d6e3ff;
+}
