@@ -258,7 +258,7 @@ DEPLOY TO SYNOLOGY:
 ---------------------
 
 robocopy "D:\CloudStation\projects\webapp-xcmxfa-src\dist" 
-         "D:\CloudStation\synology-webroots\webapp.34deltax.com" 
+         "D:\CloudStation\synology-webroots\webapp-xcmxfa" 
          /MIR
 
 		 

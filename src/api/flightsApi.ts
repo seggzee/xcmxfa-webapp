@@ -492,6 +492,14 @@ export async function getBookingsForDay(args: {
  * setBookingListed()
  * - Writes “list/unlist me” for a given flight_instance_id + psn.
  * - Identity invariants enforced BEFORE network call.
+ *
+ * Backend source-of-truth endpoints:
+ * - list   -> /api/bookings/list.php   (create/reactivate)
+ * - unlist -> /api/bookings/unlist.php (soft-cancel)
+ *
+ * IMPORTANT:
+ * - Do NOT invent endpoint names.
+ * - Payload MUST match backend contract: { psn, flight_instance_id } only.
  */
 export async function setBookingListed(args: {
   mode: "list" | "unlist";
@@ -505,8 +513,13 @@ export async function setBookingListed(args: {
     throw new Error("Missing flight_instance_id for setBookingListed.");
   }
 
-  return requestJson(`/api/bookings/set_listed.php`, {
+  const path =
+    args.mode === "list"
+      ? `/api/bookings/list.php`
+      : `/api/bookings/unlist.php`;
+
+  return requestJson(path, {
     method: "POST",
-    body: { mode: args.mode, flight_instance_id, psn },
+    body: { flight_instance_id, psn },
   });
 }

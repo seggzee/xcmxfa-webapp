@@ -1,10 +1,10 @@
 // src/components/FlightCard3x3.tsx
 
-
+import React from "react";
 import AIRCRAFT_TYPES from "../assets/aircraftTypes";
 import STATUS_COLOUR_CODES from "../assets/statusColourCodes";
 import STATUS_LABEL_TRANSLATIONS from "../assets/statusLabelTranslations";
-import { AIRLINE_LOGOS, LISTING_STATUS_ICONS } from "../assets";
+import { AIRLINE_LOGOS } from "../assets";
 
 type Report = { code: string; message: string; context?: any };
 
@@ -102,14 +102,6 @@ function statusLabelFromKey(statusKey: string, onReport?: (r: Report) => void) {
   return v;
 }
 
-function listingIconSourceFromStatus(listing_status: any, onReport?: (r: Report) => void) {
-  const s = toNonEmptyString(listing_status).toLowerCase();
-  if (!s) return "";
-  const v = (LISTING_STATUS_ICONS as any)[s];
-  if (!v) return report(onReport, { code: "E_LISTING_ICON_UNMAPPED", message: `LISTING_STATUS_ICONS missing "${s}"`, context: { listing_status } });
-  return v;
-}
-
 function aircraftDisplayFromTypecode(ac_typecode: any) {
   const key = toNonEmptyString(ac_typecode);
   if (!key) return "N/A";
@@ -122,12 +114,21 @@ export default function FlightCard3x3({
   headerLeftLabel,
   headerDate,
   showHeader = true,
+  footerRightContent, // ✅ screen-controlled slot (cell 3:3)
   onReport,
 }: {
   flight: any;
   headerLeftLabel?: string;
   headerDate?: string;
   showHeader?: boolean;
+
+  /**
+   * Screen-controlled footer slot (grid cell 3:3).
+   * - If not provided, the cell renders blank.
+   * - No defaults, no fallbacks, no assumptions.
+   */
+  footerRightContent?: React.ReactNode;
+
   onReport?: (r: Report) => void;
 }) {
   const f = flight || {};
@@ -165,8 +166,21 @@ export default function FlightCard3x3({
   const arrTimeHHMM = extractTimeHHMM(f.sta_local);
 
   // If we cannot extract any time at all, that’s a real data issue.
-  const depTimeDisplay = depTimeHHMM || report(onReport, { code: "E_DEP_TIME_MISSING", message: "Missing/invalid flight.std_local (no HH:MM found)", context: { std_local: f.std_local } });
-  const arrTimeDisplay = arrTimeHHMM || report(onReport, { code: "E_ARR_TIME_MISSING", message: "Missing/invalid flight.sta_local (no HH:MM found)", context: { sta_local: f.sta_local } });
+  const depTimeDisplay =
+    depTimeHHMM ||
+    report(onReport, {
+      code: "E_DEP_TIME_MISSING",
+      message: "Missing/invalid flight.std_local (no HH:MM found)",
+      context: { std_local: f.std_local },
+    });
+
+  const arrTimeDisplay =
+    arrTimeHHMM ||
+    report(onReport, {
+      code: "E_ARR_TIME_MISSING",
+      message: "Missing/invalid flight.sta_local (no HH:MM found)",
+      context: { sta_local: f.sta_local },
+    });
 
   // Optional (RN parity): Gate / Type / Reg are NOT guaranteed
   const gateDisplay = toNonEmptyString(f.dep_gate) || "N/A";
@@ -174,21 +188,6 @@ export default function FlightCard3x3({
   const regDisplay = toNonEmptyString(f.ac_reg) || "N/A";
 
   const isCancelled = opStatusKey === "CANCELLED";
-  const listingIconSource = listingIconSourceFromStatus(f.listing_status, onReport);
-
-  const listPosDisplay = (() => {
-    const posRaw = f.list_position !== undefined && f.list_position !== null ? String(f.list_position).trim() : "";
-    const totalRaw = f.list_total !== undefined && f.list_total !== null ? String(f.list_total).trim() : "";
-
-    if (!posRaw) return "";
-
-    if (/^P\d+(\/\d+)?$/i.test(posRaw)) return posRaw.toUpperCase();
-    if (/^\d+\/\d+$/.test(posRaw)) return `P${posRaw}`;
-    if (/^\d+$/.test(posRaw) && /^\d+$/.test(totalRaw)) return `P${posRaw}/${totalRaw}`;
-    if (/^\d+$/.test(posRaw)) return `P${posRaw}`;
-
-    return report(onReport, { code: "E_LISTPOS_FORMAT", message: `Invalid list_position "${posRaw}"`, context: { posRaw, totalRaw } });
-  })();
 
   const statusBorderColor = isReportToken(opColour) ? "rgba(220,38,38,0.6)" : (opColour as string);
   const statusTextColor = isReportToken(opColour) ? "rgba(220,38,38,0.85)" : (opColour as string);
@@ -241,9 +240,7 @@ export default function FlightCard3x3({
               <div className="flightCard-arrow" style={{ backgroundColor: statusTextColor }} aria-hidden="true">
                 ↗
               </div>
-              <div className={`flightCard-time ${isCancelled ? "flightCard-timeCancelled" : ""}`}>
-                {String(depTimeDisplay)} LT
-              </div>
+              <div className={`flightCard-time ${isCancelled ? "flightCard-timeCancelled" : ""}`}>{String(depTimeDisplay)} LT</div>
             </div>
           </div>
 
@@ -252,9 +249,7 @@ export default function FlightCard3x3({
               <div className="flightCard-arrow" style={{ backgroundColor: statusTextColor }} aria-hidden="true">
                 ↘
               </div>
-              <div className={`flightCard-time ${isCancelled ? "flightCard-timeCancelled" : ""}`}>
-                {String(arrTimeDisplay)} LT
-              </div>
+              <div className={`flightCard-time ${isCancelled ? "flightCard-timeCancelled" : ""}`}>{String(arrTimeDisplay)} LT</div>
             </div>
           </div>
 
@@ -264,6 +259,7 @@ export default function FlightCard3x3({
         </div>
 
         <div className="flightCard-row flightCard-rowFooter">
+		
           <div className="flightCard-cell">
             <div className="flightCard-footer">Type: {String(typeDisplay)}</div>
           </div>
@@ -272,18 +268,9 @@ export default function FlightCard3x3({
             <div className="flightCard-footer">Reg: {String(regDisplay)}</div>
           </div>
 
+          {/* ✅ Cell 3:3 is now a pure slot controlled by the screen */}
           <div className="flightCard-cell flightCard-rightCell">
-            <div className="flightCard-listingRightRow">
-              <div className="flightCard-footer">{String(listPosDisplay)}</div>
-
-              {listingIconSource && !isReportToken(listingIconSource) ? (
-                <img className="flightCard-listingStatusIcon" src={listingIconSource} alt="Listing status" />
-              ) : listingIconSource ? (
-                <div className="flightCard-errorBox">{String(listingIconSource)}</div>
-              ) : (
-                <div className="flightCard-listingStatusIcon" />
-              )}
-            </div>
+            <div className="flightCard-footer">{footerRightContent ?? null}</div>
           </div>
         </div>
       </div>

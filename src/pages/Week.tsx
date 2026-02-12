@@ -1,4 +1,29 @@
 // src/pages/Week.tsx
+//
+// =====================================================================================
+// 🔧 ASSET LOADING FIX (NO VITE MAGIC): remove "/assets/icons/calendar.webp"
+// =====================================================================================
+//
+// IDIOT GUIDE:
+//
+// ❌ OLD:
+//   const calendarSnippetSrc = "/assets/icons/calendar.webp";
+//
+// Why that’s bad:
+// - It’s an *absolute URL path*.
+// - It assumes your deployed site always has a real file at exactly that URL.
+// - Vite dev server often makes this “seem fine”, then PROD breaks after build.
+//
+// ✅ NEW:
+// - Use UI_ICONS.calendar from src/assets/index.ts
+// - That URL is produced by an import (bundler-controlled), so it works after build,
+//   and works on Synology static hosting.
+//
+// RULES YOU SET (and we obey here):
+// - Week.tsx contains ZERO hardcoded "/assets/..." runtime paths.
+// - All asset resolution stays inside src/assets/index.ts.
+// =====================================================================================
+
 import React from "react";
 import { useAuth } from "../app/authStore";
 import { getAirportWindowFlights } from "../api/flightsApi";
@@ -108,7 +133,9 @@ export default function Week(props: {
 
         const departures = Array.isArray(resp?.departures) ? resp.departures : [];
         const arrivals = Array.isArray(resp?.arrivals) ? resp.arrivals : [];
-        const flights: WindowFlight[] = Array.isArray(resp?.flights) ? resp.flights : [...departures, ...arrivals];
+        const flights: WindowFlight[] = Array.isArray(resp?.flights)
+          ? resp.flights
+          : [...departures, ...arrivals];
 
         const scheduleLastUpdatedUtc: string | null =
           resp?.meta?.last_updated_utc ??
@@ -177,8 +204,17 @@ export default function Week(props: {
   const arrivalsSrc = UI_ICONS?.arrivals || null;
   const departuresSrc = UI_ICONS?.departures || null;
 
-  // Calendar snippet exists in /public/assets/icons/calendar.webp (confirmed)
-  const calendarSnippetSrc = "/assets/icons/calendar.webp";
+  // ✅ FIX:
+  // Calendar snippet is now resolved via src/assets/index.ts (UI_ICONS.calendar),
+  // NOT by hardcoding "/assets/icons/calendar.webp".
+  //
+  // This means:
+  // - bundler includes it in the build
+  // - final URL works after build on Synology
+  //
+  // If UI_ICONS.calendar is missing, it will be null and you’ll see a broken image,
+  // which is GOOD because it forces us to add the asset properly in one place.
+  const calendarSnippetSrc = (UI_ICONS as any)?.calendar || null;
 
   // Styles
   const styles: Record<string, React.CSSProperties> = {
@@ -278,44 +314,44 @@ export default function Week(props: {
     calendarImage: { width: "100%", height: 118, objectFit: "contain" },
 
     calendarTextOverlay: {
-	  position: "absolute",
-	  inset: 0,
-	  bottom: 24,
-	  display: "flex",
-	  flexDirection: "column",
-	  alignItems: "center",
-	  justifyContent: "center",
-	  textAlign: "center",
-	  pointerEvents: "none",
-	},
+      position: "absolute",
+      inset: 0,
+      bottom: 24,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      pointerEvents: "none",
+    },
 
     // Tweaked to better align on web with the snippet scaling
-   calDow: { 
-  position: "absolute", 
-  top: 15, 
-  color: "#ffffff", 
-  fontSize: 13, 
-  fontWeight: 900,
-  width: "100%",
-  textAlign: "center"
-},
+    calDow: {
+      position: "absolute",
+      top: 15,
+      color: "#ffffff",
+      fontSize: 13,
+      fontWeight: 900,
+      width: "100%",
+      textAlign: "center",
+    },
 
-    calMonth: { 
-  color: "#d96a79", 
-  fontWeight: 900, 
-  fontSize: 15, 
-  marginTop: 20,
-  width: "100%",
-  textAlign: "center"
-},
-    calDayNum: { 
-  color: "#d96a79", 
-  fontWeight: 900, 
-  fontSize: 25, 
-  marginTop: 0,
-  width: "100%",
-  textAlign: "center"
-},
+    calMonth: {
+      color: "#d96a79",
+      fontWeight: 900,
+      fontSize: 15,
+      marginTop: 20,
+      width: "100%",
+      textAlign: "center",
+    },
+    calDayNum: {
+      color: "#d96a79",
+      fontWeight: 900,
+      fontSize: 25,
+      marginTop: 0,
+      width: "100%",
+      textAlign: "center",
+    },
 
     cornerSlot: {
       position: "absolute",
@@ -465,7 +501,7 @@ export default function Week(props: {
             {days.map((item) => (
               <div key={item.key} style={styles.classicCard}>
                 <div style={styles.calendarWrap}>
-                  <img src={calendarSnippetSrc} alt="" style={styles.calendarImage} />
+                  <img src={calendarSnippetSrc as any} alt="" style={styles.calendarImage} />
                   <div style={styles.calendarTextOverlay}>
                     <div style={styles.calDow}>{item.date.toLocaleDateString("en-GB", { weekday: "long" })}</div>
                     <div style={styles.calMonth}>{item.date.toLocaleDateString("en-GB", { month: "long" })}</div>
@@ -522,7 +558,11 @@ export default function Week(props: {
                       aria-label="Arrivals"
                     >
                       <div style={styles.compactMiniIconWrap}>
-                        {arrivalsSrc ? <img src={arrivalsSrc} alt="" style={styles.planeIcon} /> : <span style={styles.fallbackArrow}>↓</span>}
+                        {arrivalsSrc ? (
+                          <img src={arrivalsSrc} alt="" style={styles.planeIcon} />
+                        ) : (
+                          <span style={styles.fallbackArrow}>↓</span>
+                        )}
                       </div>
                       <div style={styles.compactMiniText}>
                         <div style={styles.compactMiniCount}>{item.arrivals}</div>

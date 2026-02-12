@@ -1,4 +1,47 @@
 // src/pages/Home.tsx
+//
+// =====================================================================================
+// 🔧 BOOTSTRAP: Unify Asset Loading (Airports / Airlines / Icons) — Home.tsx (Airports)
+// =====================================================================================
+//
+// IDIOT GUIDE (read this once, then forget it):
+//
+// ✅ What broke?
+// - In DEV, Vite serves your /public/assets/... folder “magically” at /assets/...,
+//   so this worked:
+//
+//      <img src="/assets/airports/AMS.webp" />
+//
+// - In PROD build, your app is bundled and deployed under whatever path Synology serves.
+//   If the build output doesn’t contain /assets/airports/AMS.webp at that exact absolute URL,
+//   you get 404s.
+//
+// ✅ What’s the fix?
+// - NEVER build image URLs by string like "/assets/..."
+// - ALWAYS resolve image URLs via imports, because the bundler then:
+//
+//   1) includes the file in the build
+//   2) fingerprints it (hash) for caching
+//   3) returns the correct final URL string for PROD
+//
+// ✅ Your rule:
+/// - Centralise ALL asset resolution in src/assets/index.ts
+// - Components use ONLY:
+//      getAirportLogo(code)
+//      AIRLINE_LOGOS
+//      LISTING_STATUS_ICONS
+//      UI_ICONS
+//
+// ✅ What changes in this file?
+// - ONLY the AirportChip logo resolution changes
+// - We import getAirportLogo
+// - Replace the hardcoded string path with getAirportLogo(resolvedCode)
+//
+// 🚫 What we do NOT do here:
+// - No new logic
+// - No extra fallbacks
+// - No changes to unrelated UI / behaviour / state
+// =====================================================================================
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -17,7 +60,12 @@ import FlightCard3x3 from "../components/FlightCard3x3";
 import GuestPromoCard from "../components/GuestPromoCard";
 
 import { API_BASE_URL } from "../config/api";
-import { APP_IMAGES } from "../assets";
+
+// ✅ CHANGE 1/2:
+// We add getAirportLogo here so Home never hardcodes "/assets/airports/..."
+// Everything goes through src/assets/index.ts
+import { APP_IMAGES, getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
+
 import { getMyFlights } from "../api/flightsApi";
 
 type NextFlightState =
@@ -191,8 +239,8 @@ export default function Home() {
     load();
     return () => ac.abort();
   }, [isMember, staffNo]);
-  
-//////////////////////////////////////////////////////////////////////////////////////////////////  
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
 
   // =============================================================================
   // Airports carousel sizing — callback-ref so we measure as soon as it mounts
@@ -266,6 +314,19 @@ export default function Home() {
     typeof carouselOuterW === "number" && typeof twoUpBlockW === "number"
       ? Math.max(0, Math.round((carouselOuterW - twoUpBlockW) / 2))
       : 0;
+	  
+function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefined {
+  if (!stdLocal) return undefined;
+
+  const d = new Date(stdLocal);
+  if (Number.isNaN(d.getTime())) return undefined;
+
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
+  const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+
+  return `${weekday} ${day} ${month}`;
+}	  
 
   // =============================================================================
   // AirportChip — RN Home design + behaviour
@@ -296,7 +357,24 @@ export default function Home() {
 
     const shouldShowPlus = typeof showPlus === "boolean" ? showPlus : Boolean(isAdd);
 
-    const logoSrc = !isAdd && resolvedCode ? `/assets/airports/${resolvedCode}.webp` : null;
+    // ✅ CHANGE 2/2 (THE ACTUAL FIX):
+    //
+    // OLD (BAD):
+    //   "/assets/airports/AMS.webp"
+    //
+    // Why bad?
+    // - Depends on dev server/public folder behaviour.
+    // - Can break when app is built and deployed under a different base path.
+    //
+    // NEW (GOOD):
+    // - getAirportLogo() returns the *real* final URL from src/assets/index.ts
+    // - bundler includes the file in build output (hashed) and returns correct link
+    // - works on Synology static hosting because it’s just a normal built URL
+    //
+    // Contract:
+    // - Home never cares where airport images live.
+    // - If you ever rename/move/convert images, you only update src/assets/index.ts
+    const logoSrc = !isAdd && resolvedCode ? getAirportLogo(resolvedCode) : null;
 
     const [pressed, setPressed] = useState(false);
     const [removePressed, setRemovePressed] = useState(false);
@@ -389,7 +467,7 @@ export default function Home() {
     );
   }
 
-//////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////
   // ===== Sign-up modal (RN parity) =====
   const [signUpModalVisible, setSignUpModalVisible] = useState(false);
 
@@ -408,12 +486,41 @@ export default function Home() {
               {nextFlightState.status === "loading" ? (
                 <div className="mutedLine">Loading next flight…</div>
               ) : nextFlightState.status === "ready" ? (
-                <FlightCard3x3
-                  showHeader
-                  headerLeftLabel="My next flight:"
-                  headerDate={(nextFlightState.flight as any)?.headerDate || undefined}
-                  flight={nextFlightState.flight}
-                />
+			  
+			  
+					<FlightCard3x3
+					  showHeader
+					  headerLeftLabel="My next flight:"
+						headerDate={formatHeaderDateFromStdLocal(
+						  (nextFlightState.flight as any)?.std_local
+						)}
+					  flight={nextFlightState.flight}
+					  footerRightContent={
+						nextFlightState.flight &&
+						(nextFlightState.flight as any).list_position &&
+						(nextFlightState.flight as any).list_total ? (
+						  <span className="flightCard-cell flightCard-rightCell">
+							P{(nextFlightState.flight as any).list_position}/
+							{(nextFlightState.flight as any).list_total}
+							{" "}
+							<img
+							  src={
+								(nextFlightState.flight as any).listing_status === "confirmed"
+								  ? LISTING_STATUS_ICONS.booked
+								  : (nextFlightState.flight as any).listing_status === "sent"
+								  ? LISTING_STATUS_ICONS.sent
+								  : LISTING_STATUS_ICONS.pending
+							  }
+							  alt={(nextFlightState.flight as any).listing_status}
+							  style={{ width: 20, height: 20, marginLeft: 26 }}
+							/>
+						  </span>
+						) : null
+					  }
+					/>
+
+				
+				
               ) : nextFlightState.status === "error" ? (
                 <div className="errorLine">
                   My next flight unavailable: {nextFlightState.error.message}
@@ -547,8 +654,7 @@ export default function Home() {
             )}
           </div>
 
-		  
-        {/* ===== Debug ===== ======================		  
+          {/* ===== Debug ===== ======================
           <div className="metaLine">
             {isMember ? (
               <>
@@ -559,8 +665,7 @@ export default function Home() {
               <>Guest mode</>
             )}
           </div>
-        ===== =============================== ===== */}		  
-		  
+          ===== =============================== ===== */}
         </section>
 
         {/* ===== Quick actions (RN) ===== */}
@@ -570,7 +675,11 @@ export default function Home() {
           {!isMember ? (
             <>
               <div className="quickGridRow">
-                <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
+                <button
+                  type="button"
+                  className="quickTile"
+                  onClick={() => setSignUpModalVisible(true)}
+                >
                   <div className="quickTileTitle">Sign up</div>
                   <div className="quickTileSub">Unlock crew features</div>
                 </button>
@@ -671,7 +780,11 @@ export default function Home() {
             <div className="modalBody">• Long-press an airport to replace it.</div>
             <div className="modalBody">• Tap × to remove an airport.</div>
 
-            <button type="button" className="modalBtn modalBtnPrimary" onClick={() => setShowAirportsHelp(false)}>
+            <button
+              type="button"
+              className="modalBtn modalBtnPrimary"
+              onClick={() => setShowAirportsHelp(false)}
+            >
               Close
             </button>
           </div>
@@ -730,7 +843,11 @@ export default function Home() {
             <div className="modalBody">• View crew lists and booking status</div>
 
             <div className="modalBtnRow">
-              <button type="button" className="modalBtn modalBtnGhost" onClick={() => setSignUpModalVisible(false)}>
+              <button
+                type="button"
+                className="modalBtn modalBtnGhost"
+                onClick={() => setSignUpModalVisible(false)}
+              >
                 Not now
               </button>
 

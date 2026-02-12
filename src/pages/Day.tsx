@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import FlightCard3x3 from "../components/FlightCard3x3";
-import { getAirportLogo } from "../assets";
+import { getAirportLogo,  LISTING_STATUS_ICONS } from "../assets";
 
 // IMPORTANT: these MUST exist in your web flightsApi (same names as RN parity)
 import {
@@ -49,33 +49,27 @@ function extractHHMM(localDateTimeString: any) {
   return "";
 }
 
-// deterministic placeholder (not real security no)
-function securityNoFrom(staffNo: string, flightNo: string) {
-  const s = String(staffNo || "");
-  const f = String(flightNo || "");
-  const a = Number((s.match(/\d+/g) || ["0"]).join("").slice(-4) || 0);
-  const b = Number((f.match(/\d+/g) || ["0"]).join("").slice(-3) || 0);
-  const n = (a + b) % 1000;
-  return String(n).padStart(3, "0");
-}
-
 const ICON_SENT = "✉︎";
 const ICON_PENDING = "⏳";
-function statusIconChar(status: string) {
+
+function normalizeBookingStatusStrict(raw: any): "confirmed" | "sent" | "pending" {
+  const s = String(raw || "").trim().toLowerCase();
+  invariant(Boolean(s), "Invariant violation: booking row missing status");
+  invariant(
+    s === "confirmed" || s === "sent" || s === "pending",
+    `Invariant violation: unexpected booking status "${s}" (expected confirmed|sent|pending)`
+  );
+  return s as any;
+}
+
+function statusIconChar(status: "confirmed" | "sent" | "pending") {
   if (status === "confirmed") return "✅";
   if (status === "sent") return ICON_SENT;
   return ICON_PENDING;
 }
-function statusIconStyle(status: string): React.CSSProperties {
+function statusIconStyle(status: "confirmed" | "sent" | "pending"): React.CSSProperties {
   if (status === "sent") return { color: "#d97706" };
   return { color: "rgba(19,35,51,0.65)" };
-}
-
-function mapBookingStatusToIconKey(statusAny: any) {
-  const s = String(statusAny || "").toLowerCase();
-  if (s.includes("confirm") || s.includes("book")) return "confirmed";
-  if (s.includes("sent")) return "sent";
-  return "pending";
 }
 
 function actionConfigForFlight(airlineIata: any, userListed: boolean) {
@@ -92,11 +86,10 @@ type CrewRow = {
   bookingId: any;
   role: string | null;
   fullName: string;
-  staffNo: string;
+  staffNo: string; // psn
   status: "confirmed" | "sent" | "pending";
-  notes: string;
   securityNo: string | null;
-  listedAt: string | null;
+  listedAt: string | null; // requested_at_utc
 };
 
 const POLL_MS = 2.5 * 60 * 1000;
@@ -113,6 +106,7 @@ export default function Day() {
 
   const resolvedIsLoggedIn = auth?.mode === "member";
 
+  // Identity invariant: member must have psn; no fallbacks beyond explicit auth fields, and hard error if missing.
   const psn = useMemo(() => {
     if (!resolvedIsLoggedIn) return null;
 
@@ -156,8 +150,14 @@ export default function Day() {
     return dateToLocalDateKey(d);
   }, []);
 
-  const canGoPrev = useMemo(() => !isBefore(dateKey, minDateKey) && dateKey !== minDateKey, [dateKey, minDateKey]);
-  const canGoNext = useMemo(() => !isAfter(dateKey, maxDateKey) && dateKey !== maxDateKey, [dateKey, maxDateKey]);
+  const canGoPrev = useMemo(
+    () => !isBefore(dateKey, minDateKey) && dateKey !== minDateKey,
+    [dateKey, minDateKey]
+  );
+  const canGoNext = useMemo(
+    () => !isAfter(dateKey, maxDateKey) && dateKey !== maxDateKey,
+    [dateKey, maxDateKey]
+  );
 
   const [dateBoundMsg, setDateBoundMsg] = useState("");
   const flashBoundMsg = (msg: string) => {
@@ -167,12 +167,22 @@ export default function Day() {
 
   const dateLabel = useMemo(() => {
     const d = new Date(`${dateKey}T00:00:00`);
-    return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   }, [dateKey]);
 
   const shortDateForModal = useMemo(() => {
     const d = new Date(`${dateKey}T00:00:00`);
-    return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   }, [dateKey]);
 
   const prevDowShort = useMemo(() => {
@@ -278,47 +288,33 @@ export default function Day() {
       });
 
       const last2 =
-        dayResp?.status_last_updated_utc ??
-        dayResp?.last_updated_utc ??
-        dayResp?.lastUpdatedUtc ??
-        null;
+        dayResp?.status_last_updated_utc ?? dayResp?.last_updated_utc ?? dayResp?.lastUpdatedUtc ?? null;
       if (last2) setLastStatusUpdatedUtc(String(last2));
 
-      // 3) bookings (member only; hard-fail invariants)
-      if (resolvedIsLoggedIn) {
-        try {
-          const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey });
+		// 3) bookings (ALWAYS load; required for X-staff 3:3)
+		try {
+		  const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey });
 
-          const legacyBy = bookingsResp?.by_flight_instance_id;
-          if (legacyBy && typeof legacyBy === "object") {
-            Object.keys(legacyBy).forEach((k) => {
-              invariant(Boolean(String(k).trim()), "Invariant violation: bookingsByFlight contains empty flight_instance_id key");
-            });
-            setBookingsByFlight(legacyBy);
-          } else {
-            const rows: BookingRow[] = Array.isArray(bookingsResp?.rows) ? bookingsResp.rows : [];
+		  const by = bookingsResp?.by_flight_instance_id;
 
-            const grouped: Record<string, BookingRow[]> = {};
-            rows.forEach((b) => {
-              const fid = String(b?.flight_instance_id || "").trim();
-              const psnRow = String(b?.psn || "").trim();
+		  invariant(
+			Boolean(by && typeof by === "object"),
+			"Invariant violation: bookings response missing by_flight_instance_id"
+		  );
 
-              invariant(Boolean(fid), "Invariant violation: booking row missing flight_instance_id");
-              invariant(Boolean(psnRow), "Invariant violation: booking row missing psn");
+		  Object.keys(by).forEach((k) => {
+			invariant(
+			  Boolean(String(k).trim()),
+			  "Invariant violation: bookingsByFlight contains empty flight_instance_id key"
+			);
+		  });
 
-              if (!grouped[fid]) grouped[fid] = [];
-              grouped[fid].push(b);
-            });
+		  setBookingsByFlight(by);
+		} catch (e: any) {
+		  setErrorText(e?.message || "Failed to load crew list");
+		  setBookingsByFlight({});
+		}
 
-            setBookingsByFlight(grouped);
-          }
-        } catch (e: any) {
-          setErrorText(e?.message || "Failed to load crew list");
-          setBookingsByFlight({});
-        }
-      } else {
-        setBookingsByFlight({});
-      }
 
       setLastRefreshedAtUtc(new Date().toISOString());
       setLoading(false);
@@ -350,10 +346,9 @@ export default function Day() {
   }, [airportCode, dateKey]);
 
   // ---------------------------------------------------------------------------
-  // IMPORTANT CHANGE (RN/Home parity for WEB):
-  // - We do NOT build a synthetic FlightVM for FlightCard3x3.
-  // - We pass the RAW API flight row (snake_case keys) into FlightCard3x3,
-  //   exactly like the Home "My Next Flight" pipeline does.
+  // RN parity:
+  // - Do NOT build a synthetic FlightVM for FlightCard3x3.
+  // - Pass the RAW API flight row (snake_case) into FlightCard3x3.
   // ---------------------------------------------------------------------------
 
   type FlightItem = {
@@ -361,7 +356,7 @@ export default function Day() {
     uiKey: string;
     row: ApiFlightRow; // RAW row from API (snake_case)
   };
-
+ 
   const flights: FlightItem[] = useMemo(() => {
     const hub = "AMS";
     const airport = String(airportCode || "").toUpperCase();
@@ -378,15 +373,11 @@ export default function Day() {
       const legacyRows: ApiFlightRow[] = rawRows.flights;
       if (tab === "departures") {
         filtered = legacyRows.filter(
-          (r) =>
-            String(r.dep_airport || "").toUpperCase() === airport &&
-            String(r.arr_airport || "").toUpperCase() === hub
+          (r) => String(r.dep_airport || "").toUpperCase() === airport && String(r.arr_airport || "").toUpperCase() === hub
         );
       } else {
         filtered = legacyRows.filter(
-          (r) =>
-            String(r.dep_airport || "").toUpperCase() === hub &&
-            String(r.arr_airport || "").toUpperCase() === airport
+          (r) => String(r.dep_airport || "").toUpperCase() === hub && String(r.arr_airport || "").toUpperCase() === airport
         );
       }
     }
@@ -403,19 +394,38 @@ export default function Day() {
     });
   }, [rawRows, tab, airportCode]);
 
+  
+  function formatListedAtDisplay(raw: string | null | undefined): string {
+  if (!raw) return "--";
+
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "--";
+
+  const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  return `${day} ${month} / ${time}`;
+} 
+  
   function crewListForFlight(flightInstanceId: string): CrewRow[] {
     const rows = Array.isArray(bookingsByFlight?.[flightInstanceId]) ? bookingsByFlight[flightInstanceId] : [];
 
+    // RN canonical order:
+    // listing_prio ASC, requested_at_utc ASC, id ASC
     return rows
       .slice()
       .sort((a, b) => {
         const pa = Number(a?.listing_prio);
         const pb = Number(b?.listing_prio);
-        if (!Number.isNaN(pa) || !Number.isNaN(pb)) {
-          const na = Number.isNaN(pa) ? 9999 : pa;
-          const nb = Number.isNaN(pb) ? 9999 : pb;
-          if (na !== nb) return na - nb;
-        }
+
+        const na = Number.isNaN(pa) ? 9999 : pa;
+        const nb = Number.isNaN(pb) ? 9999 : pb;
+        if (na !== nb) return na - nb;
 
         const ta = String(a?.requested_at_utc || "");
         const tb = String(b?.requested_at_utc || "");
@@ -431,17 +441,18 @@ export default function Day() {
 
         const first = String(b?.firstname || "").trim();
         const last = String(b?.lastname || "").trim();
-        const fullName = `${first} ${last}`.trim() || "Member";
+        const fullName = `${first} ${last}`.trim();
+        invariant(Boolean(fullName), "Invariant violation: booking row missing firstname/lastname");
 
-        const rawStatus = b?.booking_status ?? b?.status ?? "";
+        // Backend contract: status field is "status" (pending|sent|confirmed)
+        const status = normalizeBookingStatusStrict(b?.status);
 
         return {
           bookingId: b?.id,
           role: b?.x_type || null,
           fullName,
           staffNo: rowPsn,
-          status: mapBookingStatusToIconKey(rawStatus) as any,
-          notes: "",
+          status,
           securityNo: b?.security_number || null,
           listedAt: b?.requested_at_utc || null,
         };
@@ -522,8 +533,8 @@ export default function Day() {
     setInfoMeta({
       flightNo: args.flightNo,
       whoLabel,
-      securityNo: args.u.securityNo || securityNoFrom(args.u.staffNo, args.flightNo),
-      statusText: "Booked",
+      securityNo: args.u.securityNo, // STRICT: no fabricated fallback
+      statusText: args.u.status,
       notesText: args.notesText || "",
     });
     setInfoVisible(true);
@@ -559,8 +570,8 @@ export default function Day() {
       zIndex: 40,
       background: "#f6f7f9",
       padding: "8px 14px 10px",
-	  marginTop: 0,
-	  marginBottom: 0,
+      marginTop: 0,
+      marginBottom: 0,
     },
 
     pageHeaderWrap: { background: "#f6f7f9" },
@@ -578,6 +589,7 @@ export default function Day() {
       fontWeight: 900,
       color: "#132333",
       cursor: "pointer",
+      fontSize: 14,
     },
 
     logoRow: { marginTop: 6, display: "flex", justifyContent: "center", alignItems: "center" },
@@ -599,7 +611,7 @@ export default function Day() {
       border: "1px solid transparent",
       background: "transparent",
       cursor: "pointer",
-	  fontSize: 14,
+      fontSize: 14,
       fontWeight: 900,
       color: "rgba(19,35,51,0.55)",
     },
@@ -627,7 +639,7 @@ export default function Day() {
       alignItems: "center",
       justifyContent: "center",
       cursor: "pointer",
-	   fontSize: 14,
+      fontSize: 14,
       fontWeight: 900,
       color: "#b91c1c",
     },
@@ -646,9 +658,13 @@ export default function Day() {
       background: "#ffffff",
       border: "2px solid #d9e2ee",
       borderRadius: 16,
-      padding: 10,
+      paddingTop: 10,
+	  paddingLeft:10,
+	  paddingRight:10,
+	  paddingBottom:15,
       marginBottom: 12,
     },
+	
     publicSection: { paddingBottom: 10 },
 
     memberArea: {
@@ -661,7 +677,7 @@ export default function Day() {
       gap: 10,
     },
 
-    zoneDivider: { marginTop: 12, paddingTop: 12, borderTop: "1px solid #eef2f7" },
+    zoneDivider: { marginTop: 5, paddingTop: 5, borderTop: "1px solid #eef2f7" },
 
     zoneSubtitle: { fontWeight: 900, color: "#132333", fontSize: 12 },
     zoneRow2: { display: "flex", justifyContent: "space-between", gap: 10, marginTop: 6 },
@@ -679,6 +695,7 @@ export default function Day() {
       padding: "12px 0",
       textAlign: "center",
       fontWeight: 900,
+      fontSize: 14, // RN parity requirement
       color: "#132333",
       cursor: "pointer",
       border: "1.5px solid transparent",
@@ -702,12 +719,12 @@ export default function Day() {
     modalBody: { marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" },
     modalErrorText: { marginTop: 10, fontWeight: 900, color: "#b91c1c" },
     modalBtns: { display: "flex", gap: 10, marginTop: 14 },
-    modalBtn: { flex: 1, borderRadius: 14, padding: "12px 0", fontWeight: 900, cursor: "pointer", border: "1px solid transparent" },
+    modalBtn: { flex: 1, borderRadius: 14, padding: "12px 0", fontWeight: 900, cursor: "pointer", border: "1px solid transparent", fontSize: 14 },
     modalBtnGhost: { background: "#fff", borderColor: "#d9e2ee", color: "#132333" },
     modalBtnPrimary: { background: "#132333", color: "#ffffff" },
 
     infoText: { fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" },
-    infoCloseBtn: { marginTop: 14, borderRadius: 14, padding: "12px 0", fontWeight: 900, background: "#e8f0ff", cursor: "pointer" },
+    infoCloseBtn: { marginTop: 14, borderRadius: 14, padding: "12px 0", fontWeight: 900, background: "#e8f0ff", cursor: "pointer", fontSize: 14 },
 
     rowLine1: { display: "flex", alignItems: "center", gap: 8 },
     rowLine2: { display: "flex", alignItems: "center", marginTop: 4 },
@@ -738,11 +755,7 @@ export default function Day() {
               ) : (
                 <>
                   {databaseLabel ? <div style={styles.headerUpdatedText}>Database {databaseLabel}</div> : null}
-                  {refreshedLabel ? (
-                    <div style={styles.headerUpdatedText}>Refreshed {refreshedLabel}</div>
-                  ) : (
-                    <div style={styles.headerUpdatedText}> </div>
-                  )}
+                  {refreshedLabel ? <div style={styles.headerUpdatedText}>Refreshed {refreshedLabel}</div> : <div style={styles.headerUpdatedText}> </div>}
                 </>
               )}
 
@@ -752,27 +765,8 @@ export default function Day() {
                 </div>
               ) : null}
 
-				{/* Web-only equivalent of pull-to-refresh (kept small)====NOT USED HERE=========== 
-				  <button
-					type="button"
-					onClick={onManualRefresh}
-					disabled={Boolean(isRefreshing || refreshInFlightRef.current)}
-					style={{
-					  marginTop: 6,
-					  width: 96,
-					  height: 28,
-					  borderRadius: 10,
-					  border: "1px solid #d9e2ee",
-					  background: "#ffffff",
-					  fontWeight: 900,
-					  color: "#132333",
-					  cursor: "pointer",
-					  opacity: isRefreshing || refreshInFlightRef.current ? 0.6 : 1,
-					}}
-				  >
-					Refresh
-				  </button>
-				================================================================*/}
+              {/* Optional manual refresh (kept for debugging, currently not rendered in UI) */}
+              {/* <button type="button" onClick={onManualRefresh}>Refresh</button> */}
             </div>
 
             <button type="button" style={styles.backBtn} onClick={() => nav(-1)}>
@@ -837,20 +831,13 @@ export default function Day() {
           const fid = f.flightInstanceId;
           const row = f.row || {};
 
-          const userListed = resolvedIsLoggedIn ? isUserListed(fid) : false;
+		  const userListed = resolvedIsLoggedIn ? isUserListed(fid) : false;
 
-          const crew = resolvedIsLoggedIn ? crewListForFlight(fid) : [];
-          const xStaff = crew.length;
+		  // Step 1 (RN parity): X-staff total ALWAYS derived from bookingsByFlight (guests + members)
+		  const xStaff = Array.isArray(bookingsByFlight?.[fid]) ? bookingsByFlight[fid].length : 0;
 
-          const myBookingRow = (() => {
-            if (!resolvedIsLoggedIn) return null;
-            const rows = Array.isArray(bookingsByFlight?.[fid]) ? bookingsByFlight[fid] : [];
-            return rows.find((b) => String(b?.psn || "").trim() === String(psn || "").trim()) || null;
-          })();
-
-          const myListingStatus = myBookingRow ? String(myBookingRow?.booking_status ?? myBookingRow?.status ?? "").trim() : "";
-          const listPos = myBookingRow?.list_position ?? null;
-          const listTotal = myBookingRow?.list_total ?? null;
+          // Crew list remains member-only (unchanged behaviour)
+		  const crew = resolvedIsLoggedIn ? crewListForFlight(fid) : [];
 
           const actionCfg = actionConfigForFlight(row?.airline_iata, userListed);
 
@@ -889,13 +876,8 @@ export default function Day() {
             return actionCfg.label;
           })();
 
-          // RAW payload into FlightCard3x3, with ONLY the booking overlays added (still same schema).
-          const cardFlight = {
-            ...row,
-            listing_status: myListingStatus || row?.listing_status || "",
-            list_position: listPos ?? row?.list_position ?? null,
-            list_total: listTotal ?? row?.list_total ?? null,
-          };
+          // STRICT RN parity: FlightCard3x3 receives RAW API row only (no booking overlays invented here)
+          const cardFlight = row;
 
           const xcm = crew.filter((u) => u.role === "XCM").length;
           const xfa = crew.filter((u) => u.role === "XFA").length;
@@ -904,24 +886,33 @@ export default function Day() {
           return (
             <div key={f.uiKey} style={styles.flightCard}>
               <div style={styles.publicSection}>
-                <FlightCard3x3 flight={cardFlight} showHeader={false} />
+                <FlightCard3x3
+			  flight={cardFlight}
+			  showHeader={false}
+			  footerRightContent={
+				<span className="flightCard-xstaff">
+				  X-staff: {xStaff}
+				</span>
+			  }
+			/>
               </div>
 
               {resolvedIsLoggedIn ? (
                 <div style={styles.memberArea}>
-                  <div>
-                    <div style={styles.zoneSubtitle}>Commuter summary</div>
+				
+					{xStaff > 0 ? (
+					  <div>
+						<div style={styles.zoneSubtitle}>Commuter summary</div>
 
-                    <div style={styles.zoneRow2}>
-                      <div style={styles.zoneMetaText}>XCM : {xcm}</div>
-                      <div style={styles.zoneMetaText}>XFA : {xfa}</div>
-                      <div style={styles.zoneMetaText}>Other : {other}</div>
-                    </div>
+						<div style={styles.zoneRow2}>
+						  <div style={styles.zoneMetaText}>XCM : {xcm}</div>
+						  <div style={styles.zoneMetaText}>XFA : {xfa}</div>
+						  <div style={styles.zoneMetaText}>Other : {other}</div>
+						</div>
 
-                    <div style={{ marginTop: 6 }}>
-                      <div style={styles.zoneMetaText}>Total listed: {xStaff}</div>
-                    </div>
-                  </div>
+
+					  </div>
+					) : null}
 
                   {userListed ? (
                     <>
@@ -934,91 +925,81 @@ export default function Day() {
                           const me = crew.find((u) => String(u.staffNo || "").trim() === String(psn || "").trim());
                           return (
                             <div style={styles.zoneRow2}>
-                              <div style={styles.zoneMetaText}>Requested: {me?.listedAt ? String(me.listedAt) : "--"}</div>
-                              <div style={styles.zoneMetaText}>Status: {me?.status ? String(me.status) : "--"}</div>
-                            </div>
+							  <div style={styles.zoneMetaText}>
+								Requested: {formatListedAtDisplay(me?.listedAt)}
+							  </div>
+
+								<div style={styles.zoneMetaText}>
+								  Status:{" "}
+								  {me?.status ? (
+									<>
+									  {me.status}									
+									  <img
+										src={
+										  me.status === "confirmed"
+											? LISTING_STATUS_ICONS.booked
+											: me.status === "sent"
+											? LISTING_STATUS_ICONS.sent
+											: LISTING_STATUS_ICONS.pending
+										}
+										alt={me.status}
+										style={{
+										  width: 20,
+										  height: 20,
+										  marginLeft: 6,
+										  verticalAlign: "middle",
+										}}
+									  />
+
+									</>
+								  ) : (
+									"--"
+								  )}
+								</div>
+
+
+							  
+							  
+							</div>
+
                           );
                         })()}
                       </div>
 
-                      <div style={styles.zoneDivider} />
+                      {/* RN rule: "All listed commuters" only renders when there are commuters */}
+                      {crew.length > 0 ? (
+                        <>
+                          <div style={styles.zoneDivider} />
 
-                      <div>
-                        <div style={styles.zoneSubtitle}>All listed commuters: {crew.length || 0}</div>
+                          <div>
+                            <div style={styles.zoneSubtitle}>All listed commuters: {crew.length}</div>
 
-                        <div style={{ marginTop: 8 }}>
-                          {crew.length === 0 ? (
-                            <div style={styles.zoneMetaText}>--</div>
-                          ) : (
-                            crew.map((u, idx) => {
-                              const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
+                            <div style={{ marginTop: 8 }}>
+                              {crew.map((u, idx) => {
+                                const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
 
-                              return (
-                                <div key={`${u.staffNo}-${u.listedAt}-${idx}`} style={{ display: "flex", alignItems: "flex-start" }}>
-                                  <div style={styles.zone5Row}>
-                                    <div style={styles.zone5Pos}>{`P${idx + 1}.`}</div>
-                                    <div style={{ ...styles.zone5Name, ...(isSelf ? styles.zone5NameSelf : null) }}>{u.fullName}</div>
-                                    <div style={styles.zone5Staff} title={u.staffNo}>
-                                      {u.staffNo}
+                                return (
+                                  <div key={`${u.staffNo}-${u.listedAt}-${idx}`} style={{ display: "flex", alignItems: "flex-start" }}>
+                                    <div style={styles.zone5Row}>
+                                      <div style={styles.zone5Pos}>{`P${idx + 1}.`}</div>
+                                      <div style={{ ...styles.zone5Name, ...(isSelf ? styles.zone5NameSelf : null) }}>{u.fullName}</div>
+                                      <div style={styles.zone5Staff} title={u.staffNo}>
+                                        {u.staffNo}
+                                      </div>
+                                      <div style={styles.zone5Group} title={u.role || "Other"}>
+                                        {u.role || "Other"}
+                                      </div>
                                     </div>
-                                    <div style={styles.zone5Group} title={u.role || "Other"}>
-                                      {u.role || "Other"}
-                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
 
-                        {/* Crew list rows w/ status icon press -> info modal (RN feature) */}
-                        <div style={{ marginTop: 10 }}>
-                          {crew.map((u, idx) => {
-                            const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
-                            const isLast = idx === crew.length - 1;
 
-                            // derive a display flight number for the info modal (best-effort, UI only)
-                            const displayFlightNo = (() => {
-                              const a = String(row?.airline_iata || "").trim();
-                              const n = String(row?.flight_number || "").trim();
-                              const merged = `${a}${n}`.trim();
-                              return merged || String(row?.flight_no || "").trim() || "";
-                            })();
 
-                            return (
-                              <div
-                                key={`crewrow-${fid}-${u.staffNo}-${idx}`}
-                                style={{
-                                  ...styles.listRowTwoLine,
-                                  ...(isSelf ? styles.listRowSelf : null),
-                                  ...(!isLast ? styles.listRowDivider : null),
-                                }}
-                              >
-                                <div style={styles.rowLine1}>
-                                  <div style={styles.listIndex}>{idx + 1}</div>
-
-                                  <div style={styles.nameWrap}>
-                                    <div style={styles.listNameTwoLine}>{u.fullName}</div>
-                                  </div>
-
-                                  <div
-                                    style={{ ...styles.listStatusIcon, ...statusIconStyle(u.status) }}
-                                    onClick={() => openInfoModal({ flightNo: displayFlightNo, u, isSelf, notesText: "" })}
-                                    title="Listing info"
-                                  >
-                                    {statusIconChar(u.status)}
-                                  </div>
-                                </div>
-
-                                <div style={styles.rowLine2}>
-                                  <div style={styles.staffIndentSpacer} />
-                                  <div style={styles.listStaffNoTwoLine}>{u.staffNo}</div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
                     </>
                   ) : null}
 
@@ -1033,6 +1014,8 @@ export default function Day() {
                         style={{
                           ...styles.actionBtn,
                           ...(userListed ? styles.actionBtnAmber : styles.actionBtnGreen),
+						  width: "70%",
+						  alignSelf: "center",
                           opacity: disableActionButton || busyMode !== null ? 0.45 : 1,
                         }}
                       >
@@ -1060,9 +1043,7 @@ export default function Day() {
             <div style={styles.modalTitle}>{confirmMode === "list" ? "Confirm listing" : "Confirm unlisting"}</div>
 
             <div style={styles.modalBody}>
-              {confirmMode === "list"
-                ? "You will be added to the crew list. Your position may change."
-                : "You will lose your position in the list."}
+              {confirmMode === "list" ? "You will be added to the crew list. Your position may change." : "You will lose your position in the list."}
             </div>
 
             {confirmErrorText ? <div style={styles.modalErrorText}>{confirmErrorText}</div> : null}
@@ -1097,16 +1078,15 @@ export default function Day() {
         <div style={styles.overlay} onClick={() => setInfoVisible(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.infoText}>
-              {infoMeta?.whoLabel || "Your"} security number for flight{" "}
-              <span style={{ fontWeight: 900 }}>{infoMeta?.flightNo || ""}</span> on{" "}
+              {infoMeta?.whoLabel || "Your"} security number for flight <span style={{ fontWeight: 900 }}>{infoMeta?.flightNo || ""}</span> on{" "}
               <span style={{ fontWeight: 900 }}>{shortDateForModal}</span> is:{" "}
-              <span style={{ fontWeight: 900 }}>{infoMeta?.securityNo || ""}</span>
+              <span style={{ fontWeight: 900 }}>{infoMeta?.securityNo ? String(infoMeta.securityNo) : "--"}</span>
             </div>
 
             <div style={{ height: 14 }} />
 
             <div style={styles.infoText}>
-              Status: <span style={{ fontWeight: 900 }}>{infoMeta?.statusText || "Booked"}</span>
+              Status: <span style={{ fontWeight: 900 }}>{infoMeta?.statusText ? String(infoMeta.statusText) : "--"}</span>
             </div>
 
             <div style={{ height: 14 }} />

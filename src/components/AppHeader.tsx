@@ -1,8 +1,36 @@
 // src/components/AppHeader.tsx
+//
+// =====================================================================================
+// 🔧 ASSET LOADING FIX (NO VITE MAGIC): AppHeader avatar must NOT use "/assets/..."
+// =====================================================================================
+//
+// IDIOT GUIDE:
+//
+// ❌ OLD (breaks after build on Synology sometimes):
+//    <img src="/assets/avatar.jpg" />
+//
+// Why?
+// - That is an *absolute URL path*.
+// - It assumes your deployed site serves a real file at exactly "/assets/avatar.jpg".
+// - In Vite dev this often “works” because dev server/public folder behaviour can mask it.
+// - After build + deploy (different base path / folder structure), it can 404.
+//
+// ✅ NEW (always correct):
+// - We import the avatar via src/assets/index.ts
+// - That returns the *actual final URL* inside the build output (hashed / bundled).
+//
+// Rule you set:
+// - Components NEVER hardcode "/assets/..."
+// - Components only consume central exports from src/assets/index.ts
+//
+// =====================================================================================
+
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { APP_IMAGES } from "../assets";
+// ✅ CHANGE: add UI_ICONS so we can use UI_ICONS.avatar (central resolver)
+import { APP_IMAGES, UI_ICONS } from "../assets";
+
 import LoginModal from "./LoginModal";
 
 type Props = {
@@ -118,7 +146,8 @@ export default function AppHeader({
               }
             >
               <div className="appHeader-avatarInner">
-                <img src="/assets/avatar.jpg" alt="" className="appHeader-avatarImg" />
+                {/* ✅ FIX: centralised asset URL (works after build, works on Synology) */}
+                <img src={UI_ICONS.avatar} alt="" className="appHeader-avatarImg" />
               </div>
             </div>
           </button>

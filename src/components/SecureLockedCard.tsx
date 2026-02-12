@@ -1,4 +1,4 @@
-import { STOP_SIGN } from "../assets";
+import { UI_ICONS } from "../assets";
 
 export interface SecureLockedCardProps {
   title: string;
@@ -37,7 +37,7 @@ export default function SecureLockedCard({
 }: SecureLockedCardProps) {
   return (
     <div style={styles.card}>
-      <img src={STOP_SIGN} style={styles.stopSign} alt="" />
+      <img src={UI_ICONS.STOP_SIGN} style={styles.stopSign} alt="" />
 
       <div style={{ fontWeight: 600, fontSize: 20 }}>{title}</div>
 
