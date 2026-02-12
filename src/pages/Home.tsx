@@ -1,46 +1,24 @@
 // src/pages/Home.tsx
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation  } from "react-router-dom";
 
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import { STORAGE_PENDING_USERNAME } from "../app/storageKeys";
 import { useAuth } from "../app/authStore";
 import { useCrew } from "../app/crewStore";
-import { loadFavourites, saveFavourites as saveFavouritesToStorage, getMaxFavs, getFavKey } from "../app/favourites";
+import {
+  loadFavourites,
+  saveFavourites as saveFavouritesToStorage,
+  getMaxFavs,
+  getFavKey,
+} from "../app/favourites";
 
 import FlightCard3x3 from "../components/FlightCard3x3";
+import GuestPromoCard from "../components/GuestPromoCard";
 
+import { API_BASE_URL } from "../config/api";
 import { APP_IMAGES } from "../assets";
 import { getMyFlights } from "../api/flightsApi";
-
-/**
- * Idiot-guide (SOURCE OF TRUTH = RN HomeScreen.js):
- *
- * Layout order (RN):
- * 1) AppHeader (outside scroll / sticky)
- * 2) Hero image card
- *    - Member-only: My next flight block inside hero card
- * 3) Airports section (selected airports)
- *    - Member: 3 slots (carousel-ish)
- *    - Guest: 1 slot
- *    - Help modal exists
- *    - Remove confirm modal exists
- * 4) Quick actions (2-column grid) — EXACT CONTENTS differ for guest vs member
- *    - Guest: Sign up + Messages; then Information + Tools; then GuestPromoCard
- *    - Member: My Flights + Crew Lockers; then My Profile + Hotels; then Information + Tools
- * 5) Dev tools (bottom)
- *
- * Rules:
- * - No fake data objects.
- * - Guest never fetches “next flight”.
- * - Member next flight uses SAME backend source as RN via getMyFlights().
- * - Empty/Loading/Error states are explicit (no silent fallback flights).
- *
- * Favourites:
- * - Home owns favourites state (RN parity).
- * - Persisted locally (web = localStorage; RN = AsyncStorage).
- * - Guest max = 1, Member max = 3.
- */
 
 type NextFlightState =
   | { status: "idle" | "loading"; flight: null }
@@ -63,16 +41,11 @@ export default function Home() {
   const nav = useNavigate();
   const { auth } = useAuth();
   const { crew } = useCrew();
-  
   const location = useLocation();
-
 
   const isMember = auth.mode === "member";
 
   // ===== identity display only (no inference) =====
-  // Idiot-guide:
-  // - RN shows identity based on auth.username + crew fields (display only).
-  // - We never invent identity.
   const staffNo = String(auth?.user?.username || "")
     .trim()
     .toUpperCase();
@@ -83,17 +56,10 @@ export default function Home() {
     .toUpperCase();
 
   const employer = (crew?.employer || "").toString().trim().toUpperCase();
+
   // =============================================================================
   // Airports favourites (RN parity: Home owns it)
   // =============================================================================
-  // SOURCE OF TRUTH: ../app/favourites
-  //
-  // Idiot-guide:
-  // - One storage key system ONLY (no Home-only localStorage keys).
-  // - Member/known: max 3, Guest: max 1 (handled by getMaxFavs()).
-  // - Reload when Home becomes active again (route changes / focus).
-  // - Cross-tab sync via storage event on the active favourites key.
-
   const maxFavs = getMaxFavs(auth);
 
   const [favourites, setFavourites] = useState<string[]>(() => loadFavourites(auth));
@@ -130,9 +96,6 @@ export default function Home() {
   }, [auth?.mode]);
 
   function saveFavouritesFromHome(next: string[], trigger: string) {
-    // Idiot-guide:
-    // - Always normalize + cap to maxFavs.
-    // - Persist and update state in one place (via shared favourites module).
     const clean = (Array.isArray(next) ? next : [])
       .map(normalizeCode)
       .filter(Boolean)
@@ -146,14 +109,13 @@ export default function Home() {
     return (Array.isArray(favourites) ? favourites : []).filter(Boolean).slice(0, maxFavs);
   }, [favourites, maxFavs]);
 
-const memberSlots = useMemo(() => {
-  const slots: (string | null)[] = favs.slice(0, maxFavs);
-  while (slots.length < maxFavs) slots.push(null);
-  return slots;
-}, [favs, maxFavs]);
+  const memberSlots = useMemo(() => {
+    const slots: (string | null)[] = favs.slice(0, maxFavs);
+    while (slots.length < maxFavs) slots.push(null);
+    return slots;
+  }, [favs, maxFavs]);
 
   const ADD_SLOT_LABELS = useMemo(() => {
-    // RN labels (explicit)
     const base = ["Add favourite airport", "Add another airport", "Add a third airport"];
     return base.slice(0, Math.max(1, maxFavs));
   }, [maxFavs]);
@@ -176,11 +138,9 @@ const memberSlots = useMemo(() => {
     if (idx < 0 || idx >= next.length) return;
 
     next.splice(idx, 1);
-
     saveFavouritesFromHome(next, "remove");
   };
 
-  
   // =============================================================================
   // Next flight (member-only, real data)
   // =============================================================================
@@ -231,32 +191,141 @@ const memberSlots = useMemo(() => {
     load();
     return () => ac.abort();
   }, [isMember, staffNo]);
+  
+//////////////////////////////////////////////////////////////////////////////////////////////////  
 
   // =============================================================================
-  // Airports chip (RN language + web navigation)
+  // Airports carousel sizing — callback-ref so we measure as soon as it mounts
+  // (prevents "wide chips until refresh" after login) + observe width changes
+  // =============================================================================
+  const carouselElRef = useRef<HTMLDivElement | null>(null);
+  const resizeObsRef = useRef<ResizeObserver | null>(null);
+  const [carouselOuterW, setCarouselOuterW] = useState<number | null>(null);
+
+  // Single source of truth for measurement
+  const measureCarousel = useCallback(() => {
+    const el = carouselElRef.current;
+    if (!el) return;
+
+    // getBoundingClientRect is more reliable during layout changes than offsetWidth
+    const w = Math.round(el.getBoundingClientRect().width || 0);
+    if (!w) return;
+
+    setCarouselOuterW((prev) => (prev === w ? prev : w));
+  }, []);
+
+  // Callback ref: runs immediately when element mounts/unmounts
+  const carouselRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      // Cleanup any previous observer
+      if (resizeObsRef.current) {
+        resizeObsRef.current.disconnect();
+        resizeObsRef.current = null;
+      }
+
+      carouselElRef.current = node;
+
+      if (!node) return;
+
+      // Measure immediately, then again next frame (covers "first paint" + post-layout)
+      measureCarousel();
+      requestAnimationFrame(measureCarousel);
+
+      // Observe width changes (login/layout/viewport changes)
+      const ro = new ResizeObserver(() => measureCarousel());
+      ro.observe(node);
+      resizeObsRef.current = ro;
+    },
+    [measureCarousel]
+  );
+
+  useEffect(() => {
+    // Also listen to viewport events (belt + braces)
+    window.addEventListener("resize", measureCarousel);
+    window.addEventListener("orientationchange", measureCarousel);
+
+    return () => {
+      window.removeEventListener("resize", measureCarousel);
+      window.removeEventListener("orientationchange", measureCarousel);
+
+      if (resizeObsRef.current) {
+        resizeObsRef.current.disconnect();
+        resizeObsRef.current = null;
+      }
+    };
+  }, [measureCarousel]);
+
+  const carouselGap = 10;
+  const carouselItemW =
+    typeof carouselOuterW === "number" ? Math.round(carouselOuterW * 0.48) : null;
+
+  const twoUpBlockW =
+    typeof carouselItemW === "number" ? carouselItemW * 2 + carouselGap : null;
+
+  const carouselSidePad =
+    typeof carouselOuterW === "number" && typeof twoUpBlockW === "number"
+      ? Math.max(0, Math.round((carouselOuterW - twoUpBlockW) / 2))
+      : 0;
+
+  // =============================================================================
+  // AirportChip — RN Home design + behaviour
   // =============================================================================
   function AirportChip({
     code,
-    isAdd,
+    isAdd = false,
     label,
-    showRemove,
-    onRemove,
+    showPlus,
     onPress,
+    onLongPress,
+    showRemove = false,
+    onRemove,
   }: {
     code?: string | null;
     isAdd?: boolean;
     label?: string;
+    showPlus?: boolean;
+    onPress?: () => void;
+    onLongPress?: () => void;
     showRemove?: boolean;
     onRemove?: () => void;
-    onPress?: () => void;
   }) {
     const resolvedCode = normalizeCode(code);
-    const resolvedLabel = label ? String(label) : resolvedCode || "add airport";
 
-    // Idiot-guide:
-    // - RN uses AIRPORT_LOGOS mapping.
-    // - Web uses public assets by convention: /assets/airports/<CODE>.webp
+    const resolvedLabel =
+      typeof label === "string" ? label : isAdd ? "add airport" : String(resolvedCode);
+
+    const shouldShowPlus = typeof showPlus === "boolean" ? showPlus : Boolean(isAdd);
+
     const logoSrc = !isAdd && resolvedCode ? `/assets/airports/${resolvedCode}.webp` : null;
+
+    const [pressed, setPressed] = useState(false);
+    const [removePressed, setRemovePressed] = useState(false);
+
+    const lpTimerRef = useRef<number | null>(null);
+    const longPressedRef = useRef(false);
+
+    const clearLongPress = () => {
+      if (lpTimerRef.current) {
+        window.clearTimeout(lpTimerRef.current);
+        lpTimerRef.current = null;
+      }
+    };
+
+    const startLongPress = () => {
+      longPressedRef.current = false;
+      if (!onLongPress) return;
+
+      clearLongPress();
+      lpTimerRef.current = window.setTimeout(() => {
+        longPressedRef.current = true;
+        onLongPress();
+      }, 320);
+    };
+
+    const endPress = () => {
+      clearLongPress();
+      setPressed(false);
+    };
 
     return (
       <div className="airportChipWrap">
@@ -268,8 +337,14 @@ const memberSlots = useMemo(() => {
               e.stopPropagation();
               onRemove?.();
             }}
+            onMouseDown={() => setRemovePressed(true)}
+            onMouseUp={() => setRemovePressed(false)}
+            onMouseLeave={() => setRemovePressed(false)}
+            onTouchStart={() => setRemovePressed(true)}
+            onTouchEnd={() => setRemovePressed(false)}
             aria-label="Remove airport"
             title="Remove"
+            style={removePressed ? { opacity: 0.85 } : undefined}
           >
             ×
           </button>
@@ -277,35 +352,49 @@ const memberSlots = useMemo(() => {
 
         <button
           type="button"
-          className={cx("airportChipBtn", isAdd && "airportChipBtn--add")}
-          onClick={() => onPress?.()}
+          className="airportChipBtn"
+          onClick={() => {
+            if (longPressedRef.current) return;
+            onPress?.();
+          }}
+          onMouseDown={() => {
+            setPressed(true);
+            startLongPress();
+          }}
+          onMouseUp={endPress}
+          onMouseLeave={endPress}
+          onTouchStart={() => {
+            setPressed(true);
+            startLongPress();
+          }}
+          onTouchEnd={endPress}
+          onTouchCancel={endPress}
+          style={pressed ? { opacity: 0.92 } : undefined}
         >
-          <div className="airportChipTop">
-            {isAdd ? (
+          <div className="airportChipTopRN">
+            {isAdd && shouldShowPlus ? (
               <div className="airportChipPlus">+</div>
-            ) : logoSrc ? (
-              <img className="airportChipLogo" src={logoSrc} alt={resolvedCode} />
-            ) : (
-              <div className="airportChipLogoFallback">{resolvedCode}</div>
-            )}
+            ) : !isAdd && logoSrc ? (
+              <img src={logoSrc} className="airportChipLogo" alt="" />
+            ) : null}
           </div>
 
-          <div className="airportChipBottom">
-            <div className="airportChipLabel">{resolvedLabel}</div>
+          <div className="airportChipBottomRN">
+            <div className={isAdd ? "airportChipLabelAddRN" : "airportChipLabelRN"}>
+              {resolvedLabel}
+            </div>
           </div>
         </button>
       </div>
     );
   }
 
+//////////////////////////////////////////////////////////////
   // ===== Sign-up modal (RN parity) =====
   const [signUpModalVisible, setSignUpModalVisible] = useState(false);
 
   return (
     <div className="homeScreen">
-      {/* ===== AppHeader (sticky already in web) ===== */}
-
-
       <div className="homeInner">
         {/* ===== Hero + next flight (RN) ===== */}
         <section className="card card--flush">
@@ -354,15 +443,34 @@ const memberSlots = useMemo(() => {
 
           <div className={cx("airportsBlock", maxFavs > 1 && "airportsBlock--scroll")}>
             {maxFavs > 1 ? (
-              <div className="airportsScroll">
+              <div
+                ref={carouselRef}
+                className="airportsScroll"
+                style={{
+                  paddingLeft: carouselSidePad,
+                  paddingRight: carouselSidePad,
+                  scrollPaddingLeft: carouselSidePad,
+                  scrollPaddingRight: carouselSidePad,
+                }}
+              >
                 {memberSlots.map((code, idx) => {
+                  const isLast = idx === memberSlots.length - 1;
                   const isAdd = !code;
 
                   return (
-                    <div className="airportsScrollItem" key={`${code || "add"}-${idx}`}>
+                    <div
+                      className="airportsScrollItem"
+                      key={`${code || "add"}-${idx}`}
+                      style={{
+                        width: typeof carouselItemW === "number" ? carouselItemW : undefined,
+                        marginRight: isLast ? 0 : carouselGap,
+                        scrollSnapAlign: "start",
+                      }}
+                    >
                       <AirportChip
                         code={code || null}
                         isAdd={isAdd}
+                        showPlus={false}
                         label={isAdd ? ADD_SLOT_LABELS[idx] : String(code)}
                         showRemove={!isAdd}
                         onRemove={() => {
@@ -381,7 +489,18 @@ const memberSlots = useMemo(() => {
 
                           nav("/selectairports", {
                             state: {
-                              mode: isAdd ? "add" : "replace",
+                              mode: "add",
+                              targetSlotIndex: idx,
+                              openPicker: true,
+                              focusSearch: true,
+                              highlightSlot: true,
+                            },
+                          });
+                        }}
+                        onLongPress={() => {
+                          nav("/selectairports", {
+                            state: {
+                              mode: "replace",
                               targetSlotIndex: idx,
                               openPicker: true,
                               focusSearch: true,
@@ -410,6 +529,7 @@ const memberSlots = useMemo(() => {
                   <AirportChip
                     isAdd
                     label="Add airport"
+                    showPlus={true}
                     onPress={() =>
                       nav("/selectairports", {
                         state: {
@@ -427,6 +547,8 @@ const memberSlots = useMemo(() => {
             )}
           </div>
 
+		  
+        {/* ===== Debug ===== ======================		  
           <div className="metaLine">
             {isMember ? (
               <>
@@ -437,6 +559,8 @@ const memberSlots = useMemo(() => {
               <>Guest mode</>
             )}
           </div>
+        ===== =============================== ===== */}		  
+		  
         </section>
 
         {/* ===== Quick actions (RN) ===== */}
@@ -446,11 +570,7 @@ const memberSlots = useMemo(() => {
           {!isMember ? (
             <>
               <div className="quickGridRow">
-                <button
-                  type="button"
-                  className="quickTile"
-                  onClick={() => setSignUpModalVisible(true)}
-                >
+                <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
                   <div className="quickTileTitle">Sign up</div>
                   <div className="quickTileSub">Unlock crew features</div>
                 </button>
@@ -474,7 +594,7 @@ const memberSlots = useMemo(() => {
               </div>
 
               <div className="promoSpacer">
-                <div className="promoPlaceholder">GuestPromoCard</div>
+                <GuestPromoCard apiBaseUrl={API_BASE_URL} />
               </div>
             </>
           ) : (
@@ -518,7 +638,7 @@ const memberSlots = useMemo(() => {
           )}
         </section>
 
-        {/* ===== Dev tools (keep) ===== */}
+        {/* ===== Dev tools (keep) =====
         <div className="devWrap">
           <div className="devTitle">Dev tools</div>
 
@@ -539,6 +659,7 @@ const memberSlots = useMemo(() => {
             </button>
           </div>
         </div>
+        ==================================*/}
       </div>
 
       {/* ===== Airports help modal (RN) ===== */}

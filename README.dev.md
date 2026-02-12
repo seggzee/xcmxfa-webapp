@@ -2,9 +2,11 @@ README.dev.md
 
 XCM / XFA WebApp -- Development & Deployment Guide**
 
-------------------------------------------------------------------------
+==========================================================================
 
+----------------------
 Architecture Overview
+----------------------
 
 Frontend
 
@@ -26,90 +28,187 @@ Hosting
 -   Backend: https://apps-backend.34deltax.com
 -   SSL: \*.34deltax.com
 
-------------------------------------------------------------------------
+==========================================================================
 
-Folder Structure (CRITICAL)
+---------------------------
+FOLDER STRUCTURE (CRITICAL)
+----------------------------
 
-Workspace (Source Code -- NEVER served)
-
-Example:
-
-D:`\CloudStation`{=tex}`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src\
-src\
-node_modules\
-dist\
-package.json tsconfig*.json vite.config.ts .env*
-
-This is where development happens.
-
-------------------------------------------------------------------------
-
-Deploy Folder (Webroot -- ONLY build output)
+?? Workspace (Source Code – NEVER served)
 
 Example:
 
-D:`\CloudStation`{=tex}`\synology`{=tex}-webroots`\webapp`{=tex}.34deltax.com\
-index.html assets\
+D:\CloudStation\projects\webapp-xcmxfa-src\
+  src\
+  node_modules\
+  dist\          (generated)
+  package.json
+  tsconfig*.json
+  vite.config.ts
+  .env*
 
-Never edit files here\
-âNever copy src/\
-Never copy node_modules/
 
-------------------------------------------------------------------------
+This is where all development happens.
 
-Development Workflow
+==========================================================================
 
-Local Development (Hot Reload)
+---------------------------------------------
+DEPLOY FOLDER (WEBROOT – ONLY BUILD OUTPUT)
+----------------------------------------------
 
-D: cd CloudStation`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src npm
-install npm run dev
+Example:
 
-Runs: http://localhost:5173\
-Hot reload enabled.\
-Does NOT create dist.
+D:\CloudStation\synology-webroots\webapp.34deltax.com\
+  index.html
+  assets\
 
-------------------------------------------------------------------------
 
- Production / Staging Build Workflow
+This folder contains ONLY the contents of /dist.
 
- Step 1 -- Build
+? Never edit files here
+? Never copy src/
+? Never copy node_modules/
 
-D: cd CloudStation`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src set
-VITE_API_BASE_URL=https://apps-backend.34deltax.com npm run build
+==========================================================================
+
+----------------------
+DEVELOPMENT WORKFLOW
+---------------------
+
+?? Local Development (Hot Reload)
+
+Used for:
+
+Styling
+
+Layout
+
+Feature development
+
+Fast iteration
+
+D:
+cd CloudStation\projects\webapp-xcmxfa-src
+npm install
+npm run dev
+
+
+Runs:
+
+http://localhost:5173
+
+
+Hot reload enabled
+
+Uses .env.development
+
+Does NOT create dist
+
+==========================================================================
+
+PRODUCTION / STAGING BUILD WORKFLOW
+
+---------------------
+STEP 1 – BUILD:
+----------------------
+D:
+cd CloudStation\projects\webapp-xcmxfa-src
+npm install
+set VITE_API_BASE_URL=https://apps-backend.34deltax.com
+npm run build
+
 
 Creates:
 
-dist/ index.html assets/
+dist/
+  index.html
+  assets/
 
-------------------------------------------------------------------------
-
- Step 2 -- Preview Production Build
-
+-----------------------------------------------------
+STEP 2 – OPTIONAL: PREVIEW PRODUCTION BUILD LOCALLY:
+-----------------------------------------------------
 npm run preview
 
-------------------------------------------------------------------------
 
- Step 3 -- Deploy to Synology
+Serves built files (no hot reload).
 
-robocopy
-"D:`\CloudStation`{=tex}`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src`\dist`{=tex}"
-\^
-"D:`\CloudStation`{=tex}`\synology`{=tex}-webroots`\webapp`{=tex}.34deltax.com"
-\^ /MIR
+--------------------------------
+STEP 3 – DEPLOY TO SYNOLOGY:
+--------------------------------
 
-------------------------------------------------------------------------
+Copy contents of dist, not the folder itself:
 
-Recovery Playbook
+robocopy "D:\CloudStation\projects\webapp-xcmxfa-src\dist" ^
+         "D:\CloudStation\synology-webroots\webapp.34deltax.com" ^
+         /MIR
 
-Reset dependencies: rmdir /s /q node_modules npm install
 
-Rebuild: npm run build
+After sync:
 
-Redeploy: robocopy dist â†’ webroot /MIR
+webapp.34deltax.com/
+  index.html
+  assets/
 
-Hard refresh browser: Ctrl + Shift + R
+=============================================================================
 
-------------------------------------------------------------------------
+------------------------
+ENVIRONMENT VARIABLES:
+-----------------------
+.env.development
+
+Used by:
+
+npm run dev
+
+.env.production
+
+Used by:
+
+npm run build
+
+
+Must include:
+
+VITE_API_BASE_URL=https://apps-backend.34deltax.com
+=============================================================================
+
+----------------
+CORS OVERVIEW:
+---------------
+
+Backend _cors.php:
+
+Reflects allowed origins
+
+Handles OPTIONS preflight
+
+Must be included at top of every public endpoint
+
+Login failures showing CORS errors may actually be 404s
+
+===========================================================================
+
+-----------------------
+RECOVERY PLAYBOOK:
+----------------------
+
+Recovery Playbook (When Things Act Weird)
+
+?? Reset dependencies
+rmdir /s /q node_modules
+npm install
+
+?? Rebuild
+npm run build
+
+?? Redeploy
+robocopy dist ? webroot /MIR
+
+?? Hard refresh browser
+
+Ctrl + Shift + R
+
+===========================================================================
 
 Golden Rules
 
@@ -119,34 +218,55 @@ Golden Rules
 -   dist is the product
 -   If confused â†’ rebuild clean
 
-------------------------------------------------------------------------
-
+===========================================================================
  
 ONE-PAGE QUICK COMMAND GUIDE
+------------------------------
 
 
-Start Local Dev
 
-D: 
-cd CloudStation`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src npm run dev
+---------------------
+START LOCAL DEV:
+---------------------
+
+D:
+cd CloudStation\projects\webapp-xcmxfa-src
+npm run dev
 
 
-Build for Production:
-D: cd CloudStation`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src set
-VITE_API_BASE_URL=https://apps-backend.34deltax.com npm run build
+
+-------------------------
+BUILD FOR PRODUCTION:
+-------------------------
+
+D:
+cd CloudStation\projects\webapp-xcmxfa-src
+set VITE_API_BASE_URL=https://apps-backend.34deltax.com
+npm run build
 
 
-Preview Production Build:
+
+--------------------------
+PREVIEW PRODUCTION BUILD:
+--------------------------
 npm run preview
 
 
-Deploy to Synology:
-robocopy
-"D:`\CloudStation`{=tex}`\projects`{=tex}`\webapp`{=tex}-xcmxfa-src`\dist`{=tex}"
-\^
-"D:`\CloudStation`{=tex}`\synology`{=tex}-webroots`\webapp`{=tex}.34deltax.com"
-\^ /MIR
 
+--------------------
+DEPLOY TO SYNOLOGY:
+---------------------
 
-Reset Dependencies:
-rmdir /s /q node_modules npm install
+robocopy "D:\CloudStation\projects\webapp-xcmxfa-src\dist" 
+         "D:\CloudStation\synology-webroots\webapp.34deltax.com" 
+         /MIR
+
+		 
+--------------------
+RESET DEPENDENCIES:
+--------------------
+
+rmdir /s /q node_modules
+npm install
+
+===========================================================================

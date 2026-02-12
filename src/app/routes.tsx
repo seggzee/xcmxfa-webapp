@@ -1,5 +1,4 @@
-
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 import AppHeader from "../components/AppHeader";
 
@@ -64,6 +63,33 @@ type LoginResponse = {
   refreshToken?: string | null;
   user?: any;
 };
+
+// RN parity: Week needs airport passed from Home via nav("/week", { state: { airport } })
+// No silent fallback.
+function WeekRoute(props: {
+  resetToGuestState: () => void;
+}) {
+  const nav = useNavigate();
+  const loc = useLocation();
+
+  const airport = (loc.state as any)?.airport;
+  if (!airport) {
+    throw new Error("WeekRoute: missing airport in navigation state");
+  }
+
+  return (
+    <Week
+      airportCode={String(airport).toUpperCase()}
+      onBack={() => nav(-1)}
+      onOpenDayArrivals={(item) =>
+        nav(`/day/${item.dateKey}?tab=arrivals`, { state: { airport } })
+      }
+      onOpenDayDepartures={(item) =>
+        nav(`/day/${item.dateKey}?tab=departures`, { state: { airport } })
+      }
+    />
+  );
+}
 
 export default function AppRoutes() {
   const nav = useNavigate();
@@ -138,8 +164,8 @@ export default function AppRoutes() {
           }
 
           const bearer: Record<string, string> = token
-		  ? { Authorization: `Bearer ${token}` }
-		  : {};
+            ? { Authorization: `Bearer ${token}` }
+            : {};
 
           // --------------------------------------------
           // Phase 2: POST-LOGIN checks (copied routing table)
@@ -150,7 +176,7 @@ export default function AppRoutes() {
             const existsResp = await postJson<any>(
               CREW_EXISTS_URL,
               { psn: staffIdentity },
-              bearer,
+              bearer
             );
 
             const exists = Boolean(existsResp?.exists);
@@ -159,12 +185,10 @@ export default function AppRoutes() {
               const statusResp = await postJson<any>(
                 MEMBERS_STATUS_URL,
                 { psn: staffIdentity },
-                bearer,
+                bearer
               );
 
-              const next = String(statusResp?.next_step || "")
-                .trim()
-                .toLowerCase();
+              const next = String(statusResp?.next_step || "").trim().toLowerCase();
 
               if (next === "set_password") {
                 await loadCrew(staffIdentity);
@@ -195,7 +219,7 @@ export default function AppRoutes() {
           } catch {
             // MARKED post-login failure (RN parity)
             throw new Error(
-              "Login succeeded, but the post-login checks failed (network/server). Please try again.",
+              "Login succeeded, but the post-login checks failed (network/server). Please try again."
             );
           }
         }}
@@ -205,7 +229,8 @@ export default function AppRoutes() {
       <Routes>
         {/* Guest / entry */}
         <Route path="/" element={<Splash />} />
-        <Route path="/login" element={<Navigate to="/home?login=1" replace />} />    ///login still exists, but it no longer renders a page.
+        <Route path="/login" element={<Navigate to="/home?login=1" replace />} />
+        {/* /login still exists, but it no longer renders a page. */}
         <Route path="/debug" element={<Debug />} />
 
         {/* Registration/onboarding */}
@@ -217,7 +242,12 @@ export default function AppRoutes() {
         {/* App routes */}
         <Route path="/selectairports" element={<SelectAirports />} />
         <Route path="/home" element={<Home />} />
-        <Route path="/week" element={<Week />} />
+
+        <Route
+          path="/week"
+          element={<WeekRoute resetToGuestState={resetToGuestState} />}
+        />
+
         <Route path="/day/:dateKey" element={<Day />} />
 
         {/* Member-only routes */}
