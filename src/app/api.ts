@@ -35,6 +35,9 @@ export const MEMBERS_STATUS_URL = `${API_BASE_URL}/api/members/status.php`;
 // ===============================
 export const AUTH_LOGIN_URL = `${API_BASE_URL}/auth/login/login.php`;
 
+export const AUTH_REFRESH_URL = `${API_BASE_URL}/auth/login/refresh.php`;
+export const AUTH_LOGOUT_URL = `${API_BASE_URL}/auth/login/logout.php`;
+
 export type Json = Record<string, any>;
 
 export async function postJson<T>(

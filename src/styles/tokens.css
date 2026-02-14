@@ -5,6 +5,7 @@
 
   /* ===== Text colours ===== */
   --text-primary: #132333;
+  --text-red: #c70000;
   --text-muted: rgba(19, 35, 51, 0.55);
   --text-muted-strong: rgba(19, 35, 51, 0.75);
   --accent-date: #d96a79;

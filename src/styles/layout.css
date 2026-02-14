@@ -11,8 +11,77 @@ html, body {
   background: var(--bg-app);
 }
 
+.app-screen {
+  animation: screenFade 140ms ease-out;
+}
+
+@keyframes screenFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .app-container {
   max-width: var(--max-width-mobile);
   margin: 0 auto;
   padding: var(--space-6);
+}
+
+/* ============================================================
+   GLOBAL FORM BASELINES
+   - Prevent iOS Safari input auto-zoom
+   - Prevent inputs overflowing their containers
+   ============================================================ */
+
+/* Make sizing sane everywhere */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* iOS Safari zoom fix + width containment */
+input, select, textarea {
+  font-size: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* iOS date controls can overflow cards unless forced */
+input[type="date"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 16px; /* also stops iOS zoom */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.wizard-input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ============================================================
+   iOS Safari: HARD stop input auto-zoom
+   (must win against any component class rules)
+   ============================================================ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Force 16px on any input/select/textarea even if class rules set smaller */
+input,
+select,
+textarea,
+input.wizard-input,
+select.wizard-input,
+textarea.wizard-input {
+  font-size: 16px !important;
 }

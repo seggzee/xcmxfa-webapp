@@ -139,7 +139,7 @@ STEP 3 – DEPLOY TO SYNOLOGY:
 Copy contents of dist, not the folder itself:
 
 robocopy "D:\CloudStation\projects\webapp-xcmxfa-src\dist" ^
-         "D:\CloudStation\synology-webroots\webapp.34deltax.com" ^
+         "D:\CloudStation\synology-webroots\webapp-xcmxfa" ^
          /MIR
 
 

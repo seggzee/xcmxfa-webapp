@@ -1,0 +1,312 @@
+Below is Design Intent Vol.4 reposted in a clean, cut-and-paste friendly format, with Section 10 appended exactly as requested.
+(No markup tricks, no emojis, suitable for direct transfer into Word.)
+
+Design Intent Vol.4 — Authentication & Entry Flows
+0) Purpose
+
+Define the authoritative end-to-end intent for authentication and entry UX for:
+
+New registration
+
+Member login
+
+Guest user
+
+Member who last logged in 9 days ago
+
+This document defines interfaces, state transitions, and UX expectations.
+It is the reference for validating authClient, LoginScreen, AppRoot, and server-side endpoints.
+
+1) Core Principles (Locked)
+1.1 Single Auth Boundary
+
+authClient.js is the only module that:
+
+Knows auth endpoints and base URL
+
+Performs login / refresh / logout
+
+Stores and clears refresh tokens
+
+Manages global auth state via AuthProvider and useAuth()
+
+No other file may hardcode /auth/* endpoints.
+
+1.2 Logged-in Definition
+
+The user is considered authenticated if and only if:
+
+auth.mode === "member"
+
+Any other state is treated as not logged in.
+
+1.3 Token Model
+
+Access token: short-lived
+
+Refresh token: max 10 days
+
+Refresh token is stored only when rememberDevice === true
+
+Logout always clears any stored refresh token
+
+1.4 Login vs Post-login Separation
+
+/auth/login determines authentication success
+
+All other checks (member exists, onboarding completeness) are post-login
+
+Post-login failures must never be reported as “login failed”
+
+Post-login failures must never revert global auth state
+
+2) Global Auth State Interface (Client Contract)
+
+useAuth() must expose at least:
+
+auth
+
+login()
+
+refresh()
+
+logout()
+
+setMemberFromLoginResponse()
+
+2.1 auth object guarantees
+
+auth is always defined
+
+auth.mode always exists
+
+Logged in: auth.mode === "member"
+
+Logged out: any other value
+
+In member mode, auth.user exists and contains at minimum:
+
+staff_number (canonical identifier, uppercase)
+
+3) Auth Endpoint Contracts (Client Expectations)
+3.1 POST /auth/login/login.php
+
+Request payload:
+
+{
+  "username": "KLM12345",
+  "password": "plaintext",
+  "rememberDevice": true,
+  "deviceId": "optional-if-rememberDevice-true",
+  "device": {
+    "platform": "...",
+    "osVersion": "...",
+    "appVersion": "..."
+  }
+}
+
+
+Rules:
+
+Username is normalized to uppercase
+
+deviceId and device are sent only if rememberDevice === true
+
+Success response (minimum):
+
+{
+  "ok": true,
+  "accessToken": "...",
+  "refreshToken": "...optional...",
+  "user": {
+    "staff_number": "KLM12345"
+  }
+}
+
+3.2 POST /auth/login/refresh.php
+
+Request:
+
+{ "refreshToken": "..." }
+
+
+Success response:
+
+{
+  "ok": true,
+  "accessToken": "...",
+  "refreshToken": "...optional rotation..."
+}
+
+3.3 POST /auth/login/logout.php
+
+Request:
+
+{ "refreshToken": "..." }
+
+
+Client behaviour:
+
+Client clears refresh token and auth state regardless of server response
+
+4) Shared UX Rules
+4.1 Remember Device
+
+Determines whether refresh token is persisted
+
+OFF → session ends when token expires or app restarts
+
+ON → silent login possible until refresh expiry or logout
+
+4.2 Error Messaging
+
+Invalid credentials → authentication error
+
+Network error → retry message
+
+Post-login failure → setup or routing message (never “login failed”)
+
+5) Flow 1 — New Registration
+5.1 Starting State
+
+auth.mode !== "member"
+
+5.2 Steps
+
+Registration form collects:
+
+company
+
+job
+
+staff number
+
+email (or derived rules)
+
+Client calls /auth/register/start.php
+
+Server creates users_v2 row
+
+email_verified = 0
+
+Verification email sent
+
+App shows “Check your email” information screen
+
+No auto-navigation required
+
+Cancel returns to landing/home
+
+User clicks verification email link
+
+Server sets email_verified = 1
+
+Server displays confirmation page
+
+User sets password via /auth/register/set-password.php
+
+User completes member details (members_v2)
+
+On success, onboarding is complete
+
+Rules:
+
+Registration success does not equal login
+
+Email verification is enforced server-side
+
+6) Flow 2 — Member Login
+6.1 Steps
+
+User enters username, password, rememberDevice
+
+login() is called
+
+On success:
+
+Global auth state is set immediately
+
+Refresh token stored if rememberDevice is true
+
+Post-login checks run:
+
+Member exists → Home
+
+Member missing → Complete Member Details
+
+Failure → retry UI (auth remains valid)
+
+7) Flow 3 — Guest User
+
+Guest users have auth.mode !== "member"
+
+No refresh token stored
+
+Guest access is limited
+
+Member-only screens redirect to Login
+
+8) Flow 4 — Member Last Logged in 9 Days Ago
+
+App launches
+
+Refresh token exists (rememberDevice was true)
+
+Client calls /auth/login/refresh.php
+
+If refresh succeeds:
+
+Auth state set to member
+
+Route to Home
+
+If refresh fails:
+
+Token cleared
+
+Route to Login with “session expired” message
+
+9) Invariants (Must Always Hold)
+
+Auth state is global and authoritative
+
+Login success is a single, atomic state transition
+
+Post-login failures never masquerade as auth failures
+
+Refresh tokens are persisted only by explicit user choice
+
+Logout always clears persisted auth
+
+10) Server-Side Folders & Endpoints Required
+/auth/login/
+
+POST /auth/login/login.php
+
+POST /auth/login/refresh.php
+
+POST /auth/login/logout.php
+
+/auth/register/
+
+POST /auth/register/start.php
+
+GET /auth/register/verify.php?token=...
+
+POST /auth/register/set-password.php
+
+(Optional, not required by V4)
+
+/auth/register/resend.php
+
+/auth/password/forgot.php
+
+/auth/password/reset.php
+
+/members/
+
+POST /members/exists.php
+
+POST /members/complete.php
+
+End of Design Intent Vol.4

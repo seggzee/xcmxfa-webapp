@@ -1,0 +1,197 @@
+The full flow (end-to-end)
+
+
+	1️⃣ App intent
+
+			The app says:
+
+			“I am viewing airport X on date Y — please ensure backend data is fresh enough.”
+
+			That is the only responsibility of the app.
+
+			POST /api/status/ensure-fresh.php
+
+	2️⃣ Backend governance (authoritative)
+
+			The backend decides:
+
+			Is a refresh allowed?
+
+			Are we within cooldown?
+
+			Are we within daily API budget?
+
+			Is a refresh already in progress?
+
+			If NO → backend does nothing and responds:
+
+			{ "refreshed": false, "reason": "COOLDOWN" }
+
+
+			If YES → backend:
+
+			calls the official airline API
+
+			updates all_flights_v2
+
+			updates timestamps / governance tables
+
+	3️⃣ App reads SQL (always)
+
+			Regardless of whether a refresh happened:
+
+			GET /api/flights/day
+			GET /api/bookings/day
+
+
+			The app simply renders whatever is in SQL right now.
+			
+===============================================================================================================================
+
+✅ App-side → Backend contact points (authoritative)
+
+
+	1️⃣ /src/api/flightsApi.js
+
+			This is the central gateway.
+			All backend communication goes through here.
+
+			Responsibilities
+
+			Builds URLs using EXPO_PUBLIC_API_BASE_URL
+
+			Calls /api/* PHP endpoints
+
+			Handles JSON parsing + error handling
+
+			Exposes semantic functions to screens
+
+			Current functions
+
+			getAirportWindowFlights() → GET /api/flights/window.php
+
+			getFlightsForDay() → GET /api/flights/day.php
+
+			ensureScheduleFresh() → POST /api/schedule/ensure-fresh.php
+
+			ensureDayStatusFresh() → POST /api/status/ensure-fresh.php
+
+			getBookingsForDay() → GET /api/bookings/day.php
+
+			Key rule
+
+			Screens never call fetch() directly.
+			They only call functions from flightsApi.js.
+
+			This file is the client-side contract surface.
+
+	2️⃣ /src/data/scheduleCache.js
+
+			Frontend-only optimisation layer.
+
+			Responsibilities
+
+			In-memory caching for Weekly Overview
+
+			Implements staleness checks (e.g. 3-hour schedule fence)
+
+			Decides whether to call getAirportWindowFlights()
+
+			What it does NOT do
+
+			No airline API calls
+
+			No SQL awareness
+
+			No authority over freshness
+
+			Think of it as:
+
+			“A convenience wrapper that sometimes decides not to call the backend.”
+
+	3️⃣ /src/screens/WeeklyOverviewScreen.js
+
+			Consumer of schedule data.
+
+			Backend interaction
+
+			Calls:
+
+			getAirportWindowFlights()
+
+			optionally ensureScheduleFresh() (depending on flow)
+
+			Reads only SQL-backed responses
+
+			Important
+
+			This screen never knows how data was refreshed
+
+			It only knows what SQL returned
+
+	4️⃣ /src/screens/DayDetailsScreen.js
+
+			Consumer of live + booking data.
+
+			Backend interaction
+
+			Calls:
+
+			ensureDayStatusFresh() → request backend to consider refresh
+
+			getFlightsForDay() → flight rows from SQL
+
+			getBookingsForDay() → crew listings from SQL
+
+			Polling
+
+			While screen is visible:
+
+			periodically calls ensureDayStatusFresh()
+
+			then re-reads SQL via GET endpoints
+
+			Critical principle
+
+			DayDetails never assumes freshness.
+			It always renders “whatever SQL currently contains”.
+
+	5️⃣ /src/screens/SelectAirportsScreen.js
+
+			Indirect backend interaction.
+
+			Does not call backend itself
+
+			Sets airport selection which:
+
+			influences WeeklyOverview
+
+			influences DayDetails fetches
+
+	6️⃣ /src/AppRoot.js
+
+			Routing + prop wiring only.
+
+			Passes:
+
+			airportCode
+
+			dayItem
+
+			Does not fetch data
+
+			Does not know about backend contracts
+
+			❌ Files that deliberately do NOT touch the backend
+
+			These are important exclusions:
+
+			HomeScreen.js
+
+			UI components
+
+			Navigation config
+
+			Auth context (for now)
+
+			They may influence which screen is shown, but they do not fetch.

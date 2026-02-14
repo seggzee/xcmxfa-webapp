@@ -3,7 +3,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import FlightCard3x3 from "../components/FlightCard3x3";
-import { getAirportLogo,  LISTING_STATUS_ICONS } from "../assets";
+import BackButton from "../components/BackButton";
+import { getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
+
+// ✅ Day adopts global primitives + Day-only fixes
+import "../styles/day.css";
 
 // IMPORTANT: these MUST exist in your web flightsApi (same names as RN parity)
 import {
@@ -288,33 +292,35 @@ export default function Day() {
       });
 
       const last2 =
-        dayResp?.status_last_updated_utc ?? dayResp?.last_updated_utc ?? dayResp?.lastUpdatedUtc ?? null;
+        dayResp?.status_last_updated_utc ??
+        dayResp?.last_updated_utc ??
+        dayResp?.lastUpdatedUtc ??
+        null;
       if (last2) setLastStatusUpdatedUtc(String(last2));
 
-		// 3) bookings (ALWAYS load; required for X-staff 3:3)
-		try {
-		  const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey });
+      // 3) bookings (ALWAYS load; required for X-staff 3:3)
+      try {
+        const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey });
 
-		  const by = bookingsResp?.by_flight_instance_id;
+        const by = bookingsResp?.by_flight_instance_id;
 
-		  invariant(
-			Boolean(by && typeof by === "object"),
-			"Invariant violation: bookings response missing by_flight_instance_id"
-		  );
+        invariant(
+          Boolean(by && typeof by === "object"),
+          "Invariant violation: bookings response missing by_flight_instance_id"
+        );
 
-		  Object.keys(by).forEach((k) => {
-			invariant(
-			  Boolean(String(k).trim()),
-			  "Invariant violation: bookingsByFlight contains empty flight_instance_id key"
-			);
-		  });
+        Object.keys(by).forEach((k) => {
+          invariant(
+            Boolean(String(k).trim()),
+            "Invariant violation: bookingsByFlight contains empty flight_instance_id key"
+          );
+        });
 
-		  setBookingsByFlight(by);
-		} catch (e: any) {
-		  setErrorText(e?.message || "Failed to load crew list");
-		  setBookingsByFlight({});
-		}
-
+        setBookingsByFlight(by);
+      } catch (e: any) {
+        setErrorText(e?.message || "Failed to load crew list");
+        setBookingsByFlight({});
+      }
 
       setLastRefreshedAtUtc(new Date().toISOString());
       setLoading(false);
@@ -356,7 +362,7 @@ export default function Day() {
     uiKey: string;
     row: ApiFlightRow; // RAW row from API (snake_case)
   };
- 
+
   const flights: FlightItem[] = useMemo(() => {
     const hub = "AMS";
     const airport = String(airportCode || "").toUpperCase();
@@ -373,11 +379,15 @@ export default function Day() {
       const legacyRows: ApiFlightRow[] = rawRows.flights;
       if (tab === "departures") {
         filtered = legacyRows.filter(
-          (r) => String(r.dep_airport || "").toUpperCase() === airport && String(r.arr_airport || "").toUpperCase() === hub
+          (r) =>
+            String(r.dep_airport || "").toUpperCase() === airport &&
+            String(r.arr_airport || "").toUpperCase() === hub
         );
       } else {
         filtered = legacyRows.filter(
-          (r) => String(r.dep_airport || "").toUpperCase() === hub && String(r.arr_airport || "").toUpperCase() === airport
+          (r) =>
+            String(r.dep_airport || "").toUpperCase() === hub &&
+            String(r.arr_airport || "").toUpperCase() === airport
         );
       }
     }
@@ -394,26 +404,27 @@ export default function Day() {
     });
   }, [rawRows, tab, airportCode]);
 
-  
   function formatListedAtDisplay(raw: string | null | undefined): string {
-  if (!raw) return "--";
+    if (!raw) return "--";
 
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return "--";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "--";
 
-  const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
-  const month = d.toLocaleDateString("en-GB", { month: "short" });
-  const time = d.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+    const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
+    const month = d.toLocaleDateString("en-GB", { month: "short" });
+    const time = d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
 
-  return `${day} ${month} / ${time}`;
-} 
-  
+    return `${day} ${month} / ${time}`;
+  }
+
   function crewListForFlight(flightInstanceId: string): CrewRow[] {
-    const rows = Array.isArray(bookingsByFlight?.[flightInstanceId]) ? bookingsByFlight[flightInstanceId] : [];
+    const rows = Array.isArray(bookingsByFlight?.[flightInstanceId])
+      ? bookingsByFlight[flightInstanceId]
+      : [];
 
     // RN canonical order:
     // listing_prio ASC, requested_at_utc ASC, id ASC
@@ -472,7 +483,9 @@ export default function Day() {
   const [confirmErrorText, setConfirmErrorText] = useState("");
 
   const [actionBusyByFlight, setActionBusyByFlight] = useState<Record<string, "list" | "unlist" | null>>({});
-  const [actionSuccessByFlight, setActionSuccessByFlight] = useState<Record<string, "listed" | "unlisted" | null>>({});
+  const [actionSuccessByFlight, setActionSuccessByFlight] = useState<Record<string, "listed" | "unlisted" | null>>(
+    {}
+  );
 
   function openConfirm(mode: "list" | "unlist", args: { flightInstanceId: string; row: ApiFlightRow }) {
     setConfirmMode(mode);
@@ -490,7 +503,10 @@ export default function Day() {
     const flightInstanceId = confirmMeta.flightInstanceId;
     const mode = confirmMode;
 
-    invariant(Boolean(String(flightInstanceId || "").trim()), "Invariant violation: missing flight_instance_id at Day write-path");
+    invariant(
+      Boolean(String(flightInstanceId || "").trim()),
+      "Invariant violation: missing flight_instance_id at Day write-path"
+    );
     invariant(Boolean(psn), "Invariant violation: missing psn at Day write-path");
 
     setActionBusyByFlight((prev) => ({ ...prev, [flightInstanceId]: mode }));
@@ -560,284 +576,140 @@ export default function Day() {
 
   const airportLogoSrc = getAirportLogo(airportCode);
 
-  // ----------------------------- styles -----------------------------
-  const styles: Record<string, React.CSSProperties> = {
-    screen: { minHeight: "100vh", background: "#f6f7f9" },
+  // Compact meta text (matches Week compact look)
+  const metaD = databaseLabel ? `D: ${databaseLabel}` : "";
+  const metaR = refreshedLabel ? `R: ${refreshedLabel}` : "";
 
-    stickyPageHeader: {
-      position: "sticky",
-      top: "var(--appheader-sticky-offset, 86px)",
-      zIndex: 40,
-      background: "#f6f7f9",
-      padding: "8px 14px 10px",
-      marginTop: 0,
-      marginBottom: 0,
-    },
-
-    pageHeaderWrap: { background: "#f6f7f9" },
-
-    headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-    headerUpdatedLeft: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" },
-    headerUpdatedText: { fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", lineHeight: "16px" },
-
-    backBtn: {
-      height: 36,
-      minWidth: 84,
-      borderRadius: 12,
-      border: "1px solid #d9e2ee",
-      background: "#ffffff",
-      fontWeight: 900,
-      color: "#132333",
-      cursor: "pointer",
-      fontSize: 14,
-    },
-
-    logoRow: { marginTop: 6, display: "flex", justifyContent: "center", alignItems: "center" },
-    airportLogo: { width: 168, height: 72, objectFit: "contain" as const },
-
-    tabsWrap: {
-      marginTop: 14,
-      display: "flex",
-      background: "#ffffff",
-      border: "1px solid #d9e2ee",
-      borderRadius: 14,
-      padding: 6,
-      gap: 6,
-    },
-    tabBtn: {
-      flex: 1,
-      borderRadius: 12,
-      padding: "10px 0",
-      border: "1px solid transparent",
-      background: "transparent",
-      cursor: "pointer",
-      fontSize: 14,
-      fontWeight: 900,
-      color: "rgba(19,35,51,0.55)",
-    },
-    tabBtnActive: {
-      background: "#e9f1ff",
-      border: "1px solid #d6e3ff",
-      color: "#132333",
-    },
-
-    dateStepperRow: {
-      marginTop: 8,
-      marginBottom: 8,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 10,
-    },
-    dateStepperBtn: {
-      width: 48,
-      height: 36,
-      borderRadius: 12,
-      border: "1px solid #d9e2ee",
-      background: "#ffffff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-      fontSize: 14,
-      fontWeight: 900,
-      color: "#b91c1c",
-    },
-    headerDateRedCenter: {
-      flex: 1,
-      margin: "0 10px",
-      fontWeight: 900,
-      color: "#b91c1c",
-      textAlign: "center",
-      lineHeight: "16px",
-    },
-
-    body: { padding: "12px 14px 28px" },
-
-    flightCard: {
-      background: "#ffffff",
-      border: "2px solid #d9e2ee",
-      borderRadius: 16,
-      paddingTop: 10,
-	  paddingLeft:10,
-	  paddingRight:10,
-	  paddingBottom:15,
-      marginBottom: 12,
-    },
-	
-    publicSection: { paddingBottom: 10 },
-
-    memberArea: {
-      marginTop: 10,
-      background: "rgba(19,35,51,0.03)",
-      borderRadius: 12,
-      padding: 10,
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-    },
-
-    zoneDivider: { marginTop: 5, paddingTop: 5, borderTop: "1px solid #eef2f7" },
-
-    zoneSubtitle: { fontWeight: 900, color: "#132333", fontSize: 12 },
-    zoneRow2: { display: "flex", justifyContent: "space-between", gap: 10, marginTop: 6 },
-    zoneMetaText: { fontWeight: 700, color: "rgba(19,35,51,0.60)", fontSize: 12 },
-
-    zone5Row: { display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 0" },
-    zone5Pos: { width: 28, fontWeight: 700, color: "rgba(19,35,51,0.55)", fontSize: 12, paddingTop: 1 },
-    zone5Name: { flex: 1, minWidth: 0, fontWeight: 700, color: "rgba(19,35,51,0.80)", fontSize: 12 },
-    zone5NameSelf: { fontWeight: 900, color: "#b91c1c" },
-    zone5Staff: { width: 84, textAlign: "right", fontWeight: 700, color: "rgba(19,35,51,0.70)", fontSize: 12 },
-    zone5Group: { width: 44, textAlign: "right", fontWeight: 700, color: "rgba(19,35,51,0.70)", fontSize: 12 },
-
-    actionBtn: {
-      borderRadius: 14,
-      padding: "12px 0",
-      textAlign: "center",
-      fontWeight: 900,
-      fontSize: 14, // RN parity requirement
-      color: "#132333",
-      cursor: "pointer",
-      border: "1.5px solid transparent",
-      background: "transparent",
-    },
-    actionBtnGreen: { background: "rgba(34,197,94,0.18)", borderColor: "rgba(34,197,94,0.35)" },
-    actionBtnAmber: { background: "rgba(245,158,11,0.16)", borderColor: "rgba(245,158,11,0.35)" },
-
-    overlay: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.35)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 18,
-      zIndex: 80,
-    },
-    modalCard: { width: "100%", maxWidth: 520, background: "#fff", borderRadius: 16, padding: 16, border: "1px solid #d9e2ee" },
-    modalTitle: { fontWeight: 900, fontSize: 16, color: "#132333" },
-    modalBody: { marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" },
-    modalErrorText: { marginTop: 10, fontWeight: 900, color: "#b91c1c" },
-    modalBtns: { display: "flex", gap: 10, marginTop: 14 },
-    modalBtn: { flex: 1, borderRadius: 14, padding: "12px 0", fontWeight: 900, cursor: "pointer", border: "1px solid transparent", fontSize: 14 },
-    modalBtnGhost: { background: "#fff", borderColor: "#d9e2ee", color: "#132333" },
-    modalBtnPrimary: { background: "#132333", color: "#ffffff" },
-
-    infoText: { fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" },
-    infoCloseBtn: { marginTop: 14, borderRadius: 14, padding: "12px 0", fontWeight: 900, background: "#e8f0ff", cursor: "pointer", fontSize: 14 },
-
-    rowLine1: { display: "flex", alignItems: "center", gap: 8 },
-    rowLine2: { display: "flex", alignItems: "center", marginTop: 4 },
-    listRowTwoLine: { padding: "8px 0" },
-    listRowDivider: { borderBottom: "1px solid #eef2f7" },
-    listRowSelf: { background: "rgba(185,28,28,0.06)", borderRadius: 10, padding: 8 },
-
-    listIndex: { width: 26, fontWeight: 900, color: "rgba(19,35,51,0.55)" },
-    nameWrap: { flex: 1, minWidth: 0 },
-    listNameTwoLine: { fontWeight: 900, color: "#132333" },
-    listStatusIcon: { fontWeight: 900, fontSize: 16, cursor: "pointer", userSelect: "none" as const },
-    staffIndentSpacer: { width: 26 },
-    listStaffNoTwoLine: { fontWeight: 800, color: "rgba(19,35,51,0.65)" },
-  };
+  // ✅ Single helper text for the one "i" button
+  const metaHelpText =
+    "D = Database time: when the backend last updated its schedule/status data from the airline feed.\n" +
+    "R = Refreshed time: when this app last synced (fetched) this screen from the backend.";
 
   return (
-    <div style={styles.screen}>
-      <div style={styles.stickyPageHeader}>
-        <div style={styles.pageHeaderWrap}>
-          <div style={styles.headerRow}>
-            <div style={styles.headerUpdatedLeft}>
-              {loading || isRefreshing ? (
-                <div style={styles.headerUpdatedText}>Updating…</div>
-              ) : errorText ? (
-                <div style={styles.headerUpdatedText} title={errorText}>
-                  {errorText}
-                </div>
-              ) : (
-                <>
-                  {databaseLabel ? <div style={styles.headerUpdatedText}>Database {databaseLabel}</div> : null}
-                  {refreshedLabel ? <div style={styles.headerUpdatedText}>Refreshed {refreshedLabel}</div> : <div style={styles.headerUpdatedText}> </div>}
-                </>
-              )}
+    <div className="app-screen">
+      {/* Day-local sticky header stack (Day-only bleed fix lives in .day-sticky) */}
+      <div className="day-sticky">
+        <div className="app-container">
+          <section className="day-headerCard">
+            <div className="day-headerTopRow">
+              {/* Left: meta + info helper */}
+              <div className="day-metaLeft">
+                <div className="day-metaHead">
+                  <div className="day-metaLines">
+                    {loading || isRefreshing ? (
+                      <div className="day-metaLine">
+                        <span className="day-spinner" aria-label="Updating" />
+                      </div>
+                    ) : errorText ? (
+                      <div className="day-metaLine" title={errorText}>
+                        {errorText}
+                      </div>
+                    ) : (
+                      <>
+                        {!!metaD && <div className="day-metaLine">{metaD}</div>}
+                        {!!metaR && <div className="day-metaLine">{metaR}</div>}
+                        {!metaD && !metaR ? <div className="day-metaLine"> </div> : null}
+                      </>
+                    )}
 
-              {dateBoundMsg ? (
-                <div style={{ ...styles.headerUpdatedText, color: "#b91c1c" }} title={dateBoundMsg}>
-                  {dateBoundMsg}
-                </div>
-              ) : null}
+                    {dateBoundMsg ? (
+                      <div className="day-metaLine day-metaLineWarn" title={dateBoundMsg}>
+                        {dateBoundMsg}
+                      </div>
+                    ) : null}
+                  </div>
 
-              {/* Optional manual refresh (kept for debugging, currently not rendered in UI) */}
-              {/* <button type="button" onClick={onManualRefresh}>Refresh</button> */}
+                  {/* ✅ ONE "i" button. It MUST do something on tap, so we use alert. */}
+                  <button
+                    type="button"
+                    className="day-metaInfo"
+                    aria-label="What are D and R?"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.alert(metaHelpText);
+                    }}
+                  >
+                    i
+                  </button>
+                </div>
+              </div>
+
+              {/* Centre: airport logo (no airport code on Day) */}
+              <div className="day-logoCenter">
+                {airportLogoSrc ? (
+                  <img src={airportLogoSrc} alt={`${airportCode} logo`} className="day-airportLogo" />
+                ) : null}
+              </div>
+
+              {/* Right: unified back image button */}
+              <div className="day-backRight">
+                <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
+              </div>
             </div>
 
-            <button type="button" style={styles.backBtn} onClick={() => nav(-1)}>
-              Back
-            </button>
-          </div>
+            <div className="day-tabsWrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("departures");
+                  nav(`/day/${dateKey}?tab=departures`, { state: { airport: airportCode }, replace: true });
+                }}
+                className={`day-tabBtn ${tab === "departures" ? "day-tabBtnActive" : ""}`}
+              >
+                Departures
+              </button>
 
-          <div style={styles.logoRow}>
-            {airportLogoSrc ? <img src={airportLogoSrc} alt={`${airportCode} logo`} style={styles.airportLogo} /> : null}
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("arrivals");
+                  nav(`/day/${dateKey}?tab=arrivals`, { state: { airport: airportCode }, replace: true });
+                }}
+                className={`day-tabBtn ${tab === "arrivals" ? "day-tabBtnActive" : ""}`}
+              >
+                Arrivals
+              </button>
+            </div>
 
-          <div style={styles.tabsWrap}>
-            <button
-              type="button"
-              onClick={() => {
-                setTab("departures");
-                nav(`/day/${dateKey}?tab=departures`, { state: { airport: airportCode }, replace: true });
-              }}
-              style={{ ...styles.tabBtn, ...(tab === "departures" ? styles.tabBtnActive : null) }}
-            >
-              Departures
-            </button>
+            <div className="day-dateStepperRow">
+              <button
+                type="button"
+                onClick={() => stepDateKey(-1)}
+                disabled={!canGoPrev}
+                className="day-dateStepperBtn"
+                style={{ opacity: canGoPrev ? 1 : 0.35 }}
+              >
+                {prevDowShort}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setTab("arrivals");
-                nav(`/day/${dateKey}?tab=arrivals`, { state: { airport: airportCode }, replace: true });
-              }}
-              style={{ ...styles.tabBtn, ...(tab === "arrivals" ? styles.tabBtnActive : null) }}
-            >
-              Arrivals
-            </button>
-          </div>
+              <div className="day-dateLabel">{dateLabel}</div>
 
-          <div style={styles.dateStepperRow}>
-            <button
-              type="button"
-              onClick={() => stepDateKey(-1)}
-              disabled={!canGoPrev}
-              style={{ ...styles.dateStepperBtn, opacity: canGoPrev ? 1 : 0.35 }}
-            >
-              {prevDowShort}
-            </button>
-
-            <div style={styles.headerDateRedCenter}>{dateLabel}</div>
-
-            <button
-              type="button"
-              onClick={() => stepDateKey(1)}
-              disabled={!canGoNext}
-              style={{ ...styles.dateStepperBtn, opacity: canGoNext ? 1 : 0.35 }}
-            >
-              {nextDowShort}
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => stepDateKey(1)}
+                disabled={!canGoNext}
+                className="day-dateStepperBtn"
+                style={{ opacity: canGoNext ? 1 : 0.35 }}
+              >
+                {nextDowShort}
+              </button>
+            </div>
+          </section>
         </div>
       </div>
 
-      <div style={styles.body}>
+      <div className="app-container day-body">
         {flights.map((f) => {
           const fid = f.flightInstanceId;
           const row = f.row || {};
 
-		  const userListed = resolvedIsLoggedIn ? isUserListed(fid) : false;
+          const userListed = resolvedIsLoggedIn ? isUserListed(fid) : false;
 
-		  // Step 1 (RN parity): X-staff total ALWAYS derived from bookingsByFlight (guests + members)
-		  const xStaff = Array.isArray(bookingsByFlight?.[fid]) ? bookingsByFlight[fid].length : 0;
+          // Step 1 (RN parity): X-staff total ALWAYS derived from bookingsByFlight (guests + members)
+          const xStaff = Array.isArray(bookingsByFlight?.[fid]) ? bookingsByFlight[fid].length : 0;
 
           // Crew list remains member-only (unchanged behaviour)
-		  const crew = resolvedIsLoggedIn ? crewListForFlight(fid) : [];
+          const crew = resolvedIsLoggedIn ? crewListForFlight(fid) : [];
 
           const actionCfg = actionConfigForFlight(row?.airline_iata, userListed);
 
@@ -884,84 +756,64 @@ export default function Day() {
           const other = crew.filter((u) => u.role !== "XCM" && u.role !== "XFA").length;
 
           return (
-            <div key={f.uiKey} style={styles.flightCard}>
-              <div style={styles.publicSection}>
+            <div key={f.uiKey} className="card day-flightCard">
+              <div className="day-publicSection">
                 <FlightCard3x3
-			  flight={cardFlight}
-			  showHeader={false}
-			  footerRightContent={
-				<span className="flightCard-xstaff">
-				  X-staff: {xStaff}
-				</span>
-			  }
-			/>
+                  flight={cardFlight}
+                  showHeader={false}
+                  footerRightContent={<span className="flightCard-xstaff">X-staff: {xStaff}</span>}
+                />
               </div>
 
               {resolvedIsLoggedIn ? (
-                <div style={styles.memberArea}>
-				
-					{xStaff > 0 ? (
-					  <div>
-						<div style={styles.zoneSubtitle}>Commuter summary</div>
+                <div className="day-memberArea">
+                  {xStaff > 0 ? (
+                    <div>
+                      <div className="day-zoneSubtitle">Commuter summary</div>
 
-						<div style={styles.zoneRow2}>
-						  <div style={styles.zoneMetaText}>XCM : {xcm}</div>
-						  <div style={styles.zoneMetaText}>XFA : {xfa}</div>
-						  <div style={styles.zoneMetaText}>Other : {other}</div>
-						</div>
-
-
-					  </div>
-					) : null}
+                      <div className="day-zoneRow2">
+                        <div className="day-zoneMetaText">XCM : {xcm}</div>
+                        <div className="day-zoneMetaText">XFA : {xfa}</div>
+                        <div className="day-zoneMetaText">Other : {other}</div>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {userListed ? (
                     <>
-                      <div style={styles.zoneDivider} />
+                      <div className="day-zoneDivider" />
 
                       <div>
-                        <div style={styles.zoneSubtitle}>Listing information</div>
+                        <div className="day-zoneSubtitle">Listing information</div>
 
                         {(() => {
                           const me = crew.find((u) => String(u.staffNo || "").trim() === String(psn || "").trim());
                           return (
-                            <div style={styles.zoneRow2}>
-							  <div style={styles.zoneMetaText}>
-								Requested: {formatListedAtDisplay(me?.listedAt)}
-							  </div>
+                            <div className="day-zoneRow2">
+                              <div className="day-zoneMetaText">Requested: {formatListedAtDisplay(me?.listedAt)}</div>
 
-								<div style={styles.zoneMetaText}>
-								  Status:{" "}
-								  {me?.status ? (
-									<>
-									  {me.status}									
-									  <img
-										src={
-										  me.status === "confirmed"
-											? LISTING_STATUS_ICONS.booked
-											: me.status === "sent"
-											? LISTING_STATUS_ICONS.sent
-											: LISTING_STATUS_ICONS.pending
-										}
-										alt={me.status}
-										style={{
-										  width: 20,
-										  height: 20,
-										  marginLeft: 6,
-										  verticalAlign: "middle",
-										}}
-									  />
-
-									</>
-								  ) : (
-									"--"
-								  )}
-								</div>
-
-
-							  
-							  
-							</div>
-
+                              <div className="day-zoneMetaText">
+                                Status:{" "}
+                                {me?.status ? (
+                                  <>
+                                    {me.status}
+                                    <img
+                                      src={
+                                        me.status === "confirmed"
+                                          ? LISTING_STATUS_ICONS.booked
+                                          : me.status === "sent"
+                                          ? LISTING_STATUS_ICONS.sent
+                                          : LISTING_STATUS_ICONS.pending
+                                      }
+                                      alt={me.status}
+                                      style={{ width: 20, height: 20, marginLeft: 6, verticalAlign: "middle" }}
+                                    />
+                                  </>
+                                ) : (
+                                  "--"
+                                )}
+                              </div>
+                            </div>
                           );
                         })()}
                       </div>
@@ -969,24 +821,72 @@ export default function Day() {
                       {/* RN rule: "All listed commuters" only renders when there are commuters */}
                       {crew.length > 0 ? (
                         <>
-                          <div style={styles.zoneDivider} />
+                          <div className="day-zoneDivider" />
 
                           <div>
-                            <div style={styles.zoneSubtitle}>All listed commuters: {crew.length}</div>
+                            <div className="day-zoneSubtitle">All listed commuters: {crew.length}</div>
 
                             <div style={{ marginTop: 8 }}>
                               {crew.map((u, idx) => {
                                 const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
 
                                 return (
-                                  <div key={`${u.staffNo}-${u.listedAt}-${idx}`} style={{ display: "flex", alignItems: "flex-start" }}>
-                                    <div style={styles.zone5Row}>
-                                      <div style={styles.zone5Pos}>{`P${idx + 1}.`}</div>
-                                      <div style={{ ...styles.zone5Name, ...(isSelf ? styles.zone5NameSelf : null) }}>{u.fullName}</div>
-                                      <div style={styles.zone5Staff} title={u.staffNo}>
+                                  <div
+                                    key={`${u.staffNo}-${u.listedAt}-${idx}`}
+                                    style={{ display: "flex", alignItems: "flex-start" }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: 8,
+                                        padding: "3px 0",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          width: 28,
+                                          fontWeight: 700,
+                                          color: "rgba(19,35,51,0.55)",
+                                          fontSize: 12,
+                                          paddingTop: 1,
+                                        }}
+                                      >
+                                        {`P${idx + 1}.`}
+                                      </div>
+                                      <div
+                                        style={{
+                                          flex: 1,
+                                          minWidth: 0,
+                                          fontWeight: isSelf ? 900 : 700,
+                                          color: isSelf ? "#b91c1c" : "rgba(19,35,51,0.80)",
+                                          fontSize: 12,
+                                        }}
+                                      >
+                                        {u.fullName}
+                                      </div>
+                                      <div
+                                        style={{
+                                          width: 84,
+                                          textAlign: "right",
+                                          fontWeight: 700,
+                                          color: "rgba(19,35,51,0.70)",
+                                          fontSize: 12,
+                                        }}
+                                        title={u.staffNo}
+                                      >
                                         {u.staffNo}
                                       </div>
-                                      <div style={styles.zone5Group} title={u.role || "Other"}>
+                                      <div
+                                        style={{
+                                          width: 44,
+                                          textAlign: "right",
+                                          fontWeight: 700,
+                                          color: "rgba(19,35,51,0.70)",
+                                          fontSize: 12,
+                                        }}
+                                        title={u.role || "Other"}
+                                      >
                                         {u.role || "Other"}
                                       </div>
                                     </div>
@@ -997,25 +897,21 @@ export default function Day() {
                           </div>
                         </>
                       ) : null}
-
-
-
                     </>
                   ) : null}
 
                   {actionCfg.show ? (
                     <>
-                      <div style={styles.zoneDivider} />
+                      <div className="day-zoneDivider" />
 
                       <button
                         type="button"
                         onClick={() => openConfirm(userListed ? "unlist" : "list", { flightInstanceId: fid, row })}
                         disabled={disableActionButton || busyMode !== null}
+                        className={`day-actionBtn ${userListed ? "day-actionBtnAmber" : "day-actionBtnGreen"}`}
                         style={{
-                          ...styles.actionBtn,
-                          ...(userListed ? styles.actionBtnAmber : styles.actionBtnGreen),
-						  width: "70%",
-						  alignSelf: "center",
+                          width: "70%",
+                          alignSelf: "center",
                           opacity: disableActionButton || busyMode !== null ? 0.45 : 1,
                         }}
                       >
@@ -1033,25 +929,41 @@ export default function Day() {
       {/* Confirm modal */}
       {confirmVisible ? (
         <div
-          style={styles.overlay}
+          className="day-overlay"
           onClick={() => {
             setConfirmVisible(false);
             setConfirmErrorText("");
           }}
         >
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalTitle}>{confirmMode === "list" ? "Confirm listing" : "Confirm unlisting"}</div>
-
-            <div style={styles.modalBody}>
-              {confirmMode === "list" ? "You will be added to the crew list. Your position may change." : "You will lose your position in the list."}
+          <div className="day-modalCard" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 900, fontSize: 16, color: "#132333" }}>
+              {confirmMode === "list" ? "Confirm listing" : "Confirm unlisting"}
             </div>
 
-            {confirmErrorText ? <div style={styles.modalErrorText}>{confirmErrorText}</div> : null}
+            <div style={{ marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" }}>
+              {confirmMode === "list"
+                ? "You will be added to the crew list. Your position may change."
+                : "You will lose your position in the list."}
+            </div>
 
-            <div style={styles.modalBtns}>
+            {confirmErrorText ? (
+              <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>{confirmErrorText}</div>
+            ) : null}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button
                 type="button"
-                style={{ ...styles.modalBtn, ...styles.modalBtnGhost }}
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  padding: "12px 0",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  border: "1px solid #d9e2ee",
+                  fontSize: 14,
+                  background: "#fff",
+                  color: "#132333",
+                }}
                 onClick={() => {
                   setConfirmVisible(false);
                   setConfirmErrorText("");
@@ -1062,7 +974,20 @@ export default function Day() {
 
               <button
                 type="button"
-                style={{ ...styles.modalBtn, ...styles.modalBtnPrimary }}
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  padding: "12px 0",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  border: "1px solid transparent",
+                  fontSize: 14,
+                  background: "#132333",
+                  color: "#ffffff",
+                  opacity: Boolean(confirmMeta?.flightInstanceId && actionBusyByFlight?.[confirmMeta.flightInstanceId])
+                    ? 0.55
+                    : 1,
+                }}
                 disabled={Boolean(confirmMeta?.flightInstanceId && actionBusyByFlight?.[confirmMeta.flightInstanceId])}
                 onClick={commitConfirm}
               >
@@ -1075,29 +1000,48 @@ export default function Day() {
 
       {/* Info modal */}
       {infoVisible ? (
-        <div style={styles.overlay} onClick={() => setInfoVisible(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.infoText}>
-              {infoMeta?.whoLabel || "Your"} security number for flight <span style={{ fontWeight: 900 }}>{infoMeta?.flightNo || ""}</span> on{" "}
+        <div className="day-overlay" onClick={() => setInfoVisible(false)}>
+          <div className="day-modalCard" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
+              {infoMeta?.whoLabel || "Your"} security number for flight{" "}
+              <span style={{ fontWeight: 900 }}>{infoMeta?.flightNo || ""}</span> on{" "}
               <span style={{ fontWeight: 900 }}>{shortDateForModal}</span> is:{" "}
-              <span style={{ fontWeight: 900 }}>{infoMeta?.securityNo ? String(infoMeta.securityNo) : "--"}</span>
+              <span style={{ fontWeight: 900 }}>
+                {infoMeta?.securityNo ? String(infoMeta.securityNo) : "--"}
+              </span>
             </div>
 
             <div style={{ height: 14 }} />
 
-            <div style={styles.infoText}>
+            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
               Status: <span style={{ fontWeight: 900 }}>{infoMeta?.statusText ? String(infoMeta.statusText) : "--"}</span>
             </div>
 
             <div style={{ height: 14 }} />
 
-            <div style={styles.infoText}>Booking notes:</div>
+            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>Booking notes:</div>
 
             {String(infoMeta?.notesText || "").trim().length > 0 ? (
-              <div style={{ ...styles.infoText, marginTop: 6 }}>{String(infoMeta?.notesText || "")}</div>
+              <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px", marginTop: 6 }}>
+                {String(infoMeta?.notesText || "")}
+              </div>
             ) : null}
 
-            <button type="button" style={styles.infoCloseBtn} onClick={() => setInfoVisible(false)}>
+            <button
+              type="button"
+              style={{
+                marginTop: 14,
+                borderRadius: 14,
+                padding: "12px 0",
+                fontWeight: 900,
+                background: "#e8f0ff",
+                cursor: "pointer",
+                fontSize: 14,
+                width: "100%",
+                border: "1px solid transparent",
+              }}
+              onClick={() => setInfoVisible(false)}
+            >
               Close
             </button>
           </div>

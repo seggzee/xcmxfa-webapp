@@ -82,7 +82,6 @@ function deriveXCat(employer: string, xType: string | null) {
 }
 
 // Auto-capitalise each word part: "van der berg" -> "Van Der Berg"
-// (If you later want Dutch particles lowercased, we can add that rule.)
 function titleCaseWords(input: string) {
   const s = (input || "").trim();
   if (!s) return "";
@@ -101,10 +100,8 @@ function splitTelephone(initialTelRaw: string): { code: string; digits: string }
   const raw = (initialTelRaw || "").trim();
   if (!raw) return { code: "+31", digits: "" };
 
-  // Remove spaces/dashes for parsing
   const compact = raw.replace(/[^\d+]/g, "");
 
-  // Find a matching code from our list (longest match first)
   const codes = [...PHONE_CODES].map((x) => x.code).sort((a, b) => b.length - a.length);
   const match = codes.find((c) => compact.startsWith(c));
   if (match) {
@@ -112,13 +109,11 @@ function splitTelephone(initialTelRaw: string): { code: string; digits: string }
     return { code: match, digits };
   }
 
-  // Fallback: if it starts with +, keep +31 default and use remaining digits
   if (compact.startsWith("+")) {
     const digits = compact.replace(/\D/g, "");
     return { code: "+31", digits };
   }
 
-  // Fallback: treat as local digits
   return { code: "+31", digits: compact.replace(/\D/g, "") };
 }
 
@@ -127,14 +122,12 @@ export default function ProfileWizard() {
   const { auth, routeReason, setRouteReason, onboardingUsername } = useAuth();
   const { crew, loadCrew } = useCrew();
 
-  // 1) PSN / identity key
   const psn = useMemo(() => {
     return String(crew?.psn || onboardingUsername || auth?.user?.username || "")
       .trim()
       .toUpperCase();
   }, [crew?.psn, onboardingUsername, auth?.user?.username]);
 
-  // 2) Countries list (keys of COUNTRY_AIRPORTS, sorted)
   const countries = useMemo(() => {
     const keys = Object.keys(COUNTRY_AIRPORTS || {});
     const cleaned = keys.map((c) => String(c || "").trim()).filter(Boolean);
@@ -142,7 +135,6 @@ export default function ProfileWizard() {
     return cleaned;
   }, []);
 
-  // 3) Initial values: prefill from crew cache
   const initial = crew || {};
 
   const [saving, setSaving] = useState(false);
@@ -150,7 +142,6 @@ export default function ProfileWizard() {
   const [countryModalOpen, setCountryModalOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState("");
 
-  // Title MUST be one of 4 options (locked select)
   const [title, setTitle] = useState(String(initial?.title || ""));
 
   const [firstName, setFirstName] = useState(
@@ -162,7 +153,6 @@ export default function ProfileWizard() {
 
   const [email, setEmail] = useState(String(initial?.email || ""));
 
-  // Telephone split inputs
   const initialTel = splitTelephone(String(initial?.telephone || initial?.phone || ""));
   const [phoneCode, setPhoneCode] = useState(initialTel.code);
   const [phoneDigits, setPhoneDigits] = useState(initialTel.digits);
@@ -185,7 +175,6 @@ export default function ProfileWizard() {
 
   const [error, setError] = useState("");
 
-  // Combine phone into international format. Store without spaces for backend stability.
   const telephoneCombined = useMemo(() => {
     const d = (phoneDigits || "").replace(/\D/g, "");
     return d ? `${phoneCode}${d}` : "";
@@ -194,7 +183,6 @@ export default function ProfileWizard() {
   function validateGeneral(): string | null {
     if (!psn) return "Missing PSN / staff number.";
 
-    // Title must be locked to 4 options
     if (!title) return "Please select a title.";
     if (!["Mr", "Mrs", "Ms", "Mx"].includes(title)) return "Invalid title selection.";
 
@@ -206,7 +194,6 @@ export default function ProfileWizard() {
     if (!isValidKlmEmail(emailLower))
       return "Email must be name.surname@klm.com or name.surname@transavia.com";
 
-    // Telephone must be in international format components
     if (!phoneCode) return "Please select country code.";
     const digits = (phoneDigits || "").replace(/\D/g, "");
     if (!digits) return "Please enter telephone digits.";
@@ -254,18 +241,16 @@ export default function ProfileWizard() {
       firstname: firstName.trim(),
       lastname: lastName.trim(),
       email: normalizeEmail(email),
-      telephone: telephoneCombined, // ✅ international format, e.g. +31612345678
+      telephone: telephoneCombined,
     };
 
     try {
       setSaving(true);
 
-      // ✅ IMPORTANT: FLAT JSON (do NOT wrap in { payload: ... })
       await postJson(SAVE_MEMBER_GENERAL_URL, generalPayload);
 
       await loadCrew(psn);
 
-      // Onboarding complete: clear pending onboarding
       localStorage.removeItem(STORAGE_PENDING_USERNAME);
 
       setRouteReason?.("details_saved");
@@ -298,387 +283,283 @@ export default function ProfileWizard() {
   const isMember = auth?.mode === "member";
 
   return (
-    <div style={{ padding: 24, maxWidth: 620 }}>
-      <h2>Complete your details</h2>
+    <div className="app-screen profile-page">
+      <div className="app-container">
+        <div className="profile-top">
+          <div className="text-title">Complete your details</div>
 
-      {!isMember ? (
-        <div style={{ marginTop: 12, padding: 12, border: "1px solid #f59e0b", borderRadius: 12 }}>
-          <strong>Members only</strong>
-          <div style={{ marginTop: 6 }}>Please log in to complete your profile.</div>
+          <button className="btn btn-secondary" onClick={() => nav(-1)} disabled={saving}>
+            Back
+          </button>
         </div>
-      ) : null}
 
-      {/* PSN display (read-only) */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>PSN / Staff identity</div>
-        <input
-          value={psn}
-          readOnly
-          disabled
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            background: "#f3f4f6",
-            fontWeight: 800,
-          }}
-        />
-      </div>
+        {!isMember ? (
+          <div className="wizard-warning card">
+            <div className="wizard-warning-title">Members only</div>
+            <div className="wizard-warning-body">Please log in to complete your profile.</div>
+          </div>
+        ) : null}
 
-      {/* Title (LOCKED SELECT) */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Title</div>
-        <select
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          disabled={saving}
-          style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
-        >
-          <option value="">Select title…</option>
-          <option value="Mr">Mr</option>
-          <option value="Mrs">Mrs</option>
-          <option value="Ms">Ms</option>
-          <option value="Mx">Mx</option>
-        </select>
-      </div>
-
-      {/* First + last name (auto-capitalise on blur) */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>First name</div>
-        <input
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          onBlur={() => setFirstName(titleCaseWords(firstName))}
-          disabled={saving}
-          style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
-        />
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Last name</div>
-        <input
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          onBlur={() => setLastName(titleCaseWords(lastName))}
-          disabled={saving}
-          style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
-        />
-      </div>
-
-      {/* Email */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Email</div>
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={saving}
-          autoCapitalize="none"
-          style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
-        />
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-          name.surname (@klm.com or @transavia.com)
+        {/* PSN display (read-only) */}
+        <div className="card">
+          <div className="profile-section-title">PSN / Staff identity</div>
+          <input value={psn} readOnly disabled className="wizard-input wizard-input--readonly" />
         </div>
-      </div>
 
-      {/* Telephone (2-part: code + digits) */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Telephone</div>
-
-        <div style={{ display: "flex", gap: 10 }}>
+        {/* Title (LOCKED SELECT) */}
+        <div className="card">
+          <div className="profile-section-title">Title</div>
           <select
-            value={phoneCode}
-            onChange={(e) => setPhoneCode(e.target.value)}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             disabled={saving}
-            style={{
-              width: 210,
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #ddd",
-              background: "#fff",
-              fontWeight: 800,
-            }}
+            className="wizard-input"
           >
-            {PHONE_CODES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.label}
-              </option>
-            ))}
+            <option value="">Select title…</option>
+            <option value="Mr">Mr</option>
+            <option value="Mrs">Mrs</option>
+            <option value="Ms">Ms</option>
+            <option value="Mx">Mx</option>
           </select>
+        </div>
 
+        {/* First + last name */}
+        <div className="card">
+          <div className="profile-section-title">First name</div>
           <input
-            value={phoneDigits}
-            onChange={(e) => {
-              // keep it digits-only as user types
-              const digitsOnly = e.target.value.replace(/\D/g, "");
-              setPhoneDigits(digitsOnly);
-            }}
-            inputMode="numeric"
-            placeholder="digits only"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            onBlur={() => setFirstName(titleCaseWords(firstName))}
             disabled={saving}
-            style={{
-              flex: 1,
-              padding: 12,
-              borderRadius: 10,
-              border: "1px solid #ddd",
-            }}
+            className="wizard-input"
           />
         </div>
 
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-          Stored as: <strong>{telephoneCombined || "(empty)"}</strong>
-        </div>
-      </div>
-
-      {/* Employer pills */}
-      <div style={{ marginTop: 18 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Employer</div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            type="button"
-            onClick={() => setEmployer("KLM")}
+        <div className="card">
+          <div className="profile-section-title">Last name</div>
+          <input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            onBlur={() => setLastName(titleCaseWords(lastName))}
             disabled={saving}
-            style={{
-              flex: 1,
-              padding: 12,
-              borderRadius: 999,
-              border: "1px solid #ddd",
-              background: employer === "KLM" ? "#e9f1ff" : "#fff",
-              fontWeight: 900,
-            }}
-          >
-            KLM / KLC
-          </button>
-          <button
-            type="button"
-            onClick={() => setEmployer("TRANSAVIA")}
-            disabled={saving}
-            style={{
-              flex: 1,
-              padding: 12,
-              borderRadius: 999,
-              border: "1px solid #ddd",
-              background: employer === "TRANSAVIA" ? "#e9f1ff" : "#fff",
-              fontWeight: 900,
-            }}
-          >
-            Transavia
-          </button>
+            className="wizard-input"
+          />
         </div>
-      </div>
 
-      {/* Job function pills */}
-      <div style={{ marginTop: 18 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Job function</div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {["Cockpit crew", "Cabin crew"].map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setJobFunction(v)}
+        {/* Email */}
+        <div className="card">
+          <div className="profile-section-title">Email</div>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={saving}
+            autoCapitalize="none"
+            className="wizard-input"
+          />
+          <div className="wizard-help">name.surname (@klm.com or @transavia.com)</div>
+        </div>
+
+        {/* Telephone (2-part) */}
+        <div className="card">
+          <div className="profile-section-title">Telephone</div>
+
+          <div className="wizard-grid2">
+            <select
+              value={phoneCode}
+              onChange={(e) => setPhoneCode(e.target.value)}
               disabled={saving}
-              style={{
-                flex: 1,
-                padding: 12,
-                borderRadius: 999,
-                border: "1px solid #ddd",
-                background: jobFunction === v ? "#e9f1ff" : "#fff",
-                fontWeight: 900,
-              }}
+              className="wizard-input"
             >
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
+              {PHONE_CODES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
 
-      {/* Country selection */}
-      <div style={{ marginTop: 18 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>XCM / XFA country</div>
+            <input
+              value={phoneDigits}
+              onChange={(e) => {
+                const digitsOnly = e.target.value.replace(/\D/g, "");
+                setPhoneDigits(digitsOnly);
+              }}
+              inputMode="numeric"
+              placeholder="digits only"
+              disabled={saving}
+              className="wizard-input"
+            />
+          </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setCountryQuery("");
-            setCountryModalOpen(true);
-          }}
-          disabled={saving}
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            textAlign: "left",
-            background: "#fff",
-            fontWeight: 900,
-          }}
-        >
-          {xBase || "Select country"}
-        </button>
-
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-          Main country for xcm / xfa travel
-        </div>
-      </div>
-
-      {/* Modal (simple overlay) */}
-      {countryModalOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 16,
-            zIndex: 999,
-          }}
-          onClick={() => setCountryModalOpen(false)}
-        >
-          <div
-            style={{
-              width: "min(720px, 100%)",
-              maxHeight: "80vh",
-              background: "#fff",
-              borderRadius: 16,
-              border: "1px solid #e6e9ee",
-              overflow: "hidden",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: 14, borderBottom: "1px solid #eee" }}>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>Select country</div>
-
-              <input
-                value={countryQuery}
-                onChange={(e) => setCountryQuery(e.target.value)}
-                placeholder="Search…"
-                style={{
-                  width: "100%",
-                  marginTop: 12,
-                  padding: 12,
-                  borderRadius: 10,
-                  border: "1px solid #ddd",
-                }}
-              />
-            </div>
-
-            <div style={{ padding: 14, overflow: "auto", maxHeight: "60vh" }}>
-              {countries.length ? (
-                filteredCountries.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      setXBase(c);
-                      setCountryModalOpen(false);
-                    }}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #eee",
-                      background: xBase === c ? "#e9f1ff" : "#fff",
-                      fontWeight: 900,
-                      marginBottom: 8,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {c}
-                  </button>
-                ))
-              ) : (
-                <div style={{ opacity: 0.75 }}>No countries available.</div>
-              )}
-            </div>
-
-            <div style={{ padding: 14, borderTop: "1px solid #eee", display: "flex", gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setCountryModalOpen(false)}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  fontWeight: 900,
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+          <div className="wizard-help">
+            Stored as: <strong>{telephoneCombined || "(empty)"}</strong>
           </div>
         </div>
-      ) : null}
 
-      {/* Passport/ESTA note */}
-      <div style={{ marginTop: 18, padding: 14, border: "1px solid #eee", borderRadius: 14 }}>
-        <div style={{ fontWeight: 900 }}>Passport &amp; Travel documents</div>
-        <div style={{ marginTop: 8, opacity: 0.85 }}>
-          Passport and ESTA details are stored separately. ESTA/residence details are only required
-          for United States and Canada. Please complete passport details from profile page.
-        </div>
-      </div>
+        {/* Employer pills */}
+        <div className="card">
+          <div className="profile-section-title">Employer</div>
 
-      {/* Buttons */}
-      <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            type="button"
-            onClick={onPrevious}
-            disabled={saving}
-            style={{
-              flex: 1,
-              padding: 12,
-              borderRadius: 12,
-              border: "1px solid #ddd",
-              background: "#fff",
-              fontWeight: 900,
-            }}
-          >
-            Previous page
-          </button>
+          <div className="wizard-pillRow">
+            <button
+              type="button"
+              onClick={() => setEmployer("KLM")}
+              disabled={saving}
+              className={`btn btn-secondary wizard-pill ${
+                employer === "KLM" ? "wizard-pill--active" : ""
+              }`}
+            >
+              KLM / KLC
+            </button>
 
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            style={{
-              flex: 1,
-              padding: 12,
-              borderRadius: 12,
-              border: "1px solid #f5d0a8",
-              background: "#fff7ed",
-              fontWeight: 900,
-            }}
-          >
-            Cancel
-          </button>
+            <button
+              type="button"
+              onClick={() => setEmployer("TRANSAVIA")}
+              disabled={saving}
+              className={`btn btn-secondary wizard-pill ${
+                employer === "TRANSAVIA" ? "wizard-pill--active" : ""
+              }`}
+            >
+              Transavia
+            </button>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          style={{
-            padding: 14,
-            borderRadius: 999,
-            border: "1px solid #bbf7d0",
-            background: "#dcfce7",
-            fontWeight: 900,
-          }}
-        >
-          {saving ? "Saving..." : "Save details"}
-        </button>
+        {/* Job function pills */}
+        <div className="card">
+          <div className="profile-section-title">Job function</div>
 
-        {error ? (
-          <div style={{ color: "#b91c1c", fontWeight: 900, fontSize: 13 }}>
-            {error}
+          <div className="wizard-pillRow">
+            {["Cockpit crew", "Cabin crew"].map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setJobFunction(v)}
+                disabled={saving}
+                className={`btn btn-secondary wizard-pill ${
+                  jobFunction === v ? "wizard-pill--active" : ""
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Country selection */}
+        <div className="card">
+          <div className="profile-section-title">XCM / XFA country</div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCountryQuery("");
+              setCountryModalOpen(true);
+            }}
+            disabled={saving}
+            className="profile-row"
+          >
+            <span>{xBase || "Select country"}</span>
+            <span className="profile-chevron">›</span>
+          </button>
+
+          <div className="wizard-help">Main country for xcm / xfa travel</div>
+        </div>
+
+        {/* Modal (simple overlay) */}
+        {countryModalOpen ? (
+          <div
+            className="wizard-modalOverlay"
+            onClick={() => setCountryModalOpen(false)}
+          >
+            <div className="wizard-modalCard" onClick={(e) => e.stopPropagation()}>
+              <div className="wizard-modalHeader">
+                <div className="wizard-modalTitle">Select country</div>
+
+                <input
+                  value={countryQuery}
+                  onChange={(e) => setCountryQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="wizard-input wizard-input--modal"
+                />
+              </div>
+
+              <div className="wizard-modalBody">
+                {countries.length ? (
+                  filteredCountries.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setXBase(c);
+                        setCountryModalOpen(false);
+                      }}
+                      className={`wizard-listRow ${
+                        xBase === c ? "wizard-listRow--active" : ""
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))
+                ) : (
+                  <div className="wizard-empty">No countries available.</div>
+                )}
+              </div>
+
+              <div className="wizard-modalFooter">
+                <button
+                  type="button"
+                  onClick={() => setCountryModalOpen(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
+
+        {/* Passport/ESTA note */}
+        <div className="card">
+          <div className="profile-section-title">Passport &amp; Travel documents</div>
+          <div className="wizard-note">
+            Passport and ESTA details are stored separately. ESTA/residence details are only required
+            for United States and Canada. Please complete passport details from profile page.
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="wizard-actions">
+          <div className="wizard-actionsRow">
+            <button
+              type="button"
+              onClick={onPrevious}
+              disabled={saving}
+              className="btn btn-secondary"
+            >
+              Previous page
+            </button>
+
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={saving}
+              className="btn btn-secondary wizard-cancel"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="btn btn-primary wizard-save"
+          >
+            {saving ? "Saving..." : "Save details"}
+          </button>
+
+          {error ? <div className="wizard-error">{error}</div> : null}
+        </div>
       </div>
     </div>
   );

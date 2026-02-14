@@ -1,0 +1,397 @@
+/* src/styles/week.css
+   Week screen
+   - Matches global primitives (.app-screen / .app-container / .card)
+   - AppHeader is sticky (top:0) so Week sticky header uses: top: var(--appheader-height)
+   - IMPORTANT FIX: true-centre the 3-letter airport code on the CARD
+     by reserving equal left/right slots (120px / 120px).
+*/
+
+/* ===============================
+   Sticky Week Page Header
+   =============================== */
+
+.week-sticky {
+  position: sticky;
+  top: var(--appheader-height); /* ✅ sits directly under AppHeader */
+  z-index: 40;
+  background: var(--bg-app);
+  border-top: 1px solid transparent;
+}
+
+/* Tighten vertical padding inside sticky header (keep global horizontal rhythm) */
+.week-sticky .app-container {
+  padding-top: 10px;
+  padding-bottom: 0;
+}
+
+/* ===============================
+   Header Card
+   =============================== */
+
+.week-headerCard {
+  border: 2px solid #e6e9ee;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+
+/* TRUE-CENTRE LAYOUT:
+   left slot  = 120px (logo fixed)
+   centre     = 1fr   (airport code centred on the card)
+   right slot = 120px (reserved space; button aligned right inside)
+*/
+.week-headerTopRow {
+  display: grid;
+  grid-template-columns: 120px 1fr 120px;
+  align-items: center;
+  column-gap: 10px;
+}
+
+.week-headerLogo {
+  width: 120px;
+  height: 44px;
+  object-fit: contain;
+  justify-self: start;
+}
+
+.week-headerCode {
+  justify-self: center;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1;
+}
+
+/* Right slot matches logo width, but button is right-aligned */
+.week-headerRight {
+  width: 120px;           /* same as .week-headerLogo */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+
+/* Right reserved slot keeps centre true; button sits on the right edge */
+.week-headerRightSlot {
+  justify-self: end;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 120px; /* explicit to match grid column */
+}
+
+/* Legacy pill (if still used anywhere) */
+.week-backPill {
+  background: #e9f1ff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid #d6e3ff;
+  font-weight: 700;
+  color: #111827;
+  cursor: pointer;
+}
+
+.week-range {
+  margin-top: 1px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.week-updatedMetaWrap {
+  margin-top: 6px;
+  text-align: center;
+}
+
+.week-updatedMetaLine {
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+/* Mode toggle */
+.week-modeToggle {
+  margin-top: 14px;
+  border: 1px solid #d6e3ff;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 6px;
+  display: flex;
+  gap: 6px;
+}
+
+.week-modeOption {
+  flex: 1;
+  border-radius: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 800;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.week-modeOptionActive {
+  background: #e9f1ff;
+  border: 1px solid #d6e3ff;
+  color: #111827;
+}
+
+/* ===============================
+   Body
+   =============================== */
+
+.week-body {
+  padding-top: 0; /* sticky header already handles spacing */
+  padding-bottom: 28px;
+}
+
+/* ===============================
+   Classic grid cards
+   =============================== */
+
+.week-classicGrid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  row-gap: 12px;
+  margin-top: 5px;
+}
+
+.week-classicCard {
+  width: 31.5%;
+  border-radius: 18px;
+  border: 2px solid #e6e9ee;
+  background: #ffffff;
+  padding: 10px 8px;
+  min-height: 150px;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Calendar snippet + overlay */
+.week-calendarWrap {
+  width: 100%;
+  height: 118px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 2px;
+  padding-bottom: 24px;
+  position: relative;
+}
+
+.week-calendarImage {
+  width: 100%;
+  height: 118px;
+  object-fit: contain;
+}
+
+.week-calendarTextOverlay {
+  position: absolute;
+  inset: 0;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Tweaked to better align on web with the snippet scaling */
+.week-calDow {
+  position: absolute;
+  top: 15px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  width: 100%;
+  text-align: center;
+}
+
+.week-calMonth {
+  color: #d96a79;
+  font-weight: 900;
+  font-size: 15px;
+  margin-top: 20px;
+  width: 100%;
+  text-align: center;
+}
+
+.week-calDayNum {
+  color: #d96a79;
+  font-weight: 900;
+  font-size: 25px;
+  margin-top: 0;
+  width: 100%;
+  text-align: center;
+}
+
+/* Corner icons + counts */
+.week-cornerSlot {
+  position: absolute;
+  bottom: 2px;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.week-cornerSlotLeft {
+  left: 6px;
+}
+
+.week-cornerSlotRight {
+  right: 6px;
+}
+
+.week-iconTap {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.week-planeIcon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.week-fallbackArrow {
+  font-size: 18px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 18px;
+}
+
+.week-floatCount {
+  position: absolute;
+  top: -6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.week-floatCountNW {
+  left: -2px;
+}
+
+.week-floatCountNE {
+  right: -2px;
+}
+
+/* ===============================
+   Compact stack cards
+   =============================== */
+
+.week-compactStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.week-compactDayCard {
+  border-radius: 18px;
+  border: 2px solid #e6e9ee;
+  background: #ffffff;
+  padding: 14px 16px;
+}
+
+.week-compactDayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.week-compactDayDate {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.week-compactDayWeek {
+  color: #d96a79;
+  font-weight: 900;
+}
+
+.week-compactDayMonthDate {
+  color: #d96a79;
+  font-weight: 900;
+}
+
+.week-compactTotalPill {
+  border: 1px solid #e6e9ee;
+  background: #f3f6fb;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  color: #111827;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.week-compactDayBody {
+  display: flex;
+}
+
+.week-compactMiniCard {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e6e9ee;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.week-compactMiniCardLeft {
+  margin-right: 12px;
+}
+
+.week-compactMiniIconWrap {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.week-compactMiniText {
+  flex: 1;
+  min-width: 0;
+}
+
+.week-compactMiniCount {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 22px;
+}
+
+.week-compactMiniLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-top: 2px;
+}

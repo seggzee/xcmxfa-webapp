@@ -1,21 +1,21 @@
 // src/components/AppHeader.tsx
 //
 // =====================================================================================
-// 🔧 ASSET LOADING FIX (NO VITE MAGIC): AppHeader avatar must NOT use "/assets/..."
+// ?? ASSET LOADING FIX (NO VITE MAGIC): AppHeader avatar must NOT use "/assets/..."
 // =====================================================================================
 //
 // IDIOT GUIDE:
 //
-// ❌ OLD (breaks after build on Synology sometimes):
+// ? OLD (breaks after build on Synology sometimes):
 //    <img src="/assets/avatar.jpg" />
 //
 // Why?
 // - That is an *absolute URL path*.
 // - It assumes your deployed site serves a real file at exactly "/assets/avatar.jpg".
-// - In Vite dev this often “works” because dev server/public folder behaviour can mask it.
+// - In Vite dev this often �works� because dev server/public folder behaviour can mask it.
 // - After build + deploy (different base path / folder structure), it can 404.
 //
-// ✅ NEW (always correct):
+// ? NEW (always correct):
 // - We import the avatar via src/assets/index.ts
 // - That returns the *actual final URL* inside the build output (hashed / bundled).
 //
@@ -25,10 +25,10 @@
 //
 // =====================================================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-// ✅ CHANGE: add UI_ICONS so we can use UI_ICONS.avatar (central resolver)
+// ? CHANGE: add UI_ICONS so we can use UI_ICONS.avatar (central resolver)
 import { APP_IMAGES, UI_ICONS } from "../assets";
 
 import LoginModal from "./LoginModal";
@@ -74,6 +74,39 @@ export default function AppHeader({
   const location = useLocation();
   const navigate = useNavigate();
 
+  // ? Measure header height so page-level sticky headers can sit UNDER it cleanly.
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const root = document.documentElement;
+
+    const apply = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height || 0);
+      if (h > 0) root.style.setProperty("--appheader-height", `${h}px`);
+    };
+
+    apply();
+
+    // Keep it correct if fonts/images/layout change
+    let ro: ResizeObserver | null = null;
+    try {
+      ro = new ResizeObserver(() => apply());
+      ro.observe(el);
+    } catch {
+      // ignore
+    }
+
+    window.addEventListener("resize", apply);
+
+    return () => {
+      window.removeEventListener("resize", apply);
+      if (ro) ro.disconnect();
+    };
+  }, []);
+
   const handleAvatarClick = () => {
     if (!isLoggedIn) {
       setAccountOpen(false);
@@ -97,7 +130,7 @@ export default function AppHeader({
       setLoginOpen(true);
     }
 
-    // Clear the login param so refresh/back doesn’t re-trigger it
+    // Clear the login param so refresh/back doesn�t re-trigger it
     params.delete("login");
     const nextSearch = params.toString();
 
@@ -106,13 +139,13 @@ export default function AppHeader({
         pathname: location.pathname,
         search: nextSearch ? `?${nextSearch}` : "",
       },
-      { replace: true },
+      { replace: true }
     );
   }, [location.search, location.pathname, navigate, isLoggedIn]);
 
   return (
     <>
-      <header className="appHeader">
+      <header ref={headerRef} className="appHeader">
         {/* Left: logo (transparent, aligned) */}
         <button
           type="button"
@@ -146,7 +179,7 @@ export default function AppHeader({
               }
             >
               <div className="appHeader-avatarInner">
-                {/* ✅ FIX: centralised asset URL (works after build, works on Synology) */}
+                {/* ? FIX: centralised asset URL (works after build, works on Synology) */}
                 <img src={UI_ICONS.avatar} alt="" className="appHeader-avatarImg" />
               </div>
             </div>

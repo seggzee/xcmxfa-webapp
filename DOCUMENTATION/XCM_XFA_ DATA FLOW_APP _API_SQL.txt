@@ -1,0 +1,354 @@
+XCM/XFA DATA FLOW — APP ↔ API ↔ SQL
+
+	Mental Model & Dummies Guide (Authoritative Text Version)
+
+		0. Purpose of this document
+
+			This document exists to reset and stabilise understanding of how the XCM/XFA system works.
+
+			It answers:
+
+			What each layer is
+
+			What each layer can and cannot do
+
+			Where authority lives
+
+			Why things sometimes appear “stale”
+
+			Why that is by design, not a bug
+
+			It is written so that:
+
+			you can reread it weeks later
+
+			you don’t need to remember past conversations
+
+			nothing relies on implicit knowledge
+
+		1. The three layers (nothing more, nothing less)
+
+			There are exactly three layers in the system:
+
+			┌────────────┐
+			│   Mobile   │
+			│    App     │
+			│ (Expo/RN)  │
+			└─────┬──────┘
+				  │ HTTP (intent + reads)
+				  ▼
+			┌────────────┐
+			│   Backend  │
+			│  PHP /api  │
+			│ (governed) │
+			└─────┬──────┘
+				  │ SQL writes / reads
+				  ▼
+			┌────────────┐
+			│   MariaDB  │
+			│   (Truth)  │
+			└────────────┘
+
+
+			There is no hidden fourth layer.
+
+			No queues, no workers, no background services beyond what the PHP code explicitly runs.
+
+		2. What “the backend” means in this project
+
+			When we say “the backend”, we are not speaking abstractly.
+
+			The backend is literally:
+
+			the PHP files under /api/*
+
+			the MariaDB database they connect to
+
+			any legacy PHP scripts they include or invoke
+
+			Examples:
+
+			/api/flights/day.php
+
+			/api/bookings/day.php
+
+			/api/status/ensure-fresh.php
+
+			legacy scripts like flight_status_update.php
+
+			If something does not happen, it is because one of those files did not do it.
+
+			There is no other place where logic could live.
+
+		3. The single most important rule (lock this in)
+
+			The app never talks to the airline API.
+			The app only ever talks to your backend PHP layer.
+
+			Everything else flows from this rule.
+
+		4. The app’s role (what it can and cannot do)
+			What the app can do
+
+			The app can:
+
+			say what the user is looking at
+
+			request data from SQL via the backend
+
+			ask the backend to consider refreshing data
+
+			render whatever data it receives
+
+			In practice, this means:
+
+			calling GET /api/flights/day
+
+			calling GET /api/bookings/day
+
+			calling POST /api/status/ensure-fresh
+
+			What the app cannot do
+
+			The app cannot:
+
+			force a refresh
+
+			know airline API quota state
+
+			know whether a refresh is allowed
+
+			know whether another refresh is in progress
+
+			know whether data is “truly fresh”
+
+			The app is intentionally powerless in these areas.
+
+			This is not a limitation — it is a safety feature.
+
+		5. SQL as the only source of truth
+
+			The SQL database is the only authoritative data source the app ever reads.
+
+			This has consequences that must be accepted:
+
+			SQL may be stale
+
+			SQL may be partially populated
+
+			SQL may temporarily have missing fields
+
+			SQL may differ from what the airline website shows right now
+
+			All of that is expected behaviour.
+
+			The app does not “wait for freshness”.
+			It does not “block until updated”.
+			It renders what SQL currently contains.
+
+		6. What “ensure-fresh” really means (important)
+
+			The name “ensure-fresh” is misleading if taken literally.
+
+			❌ What ensure-fresh is NOT
+
+			It is not:
+
+			a command
+
+			a guarantee
+
+			a fetch
+
+			a promise that data will update
+
+			✅ What ensure-fresh ACTUALLY is
+
+			ensure-fresh is best understood as:
+
+			A request for consideration
+
+			More precisely:
+
+			“Backend, I am interested in this airport/day right now.
+			Please evaluate whether you are allowed to refresh your SQL data,
+			and perform a refresh only if your governance rules permit it.”
+
+			That’s it.
+
+			The backend may respond:
+
+			“I refreshed”
+
+			“I didn’t refresh”
+
+			“I can’t refresh yet”
+
+			“Someone else is refreshing”
+
+			“Quota would be exceeded”
+
+			All are valid outcomes.
+
+		7. Where authority really lives
+
+			Let’s be explicit.
+
+								Authority table
+			
+				Decision							Who decides
+				-----------							-----------
+				Whether to call airline API			Backend
+				When to refresh						Backend
+				Cooldown rules						Backend
+				Daily API limit						Backend
+				Locking / concurrency				Backend
+				What to render						App
+				How to render						App
+
+			The app has zero authority over freshness.
+
+		8. Why this architecture exists (5000/day rule)
+
+			You are using an official airline API with a hard daily limit (~5000 calls).
+
+			If every app screen or user directly triggered API calls:
+
+			multiple users would multiply calls
+
+			background refreshes would explode usage
+
+			quota would be exhausted unpredictably
+
+			By centralising API access in the backend:
+
+			many app calls collapse into one governed refresh
+
+			polling becomes safe
+
+			user count no longer multiplies API usage
+
+			This is the primary reason the app is designed to be “dumb”.
+
+		9. Practical data flow examples
+		
+			Example A: DayDetails screen opens
+			1. App mounts DayDetails
+			2. App calls POST /status/ensure-fresh
+			3. Backend evaluates:
+				 - cooldown?
+				 - lock?
+				 - quota?
+			4. Backend MAY refresh SQL (or not)
+			5. App calls GET /flights/day
+			6. App calls GET /bookings/day
+			7. App renders SQL
+
+
+			Note:
+
+			Steps 5–7 happen regardless of step 4 outcome.
+
+			Example B: Two users view the same airport/day
+			User A → ensure-fresh → backend refreshes
+			User B → ensure-fresh → backend says "cooldown"
+
+
+			Both users then:
+
+			read the same SQL
+
+			see consistent data
+
+			do not double API usage
+
+		10. App-side files that touch the backend (map)
+			/src/api/flightsApi.js
+
+			The only gateway.
+
+			All backend communication flows through here.
+
+			Screens never call fetch() directly.
+
+			/src/data/scheduleCache.js
+
+			Frontend-only optimisation.
+			No authority, no backend logic.
+
+			Screens that consume backend data
+
+			WeeklyOverviewScreen.js
+
+			DayDetailsScreen.js
+
+			They:
+
+			call functions from flightsApi.js
+
+			never know how freshness is decided
+
+		11. Why “stale” data is not a bug
+
+			Seeing older gate info, missing aircraft type, or delayed updates does not mean:
+
+			the app is broken
+
+			the backend failed
+
+			the airline API wasn’t called “properly”
+
+			It usually means:
+
+			governance prevented a refresh
+
+			data is outside refresh window
+
+			API budget is being protected
+
+			This is working as designed.
+
+		12. Mental shortcut (keep this sentence)
+
+			If everything ever feels confusing again, remember this:
+
+			The app shows what SQL has.
+			The backend decides when SQL changes.
+			The airline API is never consulted directly by the app.
+
+			If that sentence holds, the system is behaving correctly.
+
+		13. Why this matters for future work
+
+			Because this model is now clear:
+
+			adding gate / aircraft / registration is just more SQL fields
+
+			write flows (list/unlist) remain safe
+
+			migrations can happen incrementally
+
+			legacy scripts can be retired without app changes
+
+			You’ve built a system that is boring in the right places — and that’s a compliment.
+
+			Final note
+
+			You were absolutely right to push on the wording, the authority boundaries, and the meaning of “ensure”.
+
+			These are exactly the questions that separate:
+
+			“a system that works today”
+			from
+
+			“a system that is understandable and maintainable next year”.
+
+			If you want, next time we can:
+
+			extract just the ASCII diagrams
+
+			or turn this into a one-page executive summary
+
+			or annotate it with your actual file names and tables inline
+
+			But this text is now your ground truth.

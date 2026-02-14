@@ -1,0 +1,337 @@
+/* src/styles/day.css
+   Day screen
+   - AppHeader is sticky (top: 0)
+   - Page header sticks directly under it
+   - Uses dynamic --appheader-height
+*/
+
+/* ===============================
+   Sticky Day Page Header
+   =============================== */
+
+.day-sticky {
+  position: sticky;
+  top: var(--appheader-height);
+  z-index: 40;
+  background: var(--bg-app);
+  border-top: 1px solid transparent;
+}
+
+/* Tighten vertical padding inside sticky header (keep global horizontal rhythm) */
+.day-sticky .app-container {
+  padding-top: 10px;
+  padding-bottom: 0;
+}
+
+/* ===============================
+   Header Card (Week parity)
+   =============================== */
+
+.day-headerCard {
+  border: 2px solid #e6e9ee;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+
+.day-headerTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Left meta block */
+.day-metaLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-metaHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.day-metaLines {
+  display: flex;
+  flex-direction: column;
+}
+
+.day-metaLine {
+  font-weight: 800;
+  font-size: 12px;
+  color: rgba(19, 35, 51, 0.55);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.day-metaLineWarn {
+  color: #b91c1c;
+}
+
+/* little "i" helper */
+.day-metaInfo {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(19, 35, 51, 0.20);
+  background: #ffffff;
+  color: rgba(19, 35, 51, 0.65);
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  margin-top: 1px;
+
+}
+
+/* Center logo (NO airport code on Day) */
+.day-logoCenter {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.day-airportLogo {
+  width: 160px;            /* keep fixed like Week */
+  /*height: 54px;*/
+  object-fit: contain;
+}
+
+/* Right back button slot */
+.day-backRight {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* BackButton base styles (shared) */
+.backBtn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.backBtn-img {
+  display: block;
+  object-fit: contain;
+}
+
+.day-metaInfo{
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 900;
+  color: rgba(0, 122, 255, 1); /* your bright progress blue */
+  cursor: help;
+}
+
+.day-spinner{
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 122, 255, 0.22); /* bright blue, faint ring */
+  border-top-color: rgba(0, 122, 255, 1);    /* bright blue */
+  animation: daySpin 0.75s linear infinite;
+}
+
+/* Optional (only if you ever see overlap again)*/
+.day-metaLeft { overflow: hidden; }
+
+@keyframes daySpin{
+  to { transform: rotate(360deg); }
+}
+
+/* ===============================
+   Tabs
+   =============================== */
+
+.day-tabsWrap {
+  margin-top: 14px;
+  display: flex;
+  background: #ffffff;
+  border: 1px solid #d9e2ee;
+  border-radius: 14px;
+  padding: 6px;
+  gap: 6px;
+}
+
+.day-tabBtn {
+  flex: 1;
+  border-radius: 12px;
+  padding: 10px 0;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+.day-tabBtnActive {
+  background: #e9f1ff;
+  border-color: #d6e3ff;
+  color: #132333;
+}
+
+/* ===============================
+   Date Stepper
+   =============================== */
+
+.day-dateStepperRow {
+  margin-top: 8px;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.day-dateStepperBtn {
+  width: 48px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid #d9e2ee;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 900;
+  color: #b91c1c;
+}
+
+.day-dateLabel {
+  flex: 1;
+  margin: 0 10px;
+  font-weight: 900;
+  color: #b91c1c;
+  text-align: center;
+  line-height: 16px;
+}
+
+/* ===============================
+   Body
+   =============================== */
+
+.day-body {
+  padding-top: 0;
+  padding-bottom: 28px;
+}
+
+/* ===============================
+   Flight Cards
+   =============================== */
+
+.day-flightCard {
+  background: #ffffff;
+  border: 2px solid #d9e2ee;
+  border-radius: 16px;
+  padding: 10px 10px 15px;
+  margin-bottom: 12px;
+}
+
+.day-publicSection {
+  padding-bottom: 10px;
+}
+
+.day-memberArea {
+  margin-top: 10px;
+  background: rgba(19, 35, 51, 0.03);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.day-zoneDivider {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #eef2f7;
+}
+
+.day-zoneSubtitle {
+  font-weight: 900;
+  color: #132333;
+  font-size: 12px;
+}
+
+.day-zoneRow2 {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.day-zoneMetaText {
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.6);
+  font-size: 12px;
+}
+
+/* ===============================
+   Action Button
+   =============================== */
+
+.day-actionBtn {
+  border-radius: 14px;
+  padding: 12px 0;
+  text-align: center;
+  font-weight: 900;
+  font-size: 14px;
+  color: #132333;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  background: transparent;
+}
+
+.day-actionBtnGreen {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.day-actionBtnAmber {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+/* ===============================
+   Modals
+   =============================== */
+
+.day-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 80;
+}
+
+.day-modalCard {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #d9e2ee;
+}

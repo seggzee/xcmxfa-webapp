@@ -1,0 +1,512 @@
+KLM API INFORMATION
+
+
+Get Flights
+
+https://api.airfranceklm.com/opendata/flightstatus
+
+
+//REQUEST SAMPLE //
+
+curl --request GET \
+  --url 'https://api.airfranceklm.com/opendata/flightstatus?startRange=2023-12-31T09%3A00%3A00.000Z&endRange=2023-12-31T23%3A59%3A59.000Z' \
+  --header 'API-Key: Your API Key' \
+  --header 'Accept: application/hal+json'
+
+
+//RESPONSE EXAMPLE //
+
+
+		{
+			"errors": [
+				{
+				  "action": {
+					"hostPrefix": "string",
+					"href": "string",
+					"profile": "string",
+					"templated": true,
+					"type": "string"
+				  },
+				  "code": "string",
+				  "description": "string",
+				  "name": "string",
+				  "severity": "ERROR"
+				}
+			],
+			
+			"operationalFlights": [
+				{
+				  "airline": {
+					"code": "string",
+					"name": "string"
+				  },
+				  "baseProvinceIndicator": "string",
+				  "codeShareRelations": [
+					{
+					  "airline": {
+						"code": "string",
+						"name": "string"
+					  },
+					  "code": "string",
+					  "flightScheduleDate": "2019-08-24",
+					  "marketingFlightNumber": 0,
+					  "operationalSuffix": "string",
+					  "saleableVersion": "string",
+					  "type": "string"
+					}
+				  ],
+				  "errors": [
+					{
+					  "action": {
+						"hostPrefix": "string",
+						"href": "string",
+						"profile": "string",
+						"templated": true,
+						"type": "string"
+					  },
+					  "code": "string",
+					  "description": "string",
+					  "name": "string",
+					  "severity": "ERROR"
+					}
+				  ],
+				  "flightDetailsBlocked": true,
+				  "flightLegs": [
+					{
+					  "aircraft": {
+						"cabinCrewEmployer": "string",
+						"cockpitCrewEmployer": "string",
+						"operationalConfiguration": "string",
+						"ownerAirlineCode": "string",
+						"ownerAirlineName": "string",
+						"physicalFreightConfiguration": "string",
+						"physicalPaxConfiguration": "string",
+						"registration": "string",
+						"saleableConfiguration": "string",
+						"subFleetCodeId": "string",
+						"typeCode": "string",
+						"typeName": "string",
+						"wifiEnabled": "string"
+					  },
+					  "arrivalDateTimeDifference": "string",
+					  "arrivalInformation": {
+						"airport": {
+						  "city": {
+							"code": "string",
+							"country": {
+							  "areaCode": "string",
+							  "code": "string",
+							  "euCountry": "string",
+							  "euroCountry": "string",
+							  "name": "string",
+							  "nameLangTranl": "string"
+							},
+							"name": "string",
+							"nameLangTranl": "string"
+						  },
+						  "code": "string",
+						  "location": {
+							"altitude": 0,
+							"latitude": 0,
+							"longitude": 0
+						  },
+						  "name": "string",
+						  "nameLangTranl": "string",
+						  "places": {
+							"aerogareCode": "string",
+							"arrivalHall": [
+							  "string"
+							],
+							"arrivalPositionPier": "string",
+							"arrivalPositionTerminal": "string",
+							"arrivalTerminal": "string",
+							"baggageBelt": [
+							  "string"
+							],
+							"disembarkingAerogare": "string",
+							"disembarkingBusQuantity": "string",
+							"disembarkingContactType": "string",
+							"firstBagOnBeltTime": "2019-08-24T14:15:22Z",
+							"flightSecurityLevel": "string",
+							"gateNumber": [
+							  "string"
+							],
+							"lastBagOnBeltTime": "2019-08-24T14:15:22Z",
+							"parkingPosition": "string",
+							"parkingPositionCustomStatus": "string",
+							"parkingPositionType": "string",
+							"pierCode": "string",
+							"terminalCode": "string"
+						  }
+						},
+						"landingRunwayCode": "string",
+						"priorityIndicator": "string",
+						"times": {
+						  "actual": "2019-08-24T14:15:22Z",
+						  "actualTakeOffTime": "2019-08-24T14:15:22Z",
+						  "actualTouchDownTime": "2019-08-24T14:15:22Z",
+						  "aircraftOnPosition": "2019-08-24T14:15:22Z",
+						  "departureSlotTime": "2019-08-24T14:15:22Z",
+						  "endOfHandling": "2019-08-24T14:15:22Z",
+						  "estimated": {
+							"origin": "string",
+							"type": "string",
+							"value": "2019-08-24T14:15:22Z"
+						  },
+						  "estimatedArrival": "2019-08-24T14:15:22Z",
+						  "estimatedInternal": "2019-08-24T14:15:22Z",
+						  "estimatedPublic": "2019-08-24T14:15:22Z",
+						  "estimatedTakeOffTime": "2019-08-24T14:15:22Z",
+						  "estimatedTouchDownTime": "2019-08-24T14:15:22Z",
+						  "latestPublished": "2019-08-24T14:15:22Z",
+						  "modified": "2019-08-24T14:15:22Z",
+						  "scheduled": "2019-08-24T14:15:22Z",
+						  "targetOffBlock": "2019-08-24T14:15:22Z",
+						  "targetStartupApprovalTime": "2019-08-24T14:15:22Z"
+						}
+					  },
+					  "completionPercentage": "string",
+					  "departureDateTimeDifference": "string",
+					  "departureInformation": {
+						"airport": {
+						  "city": {
+							"code": "string",
+							"country": {
+							  "areaCode": "string",
+							  "code": "string",
+							  "euCountry": "string",
+							  "euroCountry": "string",
+							  "name": "string",
+							  "nameLangTranl": "string"
+							},
+							"name": "string",
+							"nameLangTranl": "string"
+						  },
+						  "code": "string",
+						  "location": {
+							"altitude": 0,
+							"latitude": 0,
+							"longitude": 0
+						  },
+						  "name": "string",
+						  "nameLangTranl": "string",
+						  "places": {
+							"aerogareCode": "string",
+							"boardingBusQuantity": "string",
+							"boardingContactType": "string",
+							"boardingPier": "string",
+							"boardingTerminal": "string",
+							"checkInAerogare": "string",
+							"checkInZone": [
+							  "string"
+							],
+							"departureTerminal": "string",
+							"gateNumber": [
+							  "string"
+							],
+							"parkingPosition": "string",
+							"parkingPositionCustomStatus": "string",
+							"parkingPositionType": "string",
+							"pierCode": "string",
+							"profileLocation": "string",
+							"terminalCode": "string"
+						  }
+						},
+						"priorityIndicator": "string",
+						"takeOffRunwayCode": "string",
+						"times": {
+						  "actual": "2019-08-24T14:15:22Z",
+						  "actualTakeOffTime": "2019-08-24T14:15:22Z",
+						  "actualTouchDownTime": "2019-08-24T14:15:22Z",
+						  "aircraftOnPosition": "2019-08-24T14:15:22Z",
+						  "departureSlotTime": "2019-08-24T14:15:22Z",
+						  "endOfHandling": "2019-08-24T14:15:22Z",
+						  "estimated": {
+							"origin": "string",
+							"type": "string",
+							"value": "2019-08-24T14:15:22Z"
+						  },
+						  "estimatedArrival": "2019-08-24T14:15:22Z",
+						  "estimatedInternal": "2019-08-24T14:15:22Z",
+						  "estimatedPublic": "2019-08-24T14:15:22Z",
+						  "estimatedTakeOffTime": "2019-08-24T14:15:22Z",
+						  "estimatedTouchDownTime": "2019-08-24T14:15:22Z",
+						  "latestPublished": "2019-08-24T14:15:22Z",
+						  "modified": "2019-08-24T14:15:22Z",
+						  "scheduled": "2019-08-24T14:15:22Z",
+						  "targetOffBlock": "2019-08-24T14:15:22Z",
+						  "targetStartupApprovalTime": "2019-08-24T14:15:22Z"
+						}
+					  },
+					  "internalLegStatus": "string",
+					  "internalLegStatusArrFocus": true,
+					  "irregularity": {
+						"cancelled": "string",
+						"delayCode": [
+						  "string"
+						],
+						"delayDuration": [
+						  "string"
+						],
+						"delayDurationArrival": "string",
+						"delayDurationInternal": "string",
+						"delayDurationPublic": "string",
+						"delayInformation": [
+						  {
+							"delayCode": "string",
+							"delayDuration": "string",
+							"delayReason": "string",
+							"delayReasonCodePublic": "string",
+							"delayReasonPublicLong": "string",
+							"delayReasonPublicShort": "string",
+							"delaySubCode": "string"
+						  }
+						],
+						"delayNextInfoDateTime": "2019-08-24T14:15:22Z",
+						"delayReason": [
+						  "string"
+						],
+						"delayReasonCodePublic": [
+						  "string"
+						],
+						"delayReasonPublic": [
+						  "string"
+						],
+						"delayReasonPublicLangTransl": [
+						  "string"
+						],
+						"delaySubCode": [
+						  "string"
+						],
+						"divertedFrom": "string",
+						"divertedTo": "string",
+						"publicDisruptionReason": "string",
+						"scheduledActionCode": "string",
+						"scheduledChangeReason": "string"
+					  },
+					  "legStatusInternal": "string",
+					  "legStatusInternalLangTransl": "string",
+					  "legStatusPublic": "string",
+					  "legStatusPublicLangTransl": "string",
+					  "passengerCustomsStatus": "string",
+					  "publishedStatus": "string",
+					  "scheduledFlightDuration": "string",
+					  "serviceType": "string",
+					  "serviceTypeName": "string",
+					  "status": "string",
+					  "statusName": "string",
+					  "timeToArrival": "string",
+					  "timeZoneDifference": "string",
+					  "trajectories": [
+						{
+						  "aircraftPositionTime": "2019-08-24T14:15:22Z",
+						  "location": {
+							"altitude": 0,
+							"latitude": 0,
+							"longitude": 0
+						  }
+						}
+					  ]
+					}
+				  ],
+				  "flightNumber": 0,
+				  "flightRelations": {
+					"equivalentFlightData": {
+					  "airlineCode": "string",
+					  "flightNumber": "string",
+					  "flightScheduleDate": "2019-08-24",
+					  "id": "string",
+					  "operationalSuffix": "string"
+					},
+					"onwardFlightData": {
+					  "airlineCode": "string",
+					  "flightNumber": "string",
+					  "flightScheduleDate": "2019-08-24",
+					  "id": "string",
+					  "operationalSuffix": "string"
+					},
+					"previousFlightData": {
+					  "airlineCode": "string",
+					  "flightNumber": "string",
+					  "flightScheduleDate": "2019-08-24",
+					  "id": "string",
+					  "operationalSuffix": "string"
+					}
+				  },
+				  "flightScheduleDate": "2019-08-24",
+				  "flightStatusInternal": "string",
+				  "flightStatusInternalLangTransl": "string",
+				  "flightStatusPublic": "string",
+				  "flightStatusPublicLangTransl": "string",
+				  "haul": "string",
+				  "id": "string",
+				  "internalFlightStatus": "string",
+				  "internalStatusArrFocus": true,
+				  "operationalSuffix": "string",
+				  "route": [
+					"string"
+				  ]
+				}
+			  ],
+			  "page": {
+				"fullCount": 0,
+				"pageCount": 0,
+				"pageNumber": 0,
+				"pageSize": 0,
+				"totalPages": 0
+			  }
+		}
+		
+		=====================================================================================================================================
+		
+		Request
+		
+		Query Parameters
+		
+			aircraftRegistration -	string
+				Registration code of the aircraft
+				Example:
+				PHBEF
+				
+			aircraftType
+				string
+				Filter by a type of aircraft
+				Example:
+				737
+				
+			arrivalCity
+				string
+				Filter by airport code of arrival city
+				Example:
+				DXB
+				
+			carrierCode
+				array[string]
+				Airline code (2-pos IATA and 3-pos ICAO)
+				Example:
+				KL, AF
+			
+			consumerHost
+				string
+				The information about the system from which the request is launched
+				Example:
+				KL
+				
+			departureCity
+				string
+				IATA departure city code
+				Example:
+				DXB
+			
+			destination
+				string
+				Destination airport
+				Example:
+				AMS
+			
+			flightNumber
+				string
+				Filter by flight number
+				Example:
+				0202
+			
+			movementType
+				string
+				Focus (Departure or Arrival) for the flights to be found; used for selection of departure or arrival time within range **Sorting is based on movementType A = Arrival, D = Departure If D- flights will be sorted by scheduleDeparture time If A- flights will be sorted by scheduleArrivaltime
+				Allowed values:
+				A
+				D
+				Example:
+				A
+				
+			operatingAirlineCode
+				array[string]
+				Operating airline code (2-pos IATA and 3-pos ICAO)
+				Example:
+				KL
+			
+			operationalSuffix
+				string
+				Operational suffix, indicates if a flight has been advanced or delayed to the previous or next day
+				Allowed values:
+				A
+				D
+				Example:
+				D,A,R,S,T,U,V,W
+			
+			origin
+				string
+				Departure airport
+				Example:
+				AMS
+			
+			pageNumber
+				integer<int32>
+				Indicates the page number you are requesting, the first page is page 0. If it's not provided first page will be returned
+
+				Example:
+				1
+				
+			pageSize
+				integer<int32>
+				Indicates the number of items per page
+				Allowed value:
+				null
+				Example:
+				100
+				
+			serviceType
+				array[string]
+				IATA service type code
+
+				Example:
+				J
+				
+			timeOriginType
+				string
+				S = Scheduled, M = Modified, I = Internal, P = Public
+
+				Allowed values:
+				S
+				M
+				I
+				P
+				Example:
+				S
+				
+			timeType
+				string
+				Type of time used in startRange and endRange U = UTC time, L = Local Time
+
+				Allowed values:
+				U
+				L
+				Example:
+				U
+				
+			endRange
+				string<date-time>
+				required
+				End on this date time
+
+				Example:
+				2023-12-31T23:59:59.000Z
+				
+			startRange
+				string<date-time>
+				required
+				Start from this date time
+
+				Example:
+				2023-12-31T09:00:00.000Z
+				
+			Headers
+				API-Key
+				string
+				required
+				Fill in API key for consumption
+
+				Example:
+				Your API Key
+				
+			

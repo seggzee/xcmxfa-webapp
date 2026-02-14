@@ -23,6 +23,7 @@ import Esta from "../pages/Esta";
 import MyFlights from "../pages/MyFlights";
 import Week from "../pages/Week";
 import Day from "../pages/Day";
+import Messages from "../pages/Messages";
 
 /**
  * Idiot-guide:
@@ -104,6 +105,8 @@ export default function AppRoutes() {
   } = useAuth();
 
   const { loadCrew } = useCrew();
+  
+  const { persistRefreshToken, clearPersistedRefreshToken } = useAuth();
 
   return (
     <>
@@ -145,6 +148,10 @@ export default function AppRoutes() {
             password,
             rememberDevice: !!rememberDevice,
           });
+		  
+		  //DEBUG ONLY=================================================================
+			console.log("[LOGIN] rememberDevice =", rememberDevice);
+			console.log("[LOGIN] resp.refreshToken =", resp?.refreshToken);
 
           setAuth({
             mode: "member",
@@ -157,6 +164,25 @@ export default function AppRoutes() {
             accessToken: resp?.accessToken || null,
             refreshToken: resp?.refreshToken || null,
           });
+		  
+		  
+			//DEBUG ONLY=================================================================
+			console.log("[LOGIN] calling persistRefreshToken...");
+			if (rememberDevice && resp?.refreshToken) {
+			  persistRefreshToken(String(resp.refreshToken));
+			  console.log("[LOGIN] persistRefreshToken DONE");
+			} else {
+			  clearPersistedRefreshToken();
+			  console.log("[LOGIN] cleared stored refresh token");
+			}
+		  
+			// V4 semantics: persist refreshToken ONLY when rememberDevice === true.
+			// If rememberDevice is false, or refreshToken not returned, ensure storage is clear.
+			if (rememberDevice && resp?.refreshToken) {
+			  persistRefreshToken(String(resp.refreshToken));
+			} else {
+			  clearPersistedRefreshToken();
+			}		  
 
           const token = resp?.accessToken || "";
           if (!token) {
@@ -267,6 +293,7 @@ export default function AppRoutes() {
             </RequireMember>
           }
         />
+		<Route path="/messages" element={<Messages />} />
         <Route
           path="/passport"
           element={

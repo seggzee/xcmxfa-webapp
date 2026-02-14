@@ -721,15 +721,21 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
               </div>
 
               <div className="quickGridRow">
+			  
                 <button type="button" className="quickTile" onClick={() => nav("/profile")}>
                   <div className="quickTileTitle">My Profile</div>
                   <div className="quickTileSub">Personal details</div>
                 </button>
 
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Hotels</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+                <button
+				  type="button"
+				  className="quickTile"
+				  onClick={() => nav("/messages")}
+				>
+				  <div className="quickTileTitle">Messages</div>
+				  <div className="quickTileSub">View notifications</div>
+				</button>
+				
               </div>
 
               <div className="quickGridRow">

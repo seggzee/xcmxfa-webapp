@@ -4,7 +4,10 @@
   line-height: 1.15;
 }
 
-/* Header */
+/* ================================
+   HEADER
+================================ */
+
 .flightCard-headerRow {
   display: flex;
   align-items: center;
@@ -18,11 +21,24 @@
 .flightCard-headerColRight {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Left / Center / Right alignment */
+.flightCard-headerColLeft {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .flightCard-headerColCenter {
-  display: flex;
   justify-content: center;
+  text-align: center;
+}
+
+.flightCard-headerColRight {
+  justify-content: flex-end;
+  text-align: right;
 }
 
 .flightCard-headerTitle {
@@ -41,17 +57,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: center;
 }
 
+/* ================================
+   GRID WRAPPER
+================================ */
 
-
-/* Grid wrapper */
 .flightCard-grid {
   margin-top: var(--space-4);
 }
 
-/* Rows */
+/* ================================
+   ROWS
+================================ */
+
 .flightCard-row {
   display: flex;
   align-items: center;
@@ -66,25 +85,37 @@
   margin-top: 14px;
 }
 
-/* Cells */
+/* ================================
+   CELLS
+================================ */
+
 .flightCard-cell {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Left / Center / Right alignment */
+.flightCard-cell:first-child {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .flightCard-centerCell {
-  display: flex;
-  align-items: center;
   justify-content: center;
+  text-align: center;
 }
 
 .flightCard-rightCell {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-end;
+  text-align: right;
 }
 
-/* Airline logo + flight number */
+/* ================================
+   AIRLINE + FLIGHT NO
+================================ */
+
 .flightCard-logoFlightRow {
   display: flex;
   align-items: center;
@@ -108,7 +139,10 @@
   white-space: nowrap;
 }
 
-/* Route */
+/* ================================
+   ROUTE
+================================ */
+
 .flightCard-route {
   font-size: 14px;
   font-weight: var(--font-weight-black);
@@ -118,7 +152,10 @@
   white-space: nowrap;
 }
 
-/* Status pill (colour comes from inline mapping) */
+/* ================================
+   STATUS PILL
+================================ */
+
 .flightCard-statusPill {
   border-width: 1px;
   border-style: solid;
@@ -137,7 +174,10 @@
   white-space: nowrap;
 }
 
-/* Times */
+/* ================================
+   TIMES
+================================ */
+
 .flightCard-timeRow {
   display: flex;
   align-items: center;
@@ -168,7 +208,10 @@
   text-decoration: line-through;
 }
 
-/* Meta + footer */
+/* ================================
+   META + FOOTER
+================================ */
+
 .flightCard-meta {
   font-size: 13px;
   font-weight: var(--font-weight-bold);
@@ -187,11 +230,14 @@
   white-space: nowrap;
 }
 
-/* Listing right */
+/* ================================
+   LISTING RIGHT
+================================ */
+
 .flightCard-listingRightRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
   column-gap: 10px;
 }
@@ -204,7 +250,10 @@
   display: block;
 }
 
-/* Error box (contract breach visible) */
+/* ================================
+   ERROR BOX
+================================ */
+
 .flightCard-errorBox {
   border: 1px solid rgba(220, 38, 38, 0.35);
   background: rgba(220, 38, 38, 0.08);

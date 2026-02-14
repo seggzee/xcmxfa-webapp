@@ -1,0 +1,63 @@
+/* src/styles/passport.css */
+
+.passport-sub {
+  margin-top: 60px;
+  margin-bottom: var(--space-6);
+  color: var(--text-muted);
+  font-weight: var(--font-weight-regular);
+  line-height: 18px;
+}
+
+.passport-field {
+  margin-top: var(--space-6);
+}
+
+.passport-saveBtn {
+  width: 100%;
+  margin-top: var(--space-6);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+/* LOCK CARD — RN-like centered layout */
+.passport-lockCard--center {
+  border-radius: 18px;
+  text-align: center;
+  padding: 20px;
+}
+
+.passport-lockIconCenter {
+  width: 88px;
+  height: 88px;
+  display: block;
+  margin: 10px auto 24px auto;
+}
+
+.passport-lockTitleCenter {
+  font-size: 20px;
+  font-weight: var(--font-weight-black);
+  color: var(--text-red);
+  margin-top: 4px;
+}
+
+.passport-lockBodyCenter {
+  margin-top: 24px;
+  color: var(--text-muted-strong);
+  font-weight: var(--font-weight-regular);
+  line-height: 18px;
+}
+
+/* “Unlock to continue” link-style button */
+.passport-unlockLink {
+  margin-top: 24px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: var(--font-weight-black);
+  font-size: 18px;
+  color: var(--klm-blue);
+}
+
+.passport-unlockLink:active {
+  opacity: 0.75;
+}

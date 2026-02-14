@@ -4,8 +4,12 @@
 @import "./layout.css";
 @import "./card.css";
 @import "./text.css";
-
+@import "./profile.css";
 @import "./appHeader.css";
 @import "./button.css";
 @import "./flightCard3x3.css";
 @import "./home.css";
+@import "./profileWizard.css";
+@import "./passport.css";
+@import "./day.css";
+@import "./week.css";

@@ -568,7 +568,9 @@ export default function MyFlights() {
 /* ----------------------------- styles (JS parity) ----------------------------- */
 
 const styles: Record<string, React.CSSProperties> = {
-  scroll: { padding: 16, paddingBottom: 40 },
+	
+	
+  scroll: { padding: 16, paddingBottom: 40, marginTop: 5, },
 
   pageTitle: { fontWeight: 900, fontSize: 20, color: "#132333" },
   subtleStatusText: { marginTop: 4, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" },
@@ -593,6 +595,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
+	marginTop: 14,
     border: "2px solid #d9e2ee",
   },
 

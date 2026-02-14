@@ -29,6 +29,8 @@
 import APP_LOGO from "../../assets/xcmxfa-logo.png";
 import SCHIPHOL_IMG from "../../assets/schiphol.webp";
 
+
+
 // Airline logos
 import KLM from "../../assets/airlines/klm.webp";
 import TRANSAVIA from "../../assets/airlines/transavia.webp";
@@ -47,17 +49,14 @@ import eyes_closed from "../../assets/icons/eyes_closed.webp";
 import locked from "../../assets/icons/locked.webp";
 import STOP_SIGN from "../../assets/icons/stop.webp";
 
-// ? NEW: avatar + calendar are now imported (bundled) so pages/components never use "/assets/..."
-//
-// IMPORTANT:
-// These files MUST exist at these paths:
-//   assets/avatar.jpg
-//   assets/icons/calendar.webp
-//
-// If either filename differs, rename the file OR change the import path here.
-// This is deliberate: we want missing assets to FAIL LOUD at build time.
 import avatar from "../../assets/avatar.jpg";
 import calendar from "../../assets/icons/calendar.webp";
+
+import BACK from "../../assets/back_button.webp";
+
+// ? NEW: avatar + calendar are now imported (bundled) so pages/components never use "/assets/..."
+
+
 
 export const APP_IMAGES = { APP_LOGO, SCHIPHOL_IMG } as const;
 
@@ -80,6 +79,8 @@ export const UI_ICONS = {
   // ? Added (now safe to use everywhere)
   avatar,
   calendar,
+  BACK,
+  
 } as const;
 
 // -------- Airports (WEB) --------

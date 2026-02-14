@@ -1,0 +1,80 @@
+INSTRUCTIONS FOR USE
+
+=====================================================================
+To switch drives, you just type the drive letter followed by :.
+
+Then go to your project folder
+
+Once you see:
+
+D:\>
+
+
+Navigate normally:
+
+cd CloudStation\xcmxfa-app
+
+
+You should end up at:
+
+D:\CloudStation\xcmxfa-app>
+
+Pro tip (optional, but handy)
+
+You can do it in one command:
+
+cd /d D:\CloudStation\xcmxfa-app
+
+
+The /d flag tells cd to switch drives too.
+
+cd /d D:\CloudStation\xcmxfa-app
+=======================================================================
+1️⃣ Do I open the project in my CloudStation drive folder?
+✅ Yes — open and work directly from the CloudStation folder
+
+From your screenshot, this is perfect:
+
+D:\CloudStation\xcmxfa-app\
+
+
+That folder is your working copy.
+
+How it works in practice
+
+You open VS Code / terminal in that folder
+
+You run:
+
+npm install
+npx expo start --clear
+
+
+You edit files normally
+
+Cloud Station syncs your source file changes in the background
+
+💡 Important rule
+Only one laptop actively editing at a time. Let Cloud Station finish syncing before switching machines.
+
+
+===========================================================================
+
+From now on, your flow is simply:
+
+git status
+git add .
+git commit -m "Describe change"
+git push
+
+
+That’s it.
+======================================================================
+folder tree diagram
+
+Method 2: Command Prompt (Text Diagram)
+Open Command Prompt (type cmd in the Start Menu).
+Navigate to the folder you want to diagram using the cd command (e.g., cd C:\Users\YourName\Documents).
+Type tree and press Enter to see a simple folder structure.
+Type tree /f and press Enter to include files in the diagram.
+To save it, type tree /f > folder_structure.txt to create a text file. 
