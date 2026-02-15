@@ -88,11 +88,12 @@
  * ==========================================================================================
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
+import { getCrewLockerNotifications, markCrewLockerNotificationRead } from "../api/crewLockersApi";
 
-type MessageType = "listing" | "flight" | "commuter" | "system" | "account";
+type MessageType = "listing" | "flight" | "commuter" | "system" | "account" | "locker";
 
 type Message = {
   id: string;
@@ -102,15 +103,18 @@ type Message = {
   created_at_utc: string;
   read_at_utc?: string | null;
 
+  // Optional navigation hints (future)
   flight_instance_id?: string | null;
   airport_code?: string | null;
   date_key?: string | null;
+
+  // Locker hint (we route to Crew Lockers)
+  locker_uuid?: string | null;
 };
 
 function fmtWhen(utc: string) {
   const d = new Date(String(utc || ""));
   if (Number.isNaN(d.getTime())) return "";
-  // Compact: "Sat 14 Feb · 14:45"
   const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
   const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
   const month = d.toLocaleDateString("en-GB", { month: "short" });
@@ -119,6 +123,7 @@ function fmtWhen(utc: string) {
 }
 
 function typeLabel(t: MessageType) {
+  if (t === "locker") return "Crew locker";
   if (t === "listing") return "Listing update";
   if (t === "flight") return "Flight update";
   if (t === "commuter") return "Commuter activity";
@@ -127,8 +132,7 @@ function typeLabel(t: MessageType) {
 }
 
 function typeIcon(t: MessageType) {
-  // Display-only icon glyphs for now (no new assets introduced here).
-  // If you want UI_ICONS later, we swap these without changing layout.
+  if (t === "locker") return "🔒";
   if (t === "listing") return "🧾";
   if (t === "flight") return "✈️";
   if (t === "commuter") return "👥";
@@ -138,18 +142,80 @@ function typeIcon(t: MessageType) {
 
 export default function Messages() {
   const nav = useNavigate();
-  const { auth } = useAuth();
+  const { auth, psn } = useAuth();
 
   const isMember = auth?.mode === "member";
 
-  // TODO (API wiring):
-  // Replace this with server-fetched messages.
-  // For now: empty list to keep “no invention” discipline.
-  const [messages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingText, setLoadingText] = useState<string>("");
+  const [errorText, setErrorText] = useState<string>("");
 
-  // Display rule guess:
-  // - guests see only "system"
-  // - members see all
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      setErrorText("");
+      setLoadingText("");
+
+      if (!isMember) {
+        setMessages([]);
+        return;
+      }
+
+      const psnForApi = String(psn || auth?.user?.username || "").trim().toUpperCase();
+      if (!psnForApi) {
+        setMessages([]);
+        return;
+      }
+
+      setLoadingText("Loading…");
+
+      try {
+        const resp: any = await getCrewLockerNotifications(psnForApi);
+        const rows = Array.isArray(resp?.messages) ? resp.messages : [];
+
+        const mapped: Message[] = rows.map((r: any) => {
+          const created = String(r?.created_at || "");
+          const readAt = r?.read_at ? String(r.read_at) : null;
+
+          // payload_json is useful later for deep-linking; we keep it but don’t invent anything
+          let payload: any = null;
+          try {
+            payload = r?.payload_json ? JSON.parse(String(r.payload_json)) : null;
+          } catch {
+            payload = null;
+          }
+
+          const type: MessageType = String(r?.type) === "locker_expiry" ? "locker" : "system";
+
+          return {
+            id: String(r?.id),
+            type,
+            title: String(r?.title || ""),
+            body: String(r?.body || ""),
+            created_at_utc: created ? new Date(created.replace(" ", "T") + "Z").toISOString() : new Date().toISOString(),
+            read_at_utc: readAt ? new Date(readAt.replace(" ", "T") + "Z").toISOString() : null,
+            locker_uuid: payload?.locker_uuid ? String(payload.locker_uuid) : null,
+          };
+        });
+
+        if (!alive) return;
+        setMessages(mapped);
+      } catch (e: any) {
+        if (!alive) return;
+        setErrorText(e?.message || "Failed to load messages");
+        setMessages([]);
+      } finally {
+        if (!alive) return;
+        setLoadingText("");
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isMember, psn, auth?.user?.username]);
+
   const visibleMessages = useMemo(() => {
     const rows = Array.isArray(messages) ? messages : [];
     if (isMember) return rows;
@@ -157,7 +223,6 @@ export default function Messages() {
   }, [messages, isMember]);
 
   const grouped = useMemo(() => {
-    // Simple grouping: Today / Earlier (no fancy date buckets yet)
     const todayKey = new Date().toISOString().slice(0, 10);
     const today: Message[] = [];
     const earlier: Message[] = [];
@@ -168,39 +233,56 @@ export default function Messages() {
       else earlier.push(m);
     });
 
-    // Newest first
     const byNewest = (a: Message, b: Message) => String(b.created_at_utc).localeCompare(String(a.created_at_utc));
-
-    return {
-      today: today.sort(byNewest),
-      earlier: earlier.sort(byNewest),
-    };
+    return { today: today.sort(byNewest), earlier: earlier.sort(byNewest) };
   }, [visibleMessages]);
 
-  const onOpenMessage = (m: Message) => {
-    // Navigation rule (GUESS):
-    // Prefer Day if airport_code + date_key exist; else go to My Flights if flight_instance_id exists; else do nothing.
+  const onOpenMessage = async (m: Message) => {
+    // Mark read (best-effort)
+    if (isMember) {
+      const psnForApi = String(psn || auth?.user?.username || "").trim().toUpperCase();
+      const idNum = Number(m.id);
+      if (psnForApi && Number.isFinite(idNum) && idNum > 0) {
+        try {
+          await markCrewLockerNotificationRead(psnForApi, idNum);
+          // optimistic update (don’t refetch)
+          setMessages((prev) =>
+            prev.map((x) => (x.id === m.id ? { ...x, read_at_utc: x.read_at_utc || new Date().toISOString() } : x))
+          );
+        } catch {
+          // silent (messages screen must not explode)
+        }
+      }
+    }
+
+    // Navigation rules:
+    // - Locker messages go to Crew Lockers page (no guessing beyond that).
+    if (m.type === "locker") {
+      nav("/crew-lockers");
+      return;
+    }
+
+    // Future: other message deep-links (kept as your original intent)
     if (m.airport_code && m.date_key) {
       nav(`/day/${m.date_key}?tab=departures`, { state: { airport: String(m.airport_code).toUpperCase() } });
       return;
     }
     if (m.flight_instance_id) {
-      nav("/my-flights");
+      nav("/myflights");
       return;
     }
-    // No target; stay put (display-only).
   };
 
   const styles: Record<string, React.CSSProperties> = {
     screen: { minHeight: "100vh", background: "#f6f7f9" },
-	
+
     body: {
-	  padding: 16,
-	  paddingBottom: 40,
-	  paddingTop: "calc(var(--appheader-sticky-offset, 86px) + 12px)",
-	  maxWidth: 760,
-	  margin: "0 auto",
-	},
+      padding: 16,
+      paddingBottom: 40,
+      paddingTop: "calc(var(--appheader-sticky-offset, 86px) + 12px)",
+      maxWidth: 760,
+      margin: "0 auto",
+    },
 
     headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 },
     pageTitle: { fontWeight: 900, fontSize: 20, color: "#132333" },
@@ -282,7 +364,14 @@ export default function Messages() {
         <div style={styles.bodyText}>{m.body}</div>
 
         <div style={styles.actionsRow}>
-          <button type="button" style={styles.viewBtn} onClick={(e) => { e.stopPropagation(); onOpenMessage(m); }}>
+          <button
+            type="button"
+            style={styles.viewBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              void onOpenMessage(m);
+            }}
+          >
             View
           </button>
         </div>
@@ -302,12 +391,18 @@ export default function Messages() {
           </button>
         </div>
 
+        {loadingText ? (
+          <div style={{ marginTop: 6, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>{loadingText}</div>
+        ) : errorText ? (
+          <div style={{ marginTop: 6, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>{errorText}</div>
+        ) : null}
+
         {!hasAny ? (
           <div style={styles.emptyWrap}>
             <div style={styles.emptyTitle}>No messages</div>
             <div style={styles.emptyBody}>
               {isMember
-                ? "When push notifications are enabled, your listing and flight updates will appear here."
+                ? "When push notifications are enabled, your locker and flight updates will appear here."
                 : "System updates will appear here."}
             </div>
           </div>

@@ -59,6 +59,8 @@ import {
 import FlightCard3x3 from "../components/FlightCard3x3";
 import GuestPromoCard from "../components/GuestPromoCard";
 
+import { getCrewLockerNotifications } from "../api/crewLockersApi";
+
 import { API_BASE_URL } from "../config/api";
 
 // âœ… CHANGE 1/2:
@@ -67,6 +69,7 @@ import { API_BASE_URL } from "../config/api";
 import { APP_IMAGES, getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
 
 import { getMyFlights } from "../api/flightsApi";
+
 
 type NextFlightState =
   | { status: "idle" | "loading"; flight: null }
@@ -86,6 +89,7 @@ function normalizeCode(v: any) {
 }
 
 export default function Home() {
+	
   const nav = useNavigate();
   const { auth } = useAuth();
   const { crew } = useCrew();
@@ -189,6 +193,48 @@ export default function Home() {
     saveFavouritesFromHome(next, "remove");
   };
 
+   // =============================================================================
+  // Messages banner (member-only) — unread count (locker notifications for now)
+  // =============================================================================
+  const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      // Guest: no banner
+      if (!isMember) {
+        if (alive) setUnreadMsgCount(0);
+        return;
+      }
+
+      // Identity: follow your existing Home pattern (staffNo from auth.user.username)
+      if (!staffNo) {
+        if (alive) setUnreadMsgCount(0);
+        return;
+      }
+
+      try {
+        const resp: any = await getCrewLockerNotifications(staffNo);
+        const rows = Array.isArray(resp?.messages) ? resp.messages : [];
+
+        const unread = rows.filter((r: any) => !r?.read_at).length;
+
+        if (!alive) return;
+        setUnreadMsgCount(Number.isFinite(unread) ? unread : 0);
+      } catch {
+        // Silent fail: Home must never look broken because messages endpoint hiccuped
+        if (!alive) return;
+        setUnreadMsgCount(0);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isMember, staffNo]);
+  
+  
   // =============================================================================
   // Next flight (member-only, real data)
   // =============================================================================
@@ -667,6 +713,55 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
           </div>
           ===== =============================== ===== */}
         </section>
+		
+        {/* ===== Messages banner (member-only) ===== */}
+        {isMember && unreadMsgCount > 0 ? (
+          <section
+            className="card"
+            role="button"
+            tabIndex={0}
+            onClick={() => nav("/messages")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") nav("/messages");
+            }}
+            style={{
+              cursor: "pointer",
+              borderColor: "rgba(185,28,28,0.18)",
+              background: "rgba(185,28,28,0.04)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 900, color: "#132333" }}>
+                  You have {unreadMsgCount} unread message{unreadMsgCount === 1 ? "" : "s"}
+                </div>
+                <div style={{ marginTop: 4, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>
+                  Tap to open Messages
+                </div>
+              </div>
+
+              <div
+                style={{
+                  minWidth: 34,
+                  height: 34,
+                  borderRadius: 999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 900,
+                  border: "2px solid rgba(185,28,28,0.20)",
+                  color: "#b91c1c",
+                  background: "#ffffff",
+                }}
+                aria-label="Unread messages count"
+                title="Unread messages"
+              >
+                {unreadMsgCount}
+              </div>
+            </div>
+          </section>
+        ) : null}
+		
 
         {/* ===== Quick actions (RN) ===== */}
         <section className="quickWrap">
@@ -684,10 +779,11 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
                   <div className="quickTileSub">Unlock crew features</div>
                 </button>
 
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Messages</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+				<button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
+				  <div className="quickTileTitle">Crew Lockers</div>
+				  <div className="quickTileSub">Sign in required</div>
+				</button>
+				
               </div>
 
               <div className="quickGridRow">
@@ -714,10 +810,11 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
                   <div className="quickTileSub">View your flights</div>
                 </button>
 
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Crew Lockers</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+				<button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
+				  <div className="quickTileTitle">Crew Lockers</div>
+				  <div className="quickTileSub">Open & manage</div>
+				</button>
+				
               </div>
 
               <div className="quickGridRow">

@@ -24,6 +24,7 @@ import MyFlights from "../pages/MyFlights";
 import Week from "../pages/Week";
 import Day from "../pages/Day";
 import Messages from "../pages/Messages";
+import CrewLockers from "../pages/CrewLockers";
 
 /**
  * Idiot-guide:
@@ -285,6 +286,16 @@ export default function AppRoutes() {
             </RequireMember>
           }
         />
+		
+		<Route
+		  path="/crew-lockers"
+		  element={
+			<RequireMember>
+			  <CrewLockers />
+			</RequireMember>
+		  }
+		/>		
+		
         <Route
           path="/profile"
           element={

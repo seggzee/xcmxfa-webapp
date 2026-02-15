@@ -1,0 +1,734 @@
+Crew Lockers System Bible (V2)
+What this subsystem is for
+
+Crew Lockers lets authenticated users manage Keynius lockers without hunting for old emails. Since there is no Keynius API, we use:
+
+Inbound email ingestion (user forwards Keynius email to lockers@xcmxfa.com
+) to capture the locker link and map it to the user
+
+Periodic scraping of the Keynius “my_locker” page to keep lease dates/current status updated
+
+Notifications/reminders (email now; push-ready later) plus persistent Messages feed in the app
+
+Crew Lockers screen showing one card per locker and a button to open the Keynius locker page
+
+Idiot Guide (non-technical)
+What a crew member does
+
+Rent locker at Schiphol (Keynius) as normal
+
+Receive Keynius email to their @klm.com inbox
+
+Forward that email to: lockers@xcmxfa.com
+
+Wait a few minutes (or overnight depending on cron)
+
+Open xcmxfa → Crew Lockers → see locker card(s) → tap Open / manage
+
+What the system does behind the scenes
+
+Reads the forwarded email
+
+Checks the sender is @klm.com
+
+Finds the correct user by matching sender email to users_v2.email
+
+Extracts the Keynius locker URL and the UUID
+
+Stores it in the DB
+
+Later, cron scrapes the Keynius page and extracts end date/time and other details
+
+Another cron generates reminders: 14/7/3/0 days (defaults)
+
+Reminders appear immediately in Messages and can also send email
+
+System Constraints & Design Decisions
+Constraints
+
+No Keynius API
+
+Only reliable integration points:
+
+the email user receives
+
+the public Keynius locker page at https://online.keynius.app/my_locker/<uuid>
+
+Server environment:
+
+shared cPanel
+
+PHP 7.4
+
+MySQLi only
+
+outgoing curl allowed
+
+cron min interval 5 minutes
+
+inbound email pipe available
+
+Important decision (current security posture)
+
+For now: crew_lockers API endpoints accept psn from client and trust it.
+
+This is explicitly an interim measure. It enables delivery now without requiring PHP bearer token validation.
+
+Future hardening target: move to bearer validation and derive PSN server-side.
+
+High-Level Architecture
+Components
+Client (Web app)
+
+Home Quick Links tile: Crew Lockers
+
+CrewLockers page (member-only, template based on MyFlights spacing)
+
+Messages page:
+
+fetches notifications from backend
+
+marks read
+
+deep-links locker notifications to /crew-lockers
+
+AuthStore:
+
+provides auth.mode, auth.user, psn and authHeader
+
+Backend (PHP)
+
+Email ingestion pipe script (locks in user mapping + URL capture)
+
+Crew locker scraper cron (sync details from Keynius page)
+
+Notifications cron (creates reminders and sends email)
+
+API endpoints for client:
+
+list lockers
+
+list notifications
+
+mark notification read
+
+Database (MySQL)
+
+Tables:
+
+crew_lockers (current truth about each locker)
+
+crew_locker_events (audit/event log)
+
+notifications (persistent message feed + delivery tracking)
+
+notification_prefs (future user-configurable thresholds + channels)
+
+crew_locker_ingest_failures (pipe errors and why)
+
+Data Model (DB Tables)
+1) crew_lockers
+
+One row per locker UUID (not per renewal).
+
+Key fields:
+
+psn: staff number (user identity)
+
+locker_uuid: UUID from Keynius URL
+
+locker_url: canonical URL https://online.keynius.app/my_locker/<uuid>
+
+start_dt, end_dt: lease dates scraped from page
+
+active: derived (1 if end_dt in future; else 0)
+
+scrape health:
+
+last_scraped_at
+
+last_http_status
+
+consecutive_failures
+
+last_error_reason
+
+Important constraints:
+
+locker_uuid is UNIQUE
+
+indexed by psn for fast listing
+
+2) crew_locker_events
+
+Audit table for:
+
+created / url_updated / renewed / expired / scrape_failed
+
+Why it matters:
+
+it’s your “black box recorder”
+
+when users claim “it didn’t update”, you can see the timeline
+
+3) notifications
+
+Your persistent inbox store.
+
+Fields:
+
+psn
+
+type (locker_expiry)
+
+title, body, payload_json
+
+read state: read_at
+
+delivery status:
+
+delivery_email_status pending|sent|failed
+
+delivery_push_status disabled|pending|sent|failed (push-ready)
+
+This table powers:
+
+Messages screen
+
+Home unread banner (count unread)
+
+future push reconciliation
+
+4) notification_prefs
+
+User-specific preferences (future):
+
+email enabled
+
+push enabled
+
+thresholds list (json)
+If row is missing → defaults apply.
+
+5) crew_locker_ingest_failures
+
+Stores rejected inbound emails and why:
+
+wrong sender domain
+
+no URL found
+
+can’t resolve redirect
+
+unknown user
+
+etc.
+
+This is where you look first when user says “I forwarded it and nothing happened.”
+
+Process Flow (Start-to-Finish)
+Flow A — First-time locker registration (Email → DB)
+Trigger
+
+User forwards Keynius email from @klm.com inbox to:
+lockers@xcmxfa.com
+
+Mechanism
+
+cPanel mail pipe executes:
+
+/home/xcmxfaco/public_html/admin_tools/scripts/lockers_pipe_script.php
+
+Steps
+
+Read raw email from STDIN
+
+Extract From: and Subject: headers
+
+Parse sender email address
+
+Verify sender domain is @klm.com only
+
+If not → log to crew_locker_ingest_failures and exit
+
+Lookup user PSN:
+
+SELECT staff_number FROM users_v2 WHERE email = ?
+
+If no match → log failure and exit
+
+Find URL in email body:
+
+Prefer direct online.keynius.app/my_locker/...
+
+Else take sendgrid click URL and resolve redirects via curl
+
+Extract UUID from final URL
+
+Upsert into crew_lockers:
+
+insert new row OR update existing row’s PSN/url
+
+Log event url_updated into crew_locker_events
+
+Output
+
+A locker now exists in the DB and will appear on the app once the user loads Crew Lockers page.
+
+Flow B — Ongoing sync (Scrape cycle)
+Trigger
+
+Cron runs:
+/home/xcmxfaco/public_html/admin_tools/scripts/lockers_scrape_cron.php
+
+Steps
+
+For each locker in crew_lockers with a URL:
+
+GET Keynius page via curl
+
+If HTTP fails:
+
+increment consecutive_failures
+
+set last_error_reason
+
+log scrape_failed event
+
+If HTML fetch succeeds:
+
+parse fields from page:
+
+Locker locatie
+
+Lockerwand
+
+Lockernummer
+
+Lockerformaat
+
+Start
+
+Eind (DD.MM.YYYY | HH:MM)
+
+Prijs
+
+convert date format into MySQL DATETIME
+
+update crew_lockers fields
+
+set active = 0 if end date passed
+
+if end_dt increased → log renewed
+
+if active flipped to expired → log expired
+
+reset consecutive_failures = 0
+
+Output
+
+DB reflects current lease dates even if user renewed without forwarding a new email.
+
+Flow C — Reminders / Notifications
+Trigger
+
+Cron runs:
+/home/xcmxfaco/public_html/admin_tools/scripts/lockers_notifications_cron.php
+
+Default rules
+
+Thresholds: 14, 7, 3, 0 days before end
+
+Email enabled by default if no prefs row exists
+
+Push disabled (for now)
+
+Steps
+
+For each locker with an end_dt:
+
+compute daysRemaining
+
+load thresholds from notification_prefs or default
+
+if daysRemaining matches any threshold:
+
+check if we already created that threshold notification for that locker (dedupe)
+
+insert into notifications
+
+if email enabled:
+
+find user email from users_v2
+
+send mail
+
+update delivery status in notifications row
+
+Output
+
+Message appears in Messages immediately (persistent)
+
+Home banner shows unread count (if unread > 0)
+
+Email reminder sent (optional)
+
+Flow D — Client UI behaviour
+Routes / Guards
+
+/crew-lockers is RequireMember guarded
+
+Guests can see tile but tapping routes into guard → login
+
+Crew Lockers page
+
+calls backend list endpoint:
+
+GET /api/crew_lockers/list.php?psn=<PSN>
+
+shows:
+
+locker number
+
+end date/time
+
+status (active / ending soon / expired)
+
+wall/size if available
+
+“Open / manage” button opens Keynius link in new tab
+
+Messages page
+
+calls backend notifications list:
+
+GET /api/crew_lockers/notifications_list.php?psn=<PSN>
+
+renders messages
+
+on click:
+
+mark read endpoint
+
+locker messages route to /crew-lockers
+
+Home banner
+
+counts unread notifications
+
+shows banner only when unread > 0
+
+tap banner → /messages
+
+Program Inventory (What runs where)
+Backend programs
+1) Pipe Script
+
+File: admin_tools/scripts/lockers_pipe_script.php
+Runs: On inbound forwarded email
+Does: capture and store locker URL and UUID against PSN
+Writes:
+
+crew_lockers
+
+crew_locker_events
+
+failure logs → crew_locker_ingest_failures
+
+2) Scraper Cron
+
+File: admin_tools/scripts/lockers_scrape_cron.php
+Runs: scheduled cron (daily, or more frequent if desired)
+Does: sync locker details (especially end date)
+Writes:
+
+updates crew_lockers
+
+logs to crew_locker_events
+
+3) Notifications Cron
+
+File: admin_tools/scripts/lockers_notifications_cron.php
+Runs: scheduled cron
+Does: generate reminder notifications + send email
+Writes:
+
+notifications
+
+optionally updates delivery fields
+
+Backend API endpoints
+1) List lockers
+
+GET /api/crew_lockers/list.php?psn=...
+Returns: { ok:true, lockers:[...] }
+
+2) List notifications/messages
+
+GET /api/crew_lockers/notifications_list.php?psn=...
+Returns: { ok:true, messages:[...] }
+
+3) Mark notification read
+
+POST /api/crew_lockers/notifications_mark_read.php
+Body: psn, id
+Returns: { ok:true }
+
+Frontend files
+1) src/pages/CrewLockers.tsx
+
+main crew lockers UI
+
+uses MyFlights spacing rhythm + card style
+
+opens Keynius URL
+
+2) src/pages/Home.tsx
+
+tile routes to /crew-lockers
+
+banner counts unread and routes to /messages
+
+3) src/pages/Messages.tsx
+
+loads notifications via API
+
+marks read
+
+routes locker notifications to /crew-lockers
+
+4) src/app/api.ts
+
+URL single source of truth
+
+postJson + getJson
+
+locker endpoints constants
+
+5) src/api/crewLockersApi.ts
+
+wrapper around crew lockers endpoints
+
+currently uses psn query param
+
+Operational Checklist (Deploy/Setup)
+One-time setup
+
+Create DB tables (SQL provided)
+
+Create backend folder: /public_html/api/crew_lockers/
+
+Upload PHP scripts:
+
+pipe
+
+scraper cron
+
+notifications cron
+
+endpoints
+
+Configure email pipe for lockers@xcmxfa.com
+
+Add cron entries:
+
+scrape daily
+
+notifications daily
+
+Smoke test
+
+Open test locker URL in browser to confirm reachable
+
+Manually run scraper script in browser/CLI:
+
+confirm it updates crew_lockers.end_dt
+
+Insert a test notification by setting a locker end date to today and running notifications cron
+
+Verify app:
+
+Messages shows the notification
+
+Home shows banner
+
+Crew Lockers page lists locker
+
+Troubleshooting Playbook (Start here)
+Symptom: “I forwarded the email but locker doesn’t show”
+Check 1 — ingestion failures table
+
+Query:
+
+SELECT * FROM crew_locker_ingest_failures ORDER BY id DESC LIMIT 20;
+
+
+Typical reasons:
+
+sender not @klm.com
+
+sender email doesn’t match users_v2.email
+
+couldn’t find URL in email
+
+sendgrid redirect didn’t resolve
+
+Check 2 — Does user exist + email match?
+SELECT staff_number, email FROM users_v2 WHERE email = 'user@klm.com';
+
+Check 3 — Did locker row get created?
+SELECT * FROM crew_lockers WHERE psn = '123456' ORDER BY id DESC;
+
+Check 4 — If row exists but missing end date
+
+Scraper hasn’t run yet or failed. See next section.
+
+Symptom: “Locker shows but end date is blank/old”
+Check scraper health
+SELECT locker_uuid, last_scraped_at, last_http_status, consecutive_failures, last_error_reason
+FROM crew_lockers
+WHERE psn='123456';
+
+
+If consecutive_failures > 0:
+
+Keynius site blocked/changed HTML/timeout
+
+curl SSL errors
+
+page structure changed (labels changed)
+
+Check events
+SELECT * FROM crew_locker_events WHERE psn='123456' ORDER BY id DESC LIMIT 50;
+
+Symptom: “No reminders received”
+Check notifications table
+SELECT * FROM notifications WHERE psn='123456' ORDER BY id DESC LIMIT 50;
+
+
+If none exist:
+
+notifications cron not running
+
+end_dt not set or not matching thresholds
+
+Check end date
+SELECT locker_number, end_dt FROM crew_lockers WHERE psn='123456';
+
+Check prefs
+SELECT * FROM notification_prefs WHERE psn='123456';
+
+
+If locker_reminders_enabled_email=0, email won’t send (but Messages still should show, because the notification row is created regardless).
+
+Symptom: “Banner not showing but Messages has items”
+
+Banner counts unread only.
+
+Check unread:
+
+SELECT COUNT(*) FROM notifications WHERE psn='123456' AND read_at IS NULL;
+
+
+If 0 → banner correctly hidden.
+
+Symptom: “Mark read doesn’t work”
+
+Check:
+
+API endpoint reachable
+
+notifications_mark_read.php reads $_POST not JSON
+
+client uses FormData (it does)
+
+DB verification:
+
+SELECT id, read_at FROM notifications WHERE id=123;
+
+Known “gotchas” / Sharp edges
+
+PSN trust model (current)
+
+endpoints trust psn from client
+
+means a user could query another psn if they knew it
+
+acceptable for v1/v2 interim as agreed; must harden later
+
+Email parsing is best-effort
+
+sendgrid links vary
+
+pipe script resolves redirects via curl and stores final URL
+
+HTML scraping brittle
+
+if Keynius changes labels (“Eind” → “End date”) scraper must be updated
+
+scraper is designed with tolerant extraction but still depends on page text
+
+Timezone assumptions
+
+Keynius shows date/time local; stored as server datetime
+
+client displays in en-GB formatting
+
+Future Enhancements (planned slots, not scope creep)
+Security hardening (priority later)
+
+Implement bearer validation in PHP
+
+Derive PSN from token server-side
+
+Remove psn query params from client
+
+Preferences UI
+
+thresholds user-selectable under Profile → Preferences
+
+email on/off
+
+push on/off
+
+Push integration
+
+notifications table already has push delivery fields
+
+when push exists:
+
+push cron sends outstanding push
+
+service worker displays it
+
+Messages remains source of truth
+
+Smarter scrape scheduling
+
+scrape frequently when end date is near
+
+scrape less for long-term lockers
+
+backoff when consecutive_failures climbs
+
+Bootstrap (What to do when you come back to this in 3 months)
+
+If you remember nothing else, remember this order:
+
+User mapping comes only from forwarded email sender → users_v2.email → staff_number
+
+Locker identity is Keynius UUID → crew_lockers.locker_uuid
+
+Truth source for lease dates is the Keynius page → scraper cron updates DB
+
+Truth source for reminders is notifications table → Messages + banner
+
+When something breaks:
+
+check crew_locker_ingest_failures
+
+check crew_lockers.last_*
+
+check crew_locker_events
+
+check notifications
