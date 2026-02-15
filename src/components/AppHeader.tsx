@@ -1,42 +1,26 @@
 // src/components/AppHeader.tsx
 //
 // =====================================================================================
-// ?? ASSET LOADING FIX (NO VITE MAGIC): AppHeader avatar must NOT use "/assets/..."
+// ?? ASSET LOADING FIX (NO VITE MAGIC): AppHeader assets must NOT use "/assets/..."
 // =====================================================================================
 //
-// IDIOT GUIDE:
-//
-// ? OLD (breaks after build on Synology sometimes):
-//    <img src="/assets/avatar.jpg" />
-//
-// Why?
-// - That is an *absolute URL path*.
-// - It assumes your deployed site serves a real file at exactly "/assets/avatar.jpg".
-// - In Vite dev this often “works” because dev server/public folder behaviour can mask it.
-// - After build + deploy (different base path / folder structure), it can 404.
-//
-// ? NEW (always correct):
-// - We import the avatar via src/assets/index.ts
-// - That returns the *actual final URL* inside the build output (hashed / bundled).
-//
-// Rule you set:
-// - Components NEVER hardcode "/assets/..."
-// - Components only consume central exports from src/assets/index.ts
+// NOTE (V2 HEADER LOGO):
+// - We now use one rectangular header logo that already includes the text.
+// - We keep legacy APP_LOGO for other areas / legacy app usage.
+// - AppHeader uses APP_IMAGES.HEADER_LOGO only.
 //
 // =====================================================================================
 
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-// ? CHANGE: add UI_ICONS so we can use UI_ICONS.avatar (central resolver)
 import { APP_IMAGES, UI_ICONS } from "../assets";
-
 import LoginModal from "./LoginModal";
 
 type Props = {
   auth: any;
 
-  // Optional display strings (kept for parity with older header version)
+  // Kept for compatibility (not rendered in header anymore because logo includes text)
   title?: string;
   subtitle?: string;
 
@@ -44,7 +28,6 @@ type Props = {
   onGoProfile?: () => void;
   onLogout?: () => void;
 
-  // Guest login modal handlers (current web wiring)
   onLoginSubmit?: (args: {
     username: string;
     password: string;
@@ -57,8 +40,6 @@ type Props = {
 
 export default function AppHeader({
   auth,
-  title = "XCM / XFA",
-  subtitle = "Commuter app for crew",
   onGoHome,
   onGoProfile,
   onLogout,
@@ -74,7 +55,7 @@ export default function AppHeader({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ? Measure header height so page-level sticky headers can sit UNDER it cleanly.
+  // Measure header height so page-level sticky headers can sit UNDER it cleanly.
   const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -90,7 +71,6 @@ export default function AppHeader({
 
     apply();
 
-    // Keep it correct if fonts/images/layout change
     let ro: ResizeObserver | null = null;
     try {
       ro = new ResizeObserver(() => apply());
@@ -125,20 +105,13 @@ export default function AppHeader({
     const wantsLogin = params.get("login") === "1";
     if (!wantsLogin) return;
 
-    // Only open modal for guests
-    if (!isLoggedIn) {
-      setLoginOpen(true);
-    }
+    if (!isLoggedIn) setLoginOpen(true);
 
-    // Clear the login param so refresh/back doesn’t re-trigger it
     params.delete("login");
     const nextSearch = params.toString();
 
     navigate(
-      {
-        pathname: location.pathname,
-        search: nextSearch ? `?${nextSearch}` : "",
-      },
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "" },
       { replace: true }
     );
   }, [location.search, location.pathname, navigate, isLoggedIn]);
@@ -146,19 +119,18 @@ export default function AppHeader({
   return (
     <>
       <header ref={headerRef} className="appHeader">
-        {/* Left: logo (transparent, aligned) */}
+        {/* Left: single rectangular logo (includes text) */}
         <button
           type="button"
           className="appHeader-brand"
           onClick={onGoHome}
           aria-label="Go home"
         >
-          <img src={APP_IMAGES.APP_LOGO} alt="XCM / XFA" className="appHeader-logo" />
-
-          <div className="appHeader-titleWrap">
-            <div className="appHeader-title">{title}</div>
-            <div className="appHeader-subtitle">{subtitle}</div>
-          </div>
+          <img
+            src={APP_IMAGES.HEADER_LOGO}
+            alt="XCMXFA App"
+            className="appHeader-logo"
+          />
         </button>
 
         {/* Right: reserved msg slot + avatar */}
@@ -179,7 +151,6 @@ export default function AppHeader({
               }
             >
               <div className="appHeader-avatarInner">
-                {/* ? FIX: centralised asset URL (works after build, works on Synology) */}
                 <img src={UI_ICONS.avatar} alt="" className="appHeader-avatarImg" />
               </div>
             </div>

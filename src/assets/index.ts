@@ -28,6 +28,7 @@
 // App images
 import APP_LOGO from "../../assets/xcmxfa-logo.png";
 import SCHIPHOL_IMG from "../../assets/schiphol.webp";
+import HEADER_LOGO from "../../assets/logos/xcmxfa-header-logo.webp";
 
 
 
@@ -58,7 +59,7 @@ import BACK from "../../assets/back_button.webp";
 
 
 
-export const APP_IMAGES = { APP_LOGO, SCHIPHOL_IMG } as const;
+export const APP_IMAGES = { APP_LOGO, SCHIPHOL_IMG, HEADER_LOGO } as const;
 
 export const AIRLINE_LOGOS = {
   KLM,

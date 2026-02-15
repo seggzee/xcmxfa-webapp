@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+  <defs>
+    <style>
+      .navy{fill:#0B1F4B}
+      .klm{fill:#00A1DE}
+      .klmStroke{stroke:#00A1DE}
+      .textMain{font-family: Montserrat, Arial, sans-serif; font-weight: 800; letter-spacing: 1px;}
+      .textSub{font-family: Montserrat, Arial, sans-serif; font-weight: 700; letter-spacing: .5px;}
+    </style>
+  </defs>
+
+  <!-- Icon block (left) -->
+  <g transform="translate(60,40)">
+    <!-- Big X (two rotated bars) -->
+    <g class="navy" opacity="0.98">
+      <rect x="78" y="-10" width="64" height="220" rx="12" transform="rotate(32 110 100)"/>
+      <rect x="78" y="-10" width="64" height="220" rx="12" transform="rotate(-32 110 100)"/>
+    </g>
+
+    <!-- Flight path swoosh -->
+    <path d="M10,175 C70,120 150,80 230,58"
+          fill="none" stroke="#00A1DE" stroke-width="18" stroke-linecap="round"/>
+    <path d="M18,190 C86,130 160,90 248,64"
+          fill="none" stroke="#66C7EE" stroke-width="10" stroke-linecap="round" opacity="0.95"/>
+
+    <!-- Simple plane silhouette -->
+    <g transform="translate(210,38) rotate(-18)">
+      <path d="M0,34 L64,26 L78,32 L64,38 L0,34 Z" fill="#00A1DE"/>
+      <path d="M22,18 L46,34 L22,50 L26,34 Z" fill="#00A1DE"/>
+      <path d="M62,30 L92,22 L96,28 L74,36 Z" fill="#00A1DE"/>
+      <circle cx="10" cy="34" r="4" fill="#00A1DE"/>
+    </g>
+  </g>
+
+  <!-- Text block (right) - vertically centred relative to icon -->
+  <g transform="translate(360,108)">
+    <text x="0" y="0" font-size="86" class="textMain navy">XCMXFA</text>
+    <text x="2" y="64" font-size="44" class="textSub klm">Commuter App</text>
+  </g>
+</svg>

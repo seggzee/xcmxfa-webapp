@@ -1,5 +1,3 @@
-
-
 .appHeader {
   position: sticky;
   top: 0;
@@ -14,7 +12,6 @@
   padding: 16px 14px;
 }
 
-
 /* Brand */
 .appHeader-brand {
   display: flex;
@@ -26,30 +23,13 @@
   cursor: pointer;
 }
 
+/* ✅ NEW: rectangular header logo (includes text) */
 .appHeader-logo {
-  width: 46px;
-  height: 46px;
+  height: 52px;
+  width: auto;
+  max-width: 240px;
   object-fit: contain;
-}
-
-.appHeader-titleWrap {
-  display: flex;
-  flex-direction: column;
- text-align: left;
-}
-
-.appHeader-title {
-  font-size: 18px;
-  font-weight: 900;
-  color: var(--text-primary);
-  line-height: 1.1;
-}
-
-.appHeader-subtitle {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--text-muted);
-  margin-top: 2px;
+  display: block;
 }
 
 /* Right side */
@@ -104,7 +84,6 @@
   object-fit: cover;
   display: block;
 }
-
 
 /* Modal */
 .appHeader-overlay {
