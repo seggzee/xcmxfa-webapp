@@ -166,6 +166,7 @@ export const COUNTRY_AIRPORTS: Record<string, Airport[]> = {
     { code: "MIA", image: "MIA.webp" },
     { code: "DFW", image: "DFW.webp" },
     { code: "PHL", image: "PHL.webp" },
+    { code: "PDX", image: "PDX.webp" },	
     { code: "MCO", image: "MCO.webp" },
     { code: "SEA", image: "SEA.webp" },
   ],

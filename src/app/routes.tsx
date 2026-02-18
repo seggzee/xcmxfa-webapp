@@ -9,7 +9,6 @@ import { AUTH_LOGIN_URL, postJson } from "./api";
 
 // Pages
 import Debug from "../pages/Debug";
-import Splash from "../pages/Splash";
 
 import Register from "../pages/Register";
 import RegisterVerify from "../pages/RegisterVerify";
@@ -254,11 +253,11 @@ export default function AppRoutes() {
 
       {/* Route table */}
       <Routes>
-        {/* Guest / entry */}
-        <Route path="/" element={<Splash />} />
-        <Route path="/login" element={<Navigate to="/home?login=1" replace />} />
-        {/* /login still exists, but it no longer renders a page. */}
-        <Route path="/debug" element={<Debug />} />
+		{/* Guest / entry */}
+		<Route path="/" element={<Navigate to="/home" replace />} />
+		<Route path="/login" element={<Navigate to="/home?login=1" replace />} />
+		{/* /login still exists, but it no longer renders a page. */}
+		<Route path="/debug" element={<Debug />} />
 
         {/* Registration/onboarding */}
         <Route path="/register" element={<Register />} />
