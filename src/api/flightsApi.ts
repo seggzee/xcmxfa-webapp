@@ -403,6 +403,16 @@ export type MyFlightRow = {
  * - This already contains the RN/Home parity derivation:
  *   op_status := flight_status_text
  * - Now also standardises aircraft registration formatting via formatReg()
+ *
+ * ADDITION:
+ * - Enforces deterministic chronological ordering:
+ *     1) Upcoming flights first (std_local >= now), soonest first
+ *     2) Past flights after, most recent past first
+ *
+ * This guarantees:
+ * - Home rows[0] === next upcoming flight
+ * - MyFlights top card matches Home
+ * - Backend order becomes irrelevant
  */
 export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlightRow[]> {
   const psn = requirePsnStrict(args.staffNo, "getMyFlights");
@@ -412,7 +422,7 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
 
   const rows = Array.isArray(raw?.flights) ? (raw.flights as RawFlightRow[]) : [];
 
-  return rows.map((r) => ({
+  const mapped: MyFlightRow[] = rows.map((r) => ({
     flight_instance_id: (r.flight_instance_id as any) ?? null,
     psn: (r.psn as any) ?? null,
 
@@ -447,8 +457,6 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
     ac_typecode: (r.ac_typecode as any) ?? null,
     ac_typename: (r.ac_typename as any) ?? null,
 
-    // RN/Home parity: consistent aircraft registration formatting
-    // IMPORTANT: "" when missing so FlightCard3x3 can show "N/A"
     ac_reg: formatReg((r as any).ac_reg),
 
     boarding_status_text: (r.boarding_status_text as any) ?? null,
@@ -460,11 +468,44 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
 
     flight_no: (r.flight_number as any) ?? "",
 
-    // Home/RN parity: op_status derived from flight_status_text
     op_status: (r.flight_status_text as any) ?? "On time",
 
     listing_status: (r.booking_status as any) ?? "pending",
   }));
+
+  // ---------------------------------------------------------
+  // Deterministic chronological ordering (single source)
+  // ---------------------------------------------------------
+
+  const now = Date.now();
+
+  mapped.sort((a, b) => {
+    const aTime = new Date(a.std_local || "").getTime();
+    const bTime = new Date(b.std_local || "").getTime();
+
+    const aValid = Number.isFinite(aTime);
+    const bValid = Number.isFinite(bTime);
+
+    // Invalid dates go to bottom
+    if (!aValid && !bValid) return 0;
+    if (!aValid) return 1;
+    if (!bValid) return -1;
+
+    const aFuture = aTime >= now;
+    const bFuture = bTime >= now;
+
+    // Future flights before past flights
+    if (aFuture && !bFuture) return -1;
+    if (!aFuture && bFuture) return 1;
+
+    // Both future → soonest first
+    if (aFuture && bFuture) return aTime - bTime;
+
+    // Both past → most recent first
+    return bTime - aTime;
+  });
+
+  return mapped;
 }
 
 /* ===================== Day bookings (RN parity) ===================== */

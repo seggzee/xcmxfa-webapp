@@ -6,18 +6,16 @@ import FlightCard3x3 from "../components/FlightCard3x3";
 import { getMyFlights, setBookingListed } from "../api/flightsApi";
 import { LISTING_STATUS_ICONS } from "../assets";
 
+import "../styles/myFlights.css";
+
 /* ----------------------------- small helpers ----------------------------- */
 
 function safeUpper(v: unknown) {
-  return String(v || "")
-    .trim()
-    .toUpperCase();
+  return String(v || "").trim().toUpperCase();
 }
 
 function safeLower(v: unknown) {
-  return String(v || "")
-    .trim()
-    .toLowerCase();
+  return String(v || "").trim().toLowerCase();
 }
 
 function fmtTimeLocal(dtLike: unknown) {
@@ -212,9 +210,9 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
 function DetailLine({ label, value }: { label: string; value: any }) {
   if (!value) return null;
   return (
-    <div style={styles.detailLine as any}>
-      <div style={styles.detailLabel as any}>{label}</div>
-      <div style={styles.detailValue as any}>{String(value)}</div>
+    <div className="myFlights-detailLine">
+      <div className="myFlights-detailLabel">{label}</div>
+      <div className="myFlights-detailValue">{String(value)}</div>
     </div>
   );
 }
@@ -227,7 +225,6 @@ export default function MyFlights() {
 
   // JS: staffNo from auth.user.username uppercase
   const staffNo = useMemo(() => safeUpper((auth as any)?.user?.username) || null, [auth]);
-
   const isMember = (auth as any)?.mode === "member";
 
   const [apiFlights, setApiFlights] = useState<CardVM[]>([]);
@@ -235,7 +232,9 @@ export default function MyFlights() {
   const [errorText, setErrorText] = useState("");
 
   const [actionBusyByFlight, setActionBusyByFlight] = useState<Record<string, "list" | "unlist" | null>>({});
-  const [actionSuccessByFlight, setActionSuccessByFlight] = useState<Record<string, "listed" | "unlisted" | null>>({});
+  const [actionSuccessByFlight, setActionSuccessByFlight] = useState<Record<string, "listed" | "unlisted" | null>>(
+    {}
+  );
 
   async function loadFlights() {
     if (!staffNo) return [];
@@ -295,7 +294,6 @@ export default function MyFlights() {
   const flightsForRender = useMemo(() => (Array.isArray(apiFlights) ? apiFlights : []), [apiFlights]);
 
   const isUserListedOnFlight = (flight: CardVM) => {
-    // JS: payload-sourced: pending|sent|booked => listed
     const s = String(flight?.listingStatus || "").toLowerCase().trim();
     return s === "pending" || s === "sent" || s === "booked";
   };
@@ -360,9 +358,9 @@ export default function MyFlights() {
     return listed ? "Unlist me" : "List me";
   };
 
-  const actionStyleFor = (flight: CardVM) => {
+  const actionVariantFor = (flight: CardVM) => {
     const listed = isUserListedOnFlight(flight);
-    return listed ? styles.actionBtnAmber : styles.actionBtnGreen;
+    return listed ? "amber" : "green";
   };
 
   const isActionDisabled = (flight: CardVM) => {
@@ -370,47 +368,50 @@ export default function MyFlights() {
     return Boolean(actionBusyByFlight?.[flightId]);
   };
 
-  // member-only route behaviour
+  // member-only route behaviour (should not normally be hit due to RequireMember, but keep safe)
   if (!isMember) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f6f7f9", padding: 24 }}>
-        <div style={{ ...styles.pageTitle, fontSize: 20 }}>My flights</div>
-        <div style={{ marginTop: 6, ...styles.subtleStatusText }}>Member-only page.</div>
-        <button type="button" style={{ ...styles.backBtn }} onClick={() => nav(-1)}>
-          Back
-        </button>
+      <div className="myFlights-page myFlights-page--guest">
+        <div className="myFlights-titleRow">
+          <div className="myFlights-titleCol">
+            <div className="myFlights-title">My flights</div>
+            <div className="myFlights-status">Member-only page.</div>
+          </div>
+          <button type="button" className="myFlights-backBtn" onClick={() => nav(-1)}>
+            Back
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f6f7f9" }}>
-      <div style={styles.scroll as any}>
-        <div style={styles.pageTitleRow as any}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={styles.pageTitle as any}>My flights</div>
+    <div className="myFlights-page">
+      <div className="myFlights-scroll">
+        <div className="myFlights-titleRow">
+          <div className="myFlights-titleCol">
+            <div className="myFlights-title">My flights</div>
 
             {loading ? (
-              <div style={styles.subtleStatusText as any}>Loading your flights…</div>
+              <div className="myFlights-status">Loading your flights…</div>
             ) : errorText ? (
-              <div style={styles.subtleStatusText as any}>{errorText}</div>
+              <div className="myFlights-status">{errorText}</div>
             ) : null}
           </div>
 
-          <button type="button" style={styles.backBtn as any} onClick={() => nav(-1)}>
+          <button type="button" className="myFlights-backBtn" onClick={() => nav(-1)}>
             Back
           </button>
         </div>
 
         {flightsForRender.length === 0 ? (
-          <div style={styles.emptyWrap as any}>
-            <div style={styles.emptyTitle as any}>No flights found</div>
-            <div style={styles.emptyBody as any}>You haven’t requested any flights yet.</div>
+          <div className="myFlights-emptyWrap">
+            <div className="myFlights-emptyTitle">No flights found</div>
+            <div className="myFlights-emptyBody">You haven’t requested any flights yet.</div>
           </div>
         ) : (
           flightsForRender.map((flight) => {
             const footerRight = (() => {
-              // JS card computed listPosDisplay. We keep the same display outcomes.
               const posRaw =
                 flight.row0?.listPos !== undefined && flight.row0?.listPos !== null
                   ? String(flight.row0.listPos).trim()
@@ -437,16 +438,23 @@ export default function MyFlights() {
               const iconSrc = listingIconSrcFromStatus(flight.listingStatus);
 
               return (
-                <div style={styles.footerRightRow as any}>
-                  <div style={styles.footerRightPos as any}>{listPosDisplay}</div>
-                  {iconSrc ? <img src={iconSrc} alt={flight.listingStatus || ""} style={styles.footerRightIcon as any} /> : <div style={styles.footerRightIcon as any} />}
+                <div className="myFlights-footerRightRow">
+                  <div className="myFlights-footerRightPos">{listPosDisplay}</div>
+                  {iconSrc ? (
+                    <img
+                      src={iconSrc}
+                      alt={flight.listingStatus || ""}
+                      className="myFlights-footerRightIcon"
+                    />
+                  ) : (
+                    <div className="myFlights-footerRightIcon" />
+                  )}
                 </div>
               );
             })();
 
             return (
-              <div key={flight.id} style={styles.card as any}>
-                {/* Zone 2 — Head zone (3×3 grid card) — fixed */}
+              <div key={flight.id} className="myFlights-card">
                 <FlightCard3x3
                   flight={flight.row0}
                   headerLeftLabel={flight.isFuture ? "Upcoming" : "Past"}
@@ -455,54 +463,49 @@ export default function MyFlights() {
                   footerRightContent={footerRight}
                 />
 
-                <div style={styles.zoneDivider as any} />
+                <div className="myFlights-zoneDivider" />
 
-                {/* Zone 3 — Listing information */}
-                <div style={styles.zone3Wrap as any}>
-                  <div style={styles.zoneSubtitle as any}>Listing information</div>
-
-                  <div style={styles.zone3Row2 as any}>
-                    <div style={styles.zoneMetaText as any}>Requested: {flight.requestedAt || "--"}</div>
-                    <div style={styles.zoneMetaText as any}>Status: {flight.listingStatus || "--"}</div>
+                <div className="myFlights-zone">
+                  <div className="myFlights-zoneTitle">Listing information</div>
+                  <div className="myFlights-zoneRow">
+                    <div className="myFlights-zoneMeta">Requested: {flight.requestedAt || "--"}</div>
+                    <div className="myFlights-zoneMeta">Status: {flight.listingStatus || "--"}</div>
                   </div>
                 </div>
 
-                <div style={styles.zoneDivider as any} />
+                <div className="myFlights-zoneDivider" />
 
-                {/* Zone 4 — Commuter summary */}
-                <div style={styles.zone4Wrap as any}>
-                  <div style={styles.zoneSubtitle as any}>Commuter summary</div>
-
-                  <div style={styles.zone4Row2 as any}>
-                    <div style={styles.zoneMetaText as any}>XCM : {String(flight.commuterSummary?.XCM ?? 0)}</div>
-                    <div style={styles.zoneMetaText as any}>XFA : {String(flight.commuterSummary?.XFA ?? 0)}</div>
-                    <div style={styles.zoneMetaText as any}>Other : {String(flight.commuterSummary?.Other ?? 0)}</div>
+                <div className="myFlights-zone">
+                  <div className="myFlights-zoneTitle">Commuter summary</div>
+                  <div className="myFlights-zoneRow">
+                    <div className="myFlights-zoneMeta">XCM : {String(flight.commuterSummary?.XCM ?? 0)}</div>
+                    <div className="myFlights-zoneMeta">XFA : {String(flight.commuterSummary?.XFA ?? 0)}</div>
+                    <div className="myFlights-zoneMeta">Other : {String(flight.commuterSummary?.Other ?? 0)}</div>
                   </div>
                 </div>
 
-                <div style={styles.zoneDivider as any} />
+                <div className="myFlights-zoneDivider" />
 
-                {/* Zone 5 — All listed commuters */}
                 {Array.isArray(flight.listedCommuters) && flight.listedCommuters.length > 0 ? (
-                  <div style={styles.zone5Wrap as any}>
-                    <div style={styles.zone5Header as any}>All listed commuters: {flight.listedCommuters.length}</div>
+                  <div className="myFlights-zone">
+                    <div className="myFlights-zoneHeaderStrong">All listed commuters: {flight.listedCommuters.length}</div>
 
-                    <div style={{ marginTop: 8 }}>
+                    <div className="myFlights-commuterList">
                       {flight.listedCommuters.map((p, idx) => {
                         const posLabel =
                           p.pos !== undefined && p.pos !== null && String(p.pos).trim() !== "" ? `P${String(p.pos).trim()}.` : "P—.";
 
                         return (
-                          <div key={`${p.staffNo}-${idx}`} style={styles.zone5Row as any}>
-                            <div style={styles.zone5Pos as any}>{posLabel}</div>
+                          <div key={`${p.staffNo}-${idx}`} className="myFlights-commuterRow">
+                            <div className="myFlights-commuterPos">{posLabel}</div>
 
-                            <div style={{ ...(styles.zone5Name as any), ...(p.isSelf ? (styles.zone5NameSelf as any) : null) }}>{p.name}</div>
+                            <div className={`myFlights-commuterName ${p.isSelf ? "is-self" : ""}`}>{p.name}</div>
 
-                            <div style={styles.zone5Staff as any} title={p.staffNo}>
+                            <div className="myFlights-commuterStaff" title={p.staffNo}>
                               {p.staffNo}
                             </div>
 
-                            <div style={styles.zone5Group as any} title={p.group}>
+                            <div className="myFlights-commuterGroup" title={p.group}>
                               {p.group}
                             </div>
                           </div>
@@ -511,45 +514,41 @@ export default function MyFlights() {
                     </div>
                   </div>
                 ) : (
-                  <div style={styles.zone5Wrap as any}>
-                    <div style={styles.zone5Header as any}>All listed commuters: --</div>
+                  <div className="myFlights-zone">
+                    <div className="myFlights-zoneHeaderStrong">All listed commuters: --</div>
                   </div>
                 )}
 
-                <div style={styles.zoneDivider as any} />
+                <div className="myFlights-zoneDivider" />
 
-                {/* Zone 6 — Action zone (wired) */}
-                <div style={styles.zone6Wrap as any}>
+                <div className="myFlights-actionWrap">
                   <button
                     type="button"
                     onClick={() => onPressListToggle(flight)}
                     disabled={isActionDisabled(flight)}
-                    style={{
-                      ...(styles.actionBtn as any),
-                      ...(actionStyleFor(flight) as any),
-                      opacity: isActionDisabled(flight) ? 0.55 : 1,
-                    }}
+                    className={`myFlights-actionBtn variant-${actionVariantFor(flight)} ${
+                      isActionDisabled(flight) ? "is-disabled" : ""
+                    }`}
                   >
                     {actionLabelFor(flight)}
                   </button>
                 </div>
 
-                <div style={styles.zoneDivider as any} />
+                <div className="myFlights-zoneDivider" />
 
-                {/* Zone 7 — Other info */}
-                <div style={styles.zone7Wrap as any}>
-                  <div style={styles.zone7Header as any}>Other information</div>
+                <div className="myFlights-zone">
+                  <div className="myFlights-zoneHeaderStrong">Other information</div>
 
-                  <div style={{ marginTop: 8 }}>
+                  <div className="myFlights-detailsBlock">
                     <DetailLine label="Aircraft config" value={null} />
                     <DetailLine label="WiFi" value={null} />
 
-                    <div style={styles.detailsDivider as any} />
+                    <div className="myFlights-detailsDivider" />
 
                     <DetailLine label="Departure Terminal" value={flight.depTerminal} />
                     <DetailLine label="Departure Gate" value={flight.depGate} />
 
-                    <div style={styles.detailsDivider as any} />
+                    <div className="myFlights-detailsDivider" />
 
                     <DetailLine label="Arrival Terminal" value={flight.arrTerminal} />
                     <DetailLine label="Arrival Gate" value={flight.arrGate} />
@@ -564,92 +563,3 @@ export default function MyFlights() {
     </div>
   );
 }
-
-/* ----------------------------- styles (JS parity) ----------------------------- */
-
-const styles: Record<string, React.CSSProperties> = {
-	
-	
-  scroll: { padding: 16, paddingBottom: 40, marginTop: 5, },
-
-  pageTitle: { fontWeight: 900, fontSize: 20, color: "#132333" },
-  subtleStatusText: { marginTop: 4, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" },
-
-  pageTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12 },
-
-  backBtn: {
-    height: 36,
-    minWidth: 84,
-    borderRadius: 999,
-    border: "1px solid #d9e2ee",
-    background: "#ffffff",
-    fontWeight: 900,
-    color: "#132333",
-    cursor: "pointer",
-    fontSize: 14,
-    padding: "0 14px",
-  },
-
-  card: {
-    background: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-	marginTop: 14,
-    border: "2px solid #d9e2ee",
-  },
-
-  detailsDivider: { height: 10 },
-
-  detailLine: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", gap: 12 },
-  detailLabel: { fontWeight: 700, color: "rgba(19,35,51,0.55)", fontSize: 12 },
-  detailValue: { fontWeight: 900, color: "rgba(19,35,51,0.8)", fontSize: 12, textAlign: "right", flexShrink: 1 as any },
-
-  emptyWrap: { marginTop: 40, alignItems: "center" as any },
-  emptyTitle: { fontWeight: 900, fontSize: 16, color: "#132333" },
-  emptyBody: { marginTop: 6, fontWeight: 700, color: "rgba(19,35,51,0.6)", textAlign: "center" as any },
-
-  zoneDivider: { marginTop: 12, paddingTop: 12, borderTop: "2px solid #eef2f7" },
-
-  zoneSubtitle: { fontWeight: 900, color: "#132333", fontSize: 12 },
-  zoneMetaText: { marginTop: 6, fontWeight: 700, color: "rgba(19,35,51,0.6)", fontSize: 12 },
-
-  zone3Wrap: {},
-  zone3Row2: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-
-  zone4Wrap: {},
-  zone4Row2: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-
-  zone5Wrap: {},
-  zone5Header: { fontWeight: 700, color: "#132333", fontSize: 12 },
-  zone5Row: { display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 0" },
-  zone5Pos: { width: 28, fontWeight: 700, color: "rgba(19,35,51,0.55)", fontSize: 12, paddingTop: 1 },
-  zone5Name: { flex: 1, minWidth: 0, fontWeight: 700, color: "rgba(19,35,51,0.8)", fontSize: 12 },
-  zone5NameSelf: { fontWeight: 900, color: "#b91c1c" },
-  zone5Staff: { width: 84, textAlign: "right", fontWeight: 700, color: "rgba(19,35,51,0.7)", fontSize: 12 },
-  zone5Group: { width: 44, textAlign: "right", fontWeight: 700, color: "rgba(19,35,51,0.7)", fontSize: 12 },
-
-  zone6Wrap: { paddingTop: 2, alignItems: "center" as any },
-  actionBtn: {
-    width: "60%",
-    borderRadius: 14,
-    padding: "12px 0",
-    textAlign: "center" as any,
-    fontWeight: 900,
-    fontSize: 14,
-    color: "#132333",
-    cursor: "pointer",
-    border: "1px solid transparent",
-    background: "transparent",
-  },
-  actionBtnGreen: { background: "rgba(34,197,94,0.14)", borderColor: "rgba(34,197,94,0.35)" },
-  actionBtnAmber: { background: "rgba(217,119,6,0.16)", borderColor: "rgba(217,119,6,0.55)" },
-
-  zone7Wrap: {},
-  zone7Header: { fontWeight: 700, color: "#132333", fontSize: 12 },
-
-  // Footer-right (3:3): P?/total left, icon right
-  footerRightRow: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 10 },
-  footerRightPos: { fontWeight: 700, color: "rgba(19,35,51,0.70)" },
-  footerRightIcon: { width: 20, height: 20, objectFit: "contain" as any },
-};

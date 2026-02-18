@@ -172,7 +172,7 @@ export default function Day() {
   const dateLabel = useMemo(() => {
     const d = new Date(`${dateKey}T00:00:00`);
     return d.toLocaleDateString("en-GB", {
-      weekday: "long",
+      weekday: "short",
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -236,6 +236,7 @@ export default function Day() {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [lastStatusUpdatedUtc, setLastStatusUpdatedUtc] = useState<string | null>(null);
+  const [lastScheduleUpdatedUtc, setLastScheduleUpdatedUtc] = useState<string | null>(null);
   const [lastRefreshedAtUtc, setLastRefreshedAtUtc] = useState<string | null>(null);
 
   const [rawRows, setRawRows] = useState<any>({
@@ -272,6 +273,7 @@ export default function Day() {
           ensureResp?.last_updated_utc ??
           ensureResp?.lastUpdatedUtc ??
           ensureResp?.status_last_updated_utc ??
+          ensureResp?.meta?.status_last_updated_utc ??
           null;
         if (last) setLastStatusUpdatedUtc(String(last));
       } catch {
@@ -291,12 +293,24 @@ export default function Day() {
         flights: flatRows,
       });
 
+      // R meaning (locked): status refresh time (prefer status_last_updated_utc; fall back to legacy last_updated_utc)
       const last2 =
         dayResp?.status_last_updated_utc ??
+        dayResp?.meta?.status_last_updated_utc ??
         dayResp?.last_updated_utc ??
+        dayResp?.meta?.last_updated_utc ??
         dayResp?.lastUpdatedUtc ??
         null;
       if (last2) setLastStatusUpdatedUtc(String(last2));
+
+      // D meaning (locked): schedule refresh time
+      const sched =
+        dayResp?.schedule_last_updated_utc ??
+        dayResp?.meta?.schedule_last_updated_utc ??
+        dayResp?.scheduleLastUpdatedUtc ??
+        dayResp?.meta?.scheduleLastUpdatedUtc ??
+        null;
+      if (sched) setLastScheduleUpdatedUtc(String(sched));
 
       // 3) bookings (ALWAYS load; required for X-staff 3:3)
       try {
@@ -565,14 +579,14 @@ export default function Day() {
 
   // --- header lines ---
   const databaseLabel = useMemo(() => {
+    if (!lastScheduleUpdatedUtc) return "";
+    return new Date(lastScheduleUpdatedUtc).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  }, [lastScheduleUpdatedUtc]);
+
+  const refreshedLabel = useMemo(() => {
     if (!lastStatusUpdatedUtc) return "";
     return new Date(lastStatusUpdatedUtc).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   }, [lastStatusUpdatedUtc]);
-
-  const refreshedLabel = useMemo(() => {
-    if (!lastRefreshedAtUtc) return "";
-    return new Date(lastRefreshedAtUtc).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  }, [lastRefreshedAtUtc]);
 
   const airportLogoSrc = getAirportLogo(airportCode);
 
@@ -582,8 +596,8 @@ export default function Day() {
 
   // ✅ Single helper text for the one "i" button
   const metaHelpText =
-    "D = Database time: when the backend last updated its schedule/status data from the airline feed.\n" +
-    "R = Refreshed time: when this app last synced (fetched) this screen from the backend.";
+    "D = Schedule refresh: when the backend last refreshed scheduled times.\n" +
+    "R = Status refresh: when the backend last refreshed live status.";
 
   return (
     <div className="app-screen">
@@ -1014,12 +1028,17 @@ export default function Day() {
             <div style={{ height: 14 }} />
 
             <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
-              Status: <span style={{ fontWeight: 900 }}>{infoMeta?.statusText ? String(infoMeta.statusText) : "--"}</span>
+              Status:{" "}
+              <span style={{ fontWeight: 900 }}>
+                {infoMeta?.statusText ? String(infoMeta.statusText) : "--"}
+              </span>
             </div>
 
             <div style={{ height: 14 }} />
 
-            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>Booking notes:</div>
+            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
+              Booking notes:
+            </div>
 
             {String(infoMeta?.notesText || "").trim().length > 0 ? (
               <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px", marginTop: 6 }}>

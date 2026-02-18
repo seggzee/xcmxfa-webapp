@@ -1,11 +1,8 @@
+// src/pages/SelectAirports.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import {
-  EUROPE_COUNTRIES,
-  REST_COUNTRIES,
-  COUNTRY_AIRPORTS,
-} from "../data/airports";
+import { EUROPE_COUNTRIES, REST_COUNTRIES, COUNTRY_AIRPORTS } from "../data/airports";
 
 import { AIRPORT_LOGOS } from "../assets/airportLogos";
 import { COUNTRY_FLAGS } from "../assets/countryFlags";
@@ -14,6 +11,8 @@ import { ensureScheduleFresh } from "../api/flightsApi";
 
 import { loadFavourites, saveFavourites, getMaxFavs } from "../app/favourites";
 import { useAuth } from "../app/authStore";
+
+import "../styles/selectAirports.css";
 
 const normalizeCode = (v: any) =>
   String(v || "")
@@ -40,8 +39,10 @@ export default function SelectAirports() {
   const intent: IntentState = (loc.state || {}) as any;
 
   const isMember = auth?.mode === "member";
-  const isKnown = !isMember && Boolean(auth?.user);
+  const isKnown = !isMember && Boolean((auth as any)?.user);
   const isMemberOrKnown = isMember || isKnown;
+
+  void isMemberOrKnown; // (kept for parity / future rules)
 
   const maxFavs = getMaxFavs(auth);
 
@@ -65,12 +66,10 @@ export default function SelectAirports() {
     typeof intent.targetSlotIndex === "number"
       ? intent.targetSlotIndex
       : typeof intent.replaceIndex === "number"
-        ? intent.replaceIndex
-        : null;
+      ? intent.replaceIndex
+      : null;
 
-  const initialMode =
-    intent.mode || (typeof intent.replaceIndex === "number" ? "replace" : "add");
-
+  const initialMode = intent.mode || (typeof intent.replaceIndex === "number" ? "replace" : "add");
   const isReplaceMode = initialMode === "replace";
 
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(initialSlot);
@@ -100,16 +99,14 @@ export default function SelectAirports() {
 
     const map = new Map<string, { country: string; region: "Europe" | "Rest" | null }>();
     for (const [country, airports] of Object.entries(COUNTRY_AIRPORTS || {})) {
-      const isEurope = europeSet.has(country);
-      const isRest = restSet.has(country);
-      const resolvedRegion = (isEurope ? "Europe" : isRest ? "Rest" : null) as any;
+      const isEurope2 = europeSet.has(country);
+      const isRest2 = restSet.has(country);
+      const resolvedRegion = (isEurope2 ? "Europe" : isRest2 ? "Rest" : null) as any;
 
       for (const a of (airports as any[]) || []) {
         if (!a?.code) continue;
         const code = String(a.code).toUpperCase();
-        if (!map.has(code)) {
-          map.set(code, { country, region: resolvedRegion || "Rest" });
-        }
+        if (!map.has(code)) map.set(code, { country, region: resolvedRegion || "Rest" });
       }
     }
     return map;
@@ -146,11 +143,9 @@ export default function SelectAirports() {
   const selectable = useMemo(() => {
     // Keep AMS logic as data rule, even though we removed it from the UI copy.
     const base = (airportsForCountry || []).filter((a: any) => a?.code && a.code !== "AMS");
-
     const sorted = base.slice(0).sort((a: any, b: any) => String(a.code).localeCompare(String(b.code)));
 
     if (!isSearchActive) return sorted;
-
     return sorted.filter((a: any) => String(a.code).toUpperCase().startsWith(searchCode));
   }, [airportsForCountry, isSearchActive, searchCode]);
 
@@ -187,12 +182,15 @@ export default function SelectAirports() {
   };
 
   const removeAt = (idx: number) => {
-    setFavsSafe((prev: any) => {
-      const current = Array.isArray(prev) ? [...prev] : [];
-      if (idx < 0 || idx >= current.length) return current;
-      current.splice(idx, 1);
-      return current.slice(0, maxFavs);
-    }, "remove");
+    setFavsSafe(
+      (prev: any) => {
+        const current = Array.isArray(prev) ? [...prev] : [];
+        if (idx < 0 || idx >= current.length) return current;
+        current.splice(idx, 1);
+        return current.slice(0, maxFavs);
+      },
+      "remove"
+    );
   };
 
   const onPressRemoveChip = (idx: number) => {
@@ -205,135 +203,15 @@ export default function SelectAirports() {
   };
 
   const slots = useMemo(() => {
-const out: (string | null)[] = [...favourites];
-while (out.length < maxFavs) out.push(null);
+    const out: (string | null)[] = [...favs];
+    while (out.length < maxFavs) out.push(null);
     return out;
   }, [favs, maxFavs]);
 
   const disableAvailableChoices = !isReplaceMode && limitReached;
 
-  const styles: Record<string, React.CSSProperties> = {
-    root: { minHeight: "100vh", background: "#f6f7f9" },
-    scrollPad: { maxWidth: 520, margin: "0 auto", padding: 16, paddingBottom: 120 },
-    card: { background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, border: "1px solid #d9e2ee" },
-    h1: { fontSize: 20, fontWeight: 900, marginBottom: 8, color: "#132333" },
-    pMuted: { marginTop: 6, color: "rgba(19,35,51,0.55)", fontWeight: 700, whiteSpace: "pre-line" },
-    searchInput: {
-      marginTop: 10,
-      border: "1px solid #d9e2ee",
-      borderRadius: 14,
-      padding: "10px 12px",
-      fontWeight: 800,
-      color: "#132333",
-      background: "#fff",
-      width: "100%",
-      outline: "none",
-      textTransform: "uppercase",
-    },
-    selectedWrap: {
-      marginTop: 12,
-      marginBottom: 12,
-      border: "1px solid #d9e2ee",
-      borderRadius: 14,
-      padding: 12,
-      background: "#f8fbff",
-    },
-    selectedTitleRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 },
-    selectedTitle: { fontWeight: 900, color: "#132333" },
-    selectedHint: { fontWeight: 800, color: "rgba(19,35,51,0.55)", fontSize: 12 },
-    selectedChipsRow: { marginTop: 10, display: "flex", gap: 10 },
-    chipWrap: { flex: 1, position: "relative" },
-    chipBtn: {
-      width: "100%",
-      borderRadius: 18,
-      border: "1px solid #d9e2ee",
-      background: "#fff",
-      overflow: "hidden",
-      cursor: "pointer",
-      padding: 0,
-      textAlign: "left",
-    },
-    chipBtnActive: { border: "2px solid #16a34a" },
-    chipTop: { height: 62, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 6, paddingLeft: 6, paddingRight: 6 },
-    chipBottom: { padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center" },
-    chipCode: { fontWeight: 900, fontSize: 18, color: "#132333" },
-    chipAddPlus: { fontSize: 26, fontWeight: 900, color: "rgba(19,35,51,0.55)" },
-    chipAddLabel: { fontWeight: 900, fontSize: 18, color: "#132333" },
-    chipRemoveBtn: {
-      position: "absolute",
-      top: 6,
-      right: 6,
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "rgba(255,255,255,0.95)",
-      border: "1px solid #d9e2ee",
-      zIndex: 5,
-      cursor: "pointer",
-    },
-    chipRemoveText: { fontWeight: 900, color: "rgba(19,35,51,0.75)", fontSize: 14, lineHeight: "14px" },
-
-    segmentRow: { display: "flex", marginTop: 10, marginBottom: 12, border: "1px solid #d9e2ee", borderRadius: 14, overflow: "hidden" },
-    segmentBtn: { flex: 1, padding: "10px 0", textAlign: "center", background: "#f3f6fb", cursor: "pointer", fontWeight: 900, color: "rgba(19,35,51,0.55)" },
-    segmentBtnActive: { background: "#fff", color: "#132333" },
-
-    sectionTitle: { marginTop: 6, marginBottom: 10, fontWeight: 900, color: "#132333", fontSize: 16, lineHeight: "18px" },
-
-    flagGridWrap: { border: "1px solid #d9e2ee", borderRadius: 16, background: "#fff", padding: 12, marginBottom: 10 },
-    flagGridContent: { paddingBottom: 6, display: "flex", flexWrap: "wrap", justifyContent: "space-between" },
-    flagTile: { marginBottom: 12, width: "30%" as any },
-    flagCard: { borderRadius: 14, overflow: "hidden", border: "1px solid #d9e2ee", background: "#f3f6fb" },
-    flagLabel: { marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.70)", textAlign: "center", fontSize: 12.5 },
-
-    countryHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 10 },
-    countryBackBtn: { padding: "8px 12px", borderRadius: 12, border: "1px solid #d9e2ee", background: "#f3f6fb", cursor: "pointer", fontWeight: 900, color: "#132333" },
-
-    limitHint: { marginTop: 8, fontWeight: 800, color: "rgba(19,35,51,0.55)" },
-
-    bottomBar: {
-      position: "fixed",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      padding: "10px 16px 16px 16px",
-      background: "rgba(246,247,249,0.96)",
-      borderTop: "1px solid #d9e2ee",
-    },
-    bottomInner: { maxWidth: 520, margin: "0 auto" },
-    bottomBtn: { background: "#16a34a", padding: 14, borderRadius: 14, textAlign: "center" as any, cursor: "pointer" },
-    bottomBtnText: { color: "#fff", fontWeight: 900 },
-
-    modalOverlay: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.35)",
-      padding: 18,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 999,
-    },
-    modalCard: { background: "#fff", borderRadius: 16, padding: 16, border: "1px solid #d9e2ee", width: "100%", maxWidth: 520 },
-    modalTitle: { fontWeight: 900, fontSize: 16, color: "#132333" },
-    modalBody: { marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" },
-    modalBtnRow: { display: "flex", gap: 10, marginTop: 14 },
-    modalBtn: { flex: 1, borderRadius: 14, padding: "12px 0", textAlign: "center" as any, cursor: "pointer", fontWeight: 900, color: "#132333" },
-    modalBtnGhost: { background: "#fff", border: "1px solid #d9e2ee" },
-    modalBtnPrimary: { background: "#e8f0ff" },
-  };
-
-  const FlagTileWidth = (() => {
-    // match RN-ish layout responsiveness
-    const w = window.innerWidth;
-    const cols = w < 340 ? 2 : 3;
-    return cols === 3 ? "30%" : "47%";
-  })();
-
   const SelectedChip = ({ code, slotIndex }: { code: string | null; slotIndex: number }) => {
-    const logoSrc = code ? AIRPORT_LOGOS?.[code] : null;
+    const logoSrc = code ? (AIRPORT_LOGOS as any)?.[code] : null;
     const isEmpty = !code;
 
     const isActive =
@@ -347,36 +225,28 @@ while (out.length < maxFavs) out.push(null);
     };
 
     return (
-      <div style={styles.chipWrap}>
+      <div className="selectAirports-chipWrap">
         {!isEmpty ? (
-          <div
-            role="button"
-            aria-label="Remove"
-            style={styles.chipRemoveBtn}
-            onClick={() => onPressRemoveChip(slotIndex)}
-          >
-            <span style={styles.chipRemoveText}>×</span>
+          <div role="button" aria-label="Remove" className="selectAirports-chipRemoveBtn" onClick={() => onPressRemoveChip(slotIndex)}>
+            <span className="selectAirports-chipRemoveText">×</span>
           </div>
         ) : null}
 
         <button
           type="button"
           onClick={onPressSlot}
-          style={{
-            ...styles.chipBtn,
-            ...(isActive ? styles.chipBtnActive : {}),
-          }}
+          className={`selectAirports-chipBtn ${isActive ? "is-active" : ""}`}
         >
-          <div style={styles.chipTop}>
+          <div className="selectAirports-chipTop">
             {isEmpty ? (
-              <span style={styles.chipAddPlus}>+</span>
+              <span className="selectAirports-chipAddPlus">+</span>
             ) : logoSrc ? (
-              <img src={logoSrc} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              <img src={logoSrc} className="selectAirports-chipLogo" alt={code || ""} />
             ) : null}
           </div>
 
-          <div style={styles.chipBottom}>
-            <span style={isEmpty ? styles.chipAddLabel : styles.chipCode}>
+          <div className="selectAirports-chipBottom">
+            <span className={isEmpty ? "selectAirports-chipAddLabel" : "selectAirports-chipCode"}>
               {isEmpty ? "add airport" : String(code)}
             </span>
           </div>
@@ -386,29 +256,31 @@ while (out.length < maxFavs) out.push(null);
   };
 
   return (
-    <div style={styles.root}>
-      <div style={styles.scrollPad}>
-        <div style={styles.card}>
-          <div style={styles.h1}>Select airport(s)</div>
-          <div style={styles.pMuted}>
+    <div className="selectAirports-page">
+      <div className="selectAirports-scroll">
+        <div className="selectAirports-card">
+          <div className="selectAirports-h1">Select airport(s)</div>
+          <div className="selectAirports-muted">
             Members may select up to 3 airports. {"\n"}Guests may only select 1.
           </div>
 
           {/* Selected section (always visible) */}
-          <div style={styles.selectedWrap}>
-            <div style={styles.selectedTitleRow}>
-              <div style={styles.selectedTitle}>Selected: {selectedCount}/{maxFavs}</div>
-              <div style={styles.selectedHint}>Tap × to remove</div>
+          <div className="selectAirports-selectedWrap">
+            <div className="selectAirports-selectedTitleRow">
+              <div className="selectAirports-selectedTitle">
+                Selected: {selectedCount}/{maxFavs}
+              </div>
+              <div className="selectAirports-selectedHint">Tap × to remove</div>
             </div>
 
-            <div style={styles.selectedChipsRow}>
+            <div className="selectAirports-selectedChipsRow">
               {slots.map((code, idx) => (
                 <SelectedChip key={`${code || "empty"}-${idx}`} code={code} slotIndex={idx} />
               ))}
             </div>
 
             {disableAvailableChoices ? (
-              <div style={styles.limitHint}>
+              <div className="selectAirports-limitHint">
                 You’ve reached your limit. Remove a selected airport to choose another.
               </div>
             ) : null}
@@ -417,124 +289,92 @@ while (out.length < maxFavs) out.push(null);
           {/* Picker (collapsed by default) */}
           {isPickerOpen ? (
             <>
-              <div style={styles.sectionTitle}>
+              <div className="selectAirports-sectionTitle">
                 {isReplaceMode
                   ? `Replacing airport in slot ${Number(activeSlotIndex ?? 0) + 1}`
                   : `Selecting airport for slot ${Number(activeSlotIndex ?? 0) + 1}`}
               </div>
 
               <input
-                ref={(el) => { searchRef.current = el; }}
+                ref={(el) => {
+                  searchRef.current = el;
+                }}
                 value={search}
                 onChange={(e) => setSearch(normalizeCode(e.target.value))}
                 placeholder="Search by airport code (e.g. JFK)"
-                style={styles.searchInput}
+                className="selectAirports-searchInput"
                 autoCapitalize="characters"
                 autoCorrect="off"
               />
 
               {/* Region segmented control */}
-              <div style={styles.segmentRow}>
-                <div
-                  role="button"
+              <div className={`selectAirports-segmentRow ${disableAvailableChoices ? "is-disabled" : ""}`}>
+                <button
+                  type="button"
+                  className={`selectAirports-segmentBtn ${region === "Europe" ? "is-active" : ""}`}
                   onClick={() => {
                     if (disableAvailableChoices) return;
                     setRegion("Europe");
                     setSelectedCountry(null);
                   }}
-                  style={{
-                    ...styles.segmentBtn,
-                    ...(region === "Europe" ? styles.segmentBtnActive : {}),
-                    ...(disableAvailableChoices ? { opacity: 0.6, pointerEvents: "none" as any } : {}),
-                  }}
+                  disabled={disableAvailableChoices}
                 >
                   Europe
-                </div>
+                </button>
 
-                <div
-                  role="button"
+                <button
+                  type="button"
+                  className={`selectAirports-segmentBtn ${region === "Rest" ? "is-active" : ""}`}
                   onClick={() => {
                     if (disableAvailableChoices) return;
                     setRegion("Rest");
                     setSelectedCountry(null);
                   }}
-                  style={{
-                    ...styles.segmentBtn,
-                    ...(region === "Rest" ? styles.segmentBtnActive : {}),
-                    ...(disableAvailableChoices ? { opacity: 0.6, pointerEvents: "none" as any } : {}),
-                  }}
+                  disabled={disableAvailableChoices}
                 >
                   Rest of the world
-                </div>
+                </button>
               </div>
 
               {/* COUNTRY STEP */}
               {!selectedCountry ? (
                 <>
                   {isSearchActive ? (
-                    <div style={styles.sectionTitle}>Type a code to jump to its country</div>
+                    <div className="selectAirports-sectionTitle">Type a code to jump to its country</div>
                   ) : (
                     <>
-                      <div style={styles.sectionTitle}>Available countries</div>
+                      <div className="selectAirports-sectionTitle">Available countries</div>
 
-                      <div style={styles.flagGridWrap}>
-                        <div style={styles.flagGridContent}>
+                      <div className={`selectAirports-flagGridWrap ${disableAvailableChoices ? "is-disabled" : ""}`}>
+                        <div className="selectAirports-flagGridContent">
                           {countriesBase.map((c: string) => {
                             const flagSrc = (COUNTRY_FLAGS as any)?.[c];
-                            const disabled = disableAvailableChoices;
 
                             return (
-                              <div
+                              <button
                                 key={c}
-                                style={{
-                                  ...styles.flagTile,
-                                  width: FlagTileWidth,
-                                  opacity: disabled ? 0.45 : 1,
+                                type="button"
+                                className="selectAirports-flagTile"
+                                onClick={() => {
+                                  if (disableAvailableChoices) return;
+                                  setSelectedCountry(c);
                                 }}
+                                disabled={disableAvailableChoices}
                               >
-                                <div
-                                  role="button"
-                                  onClick={() => {
-                                    if (disabled) return;
-                                    setSelectedCountry(c);
-                                  }}
-                                  style={{ cursor: disabled ? "default" : "pointer" }}
-                                >
-                                  <div style={styles.flagCard}>
-                                    <div
-                                      style={{
-                                        width: "100%",
-                                        aspectRatio: "1 / 1",
-                                        background: "#fff",
-                                        border: "1px solid #d9e2ee",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          width: "48%",
-                                          height: "48%",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                        }}
-                                      >
-                                        {flagSrc ? (
-                                          <img src={flagSrc} style={{ width: "92%", height: "92%", objectFit: "contain" }} />
-                                        ) : (
-                                          <div style={{ fontWeight: 800, color: "rgba(19,35,51,0.45)", fontSize: 12 }}>
-                                            No flag
-                                          </div>
-                                        )}
-                                      </div>
+                                <div className="selectAirports-flagCard">
+                                  <div className="selectAirports-flagSquare">
+                                    <div className="selectAirports-flagInner">
+                                      {flagSrc ? (
+                                        <img src={flagSrc} className="selectAirports-flagImg" alt={c} />
+                                      ) : (
+                                        <div className="selectAirports-flagMissing">No flag</div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
 
-                                <div style={styles.flagLabel}>{c}</div>
-                              </div>
+                                <div className="selectAirports-flagLabel">{c}</div>
+                              </button>
                             );
                           })}
                         </div>
@@ -545,51 +385,40 @@ while (out.length < maxFavs) out.push(null);
               ) : (
                 <>
                   {/* AIRPORT STEP HEADER */}
-                  <div style={styles.countryHeaderRow}>
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                      <div
-                        style={{
-                          width: 32,
-                          aspectRatio: "1 / 1",
-                          background: "#fff",
-                          border: "1px solid #d9e2ee",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {selectedFlagSrc ? (
-                          <img src={selectedFlagSrc} style={{ width: "92%", height: "92%", objectFit: "contain" }} />
-                        ) : null}
+                  <div className="selectAirports-countryHeaderRow">
+                    <div className="selectAirports-countryLeft">
+                      <div className="selectAirports-countryFlagBox">
+                        {selectedFlagSrc ? <img src={selectedFlagSrc} className="selectAirports-countryFlagImg" alt={selectedCountry} /> : null}
                       </div>
 
-                      <div style={{ ...styles.sectionTitle, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div className="selectAirports-countryName" title={selectedCountry || ""}>
                         {selectedCountry}
                       </div>
                     </div>
 
                     <button
                       type="button"
+                      className="selectAirports-countryBackBtn"
                       onClick={() => {
                         if (disableAvailableChoices) return;
                         setSelectedCountry(null);
                         setSearch("");
                       }}
-                      style={styles.countryBackBtn}
+                      disabled={disableAvailableChoices}
                     >
                       Back / Other countries
                     </button>
                   </div>
 
                   {/* AIRPORT STEP GRID */}
-                  <div>
+                  <div className="selectAirports-airportGrid">
                     {airportRows.map((row, rowIdx) => (
-                      <div key={`row-${rowIdx}`} style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                      <div key={`row-${rowIdx}`} className="selectAirports-airportRow">
                         {Array.from({ length: AIRPORT_COLS }).map((_, colIdx) => {
                           const a = row[colIdx];
 
                           if (!a) {
-                            return <div key={`empty-${rowIdx}-${colIdx}`} style={{ flex: 1, opacity: 0, height: 102 }} />;
+                            return <div key={`empty-${rowIdx}-${colIdx}`} className="selectAirports-airportCell is-empty" />;
                           }
 
                           const isSel = favs.includes(a.code);
@@ -597,10 +426,11 @@ while (out.length < maxFavs) out.push(null);
                           const logoSrc = (AIRPORT_LOGOS as any)?.[a.code];
 
                           return (
-                            <div key={`${a.code}-${rowIdx}-${colIdx}`} style={{ flex: 1 }}>
+                            <div key={`${a.code}-${rowIdx}-${colIdx}`} className="selectAirports-airportCell">
                               <button
                                 type="button"
                                 disabled={disabled}
+                                className={`selectAirports-airportBtn ${disabled ? "is-disabled" : ""}`}
                                 onClick={() => {
                                   if (disabled) return;
 
@@ -611,39 +441,36 @@ while (out.length < maxFavs) out.push(null);
                                     prefetchScheduleFor(desired, "airport_select_assign");
                                   }
 
-                                  setFavsSafe((prev: any) => {
-                                    const current = (Array.isArray(prev) ? [...prev] : []).filter(Boolean);
+                                  setFavsSafe(
+                                    (prev: any) => {
+                                      const current = (Array.isArray(prev) ? [...prev] : []).filter(Boolean);
 
-                                    const temp = current.slice(0);
-                                    while (temp.length < maxFavs) temp.push(undefined);
+                                      const temp = current.slice(0);
+                                      while (temp.length < maxFavs) temp.push(undefined);
 
-                                    for (let i = 0; i < temp.length; i++) {
-                                      if (i !== slot && String(temp[i] || "").toUpperCase() === desired) {
-                                        temp[i] = undefined;
+                                      for (let i = 0; i < temp.length; i++) {
+                                        if (i !== slot && String(temp[i] || "").toUpperCase() === desired) {
+                                          temp[i] = undefined;
+                                        }
                                       }
-                                    }
 
-                                    temp[slot] = desired;
+                                      temp[slot] = desired;
 
-                                    return temp.filter(Boolean).slice(0, maxFavs);
-                                  }, "assign");
+                                      return temp.filter(Boolean).slice(0, maxFavs);
+                                    },
+                                    "assign"
+                                  );
 
                                   setIsPickerOpen(false);
                                   setSearch("");
                                 }}
-                                style={{
-                                  ...styles.chipBtn,
-                                  height: 102,
-                                  opacity: disabled ? 0.45 : 1,
-                                }}
                               >
-                                <div style={styles.chipTop}>
-                                  {logoSrc ? (
-                                    <img src={logoSrc} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                                  ) : null}
+                                <div className="selectAirports-airportTop">
+                                  {logoSrc ? <img src={logoSrc} className="selectAirports-chipLogo" alt={String(a.code)} /> : null}
                                 </div>
-                                <div style={styles.chipBottom}>
-                                  <span style={styles.chipCode}>{String(a.code)}</span>
+
+                                <div className="selectAirports-airportBottom">
+                                  <span className="selectAirports-chipCode">{String(a.code)}</span>
                                 </div>
                               </button>
                             </div>
@@ -660,11 +487,11 @@ while (out.length < maxFavs) out.push(null);
       </div>
 
       {/* Completion bar */}
-      <div style={styles.bottomBar}>
-        <div style={styles.bottomInner}>
-          <div
-            role="button"
-            style={styles.bottomBtn}
+      <div className="selectAirports-bottomBar">
+        <div className="selectAirports-bottomInner">
+          <button
+            type="button"
+            className="selectAirports-bottomBtn"
             onClick={() => {
               const primary = (Array.isArray(favs) ? favs : []).filter(Boolean)[0];
               if (primary) prefetchScheduleFor(primary, "airport_select_done");
@@ -672,38 +499,38 @@ while (out.length < maxFavs) out.push(null);
               nav(-1); // go back to Home
             }}
           >
-            <div style={styles.bottomBtnText}>Airport selection completed</div>
-          </div>
+            Airport selection completed
+          </button>
         </div>
       </div>
 
       {/* Remove confirm modal */}
       {removeConfirmVisible ? (
         <div
-          style={styles.modalOverlay}
+          className="selectAirports-modalOverlay"
           onClick={() => {
             setRemoveConfirmVisible(false);
           }}
         >
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalTitle}>Remove airport?</div>
-            <div style={styles.modalBody}>This will remove the airport from your selection.</div>
+          <div className="selectAirports-modalCard" onClick={(e) => e.stopPropagation()}>
+            <div className="selectAirports-modalTitle">Remove airport?</div>
+            <div className="selectAirports-modalBody">This will remove the airport from your selection.</div>
 
-            <div style={styles.modalBtnRow}>
-              <div
-                role="button"
-                style={{ ...styles.modalBtn, ...styles.modalBtnGhost }}
+            <div className="selectAirports-modalBtnRow">
+              <button
+                type="button"
+                className="selectAirports-modalBtn ghost"
                 onClick={() => {
                   setRemoveConfirmVisible(false);
                   setPendingRemoveIndex(null);
                 }}
               >
                 Cancel
-              </div>
+              </button>
 
-              <div
-                role="button"
-                style={{ ...styles.modalBtn, ...styles.modalBtnPrimary }}
+              <button
+                type="button"
+                className="selectAirports-modalBtn primary"
                 onClick={() => {
                   if (typeof pendingRemoveIndex === "number") removeAt(pendingRemoveIndex);
                   setRemoveConfirmVisible(false);
@@ -711,7 +538,7 @@ while (out.length < maxFavs) out.push(null);
                 }}
               >
                 Remove
-              </div>
+              </button>
             </div>
           </div>
         </div>

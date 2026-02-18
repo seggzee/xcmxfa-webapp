@@ -1,0 +1,489 @@
+/* src/styles/selectAirports.css */
+
+.selectAirports-page {
+  min-height: 100dvh;
+  background: var(--app-bg, #f6f7f9);
+}
+
+.selectAirports-scroll {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--space-4, 16px);
+  padding-bottom: 120px;
+  padding-top: calc(var(--appheader-height, 0px) + var(--space-2, 8px));
+}
+
+.selectAirports-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #d9e2ee;
+}
+
+.selectAirports-h1 {
+  font-size: 20px;
+  font-weight: 900;
+  margin-bottom: 8px;
+  color: var(--ink-900, #132333);
+}
+
+.selectAirports-muted {
+  margin-top: 6px;
+  color: rgba(19, 35, 51, 0.55);
+  font-weight: 700;
+  white-space: pre-line;
+}
+
+.selectAirports-searchInput {
+  margin-top: 10px;
+  border: 1px solid #d9e2ee;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 800;
+  color: var(--ink-900, #132333);
+  background: #fff;
+  width: 100%;
+  outline: none;
+  text-transform: uppercase;
+}
+
+/* Selected */
+.selectAirports-selectedWrap {
+  margin-top: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #d9e2ee;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.selectAirports-selectedTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.selectAirports-selectedTitle {
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+}
+
+.selectAirports-selectedHint {
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.55);
+  font-size: 12px;
+}
+
+.selectAirports-selectedChipsRow {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.selectAirports-limitHint {
+  margin-top: 8px;
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+/* Chips */
+.selectAirports-chipWrap {
+  flex: 1;
+  position: relative;
+}
+
+.selectAirports-chipBtn {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid #d9e2ee;
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.selectAirports-chipBtn.is-active {
+  border: 2px solid #16a34a;
+}
+
+.selectAirports-chipTop {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 6px 0 6px;
+}
+
+.selectAirports-chipBottom {
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selectAirports-chipCode {
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--ink-900, #132333);
+}
+
+.selectAirports-chipAddPlus {
+  font-size: 26px;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+.selectAirports-chipAddLabel {
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--ink-900, #132333);
+}
+
+.selectAirports-chipLogo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.selectAirports-chipRemoveBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d9e2ee;
+  z-index: 5;
+  cursor: pointer;
+}
+
+.selectAirports-chipRemoveText {
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.75);
+  font-size: 14px;
+  line-height: 14px;
+}
+
+/* Segmented control */
+.selectAirports-segmentRow {
+  display: flex;
+  margin-top: 10px;
+  margin-bottom: 12px;
+  border: 1px solid #d9e2ee;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.selectAirports-segmentBtn {
+  flex: 1;
+  padding: 10px 0;
+  text-align: center;
+  background: #f3f6fb;
+  cursor: pointer;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.55);
+  border: 0;
+}
+
+.selectAirports-segmentBtn.is-active {
+  background: #fff;
+  color: var(--ink-900, #132333);
+}
+
+.selectAirports-segmentRow.is-disabled {
+  opacity: 0.6;
+}
+
+/* Section title */
+.selectAirports-sectionTitle {
+  margin-top: 6px;
+  margin-bottom: 10px;
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+  font-size: 16px;
+  line-height: 18px;
+}
+
+/* Flags grid: responsive via CSS (no window.innerWidth in render) */
+.selectAirports-flagGridWrap {
+  border: 1px solid #d9e2ee;
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.selectAirports-flagGridWrap.is-disabled {
+  opacity: 0.45;
+}
+
+.selectAirports-flagGridContent {
+  padding-bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 0;
+}
+
+.selectAirports-flagTile {
+  width: 30%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selectAirports-flagTile:disabled {
+  cursor: default;
+}
+
+@media (max-width: 339px) {
+  .selectAirports-flagTile {
+    width: 47%;
+  }
+}
+
+.selectAirports-flagCard {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #d9e2ee;
+  background: #f3f6fb;
+}
+
+.selectAirports-flagSquare {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #fff;
+  border: 1px solid #d9e2ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selectAirports-flagInner {
+  width: 48%;
+  height: 48%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selectAirports-flagImg {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+}
+
+.selectAirports-flagMissing {
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.45);
+  font-size: 12px;
+}
+
+.selectAirports-flagLabel {
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.7);
+  text-align: center;
+  font-size: 12.5px;
+}
+
+/* Country header */
+.selectAirports-countryHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 10px;
+}
+
+.selectAirports-countryLeft {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.selectAirports-countryFlagBox {
+  width: 32px;
+  aspect-ratio: 1 / 1;
+  background: #fff;
+  border: 1px solid #d9e2ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.selectAirports-countryFlagImg {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+}
+
+.selectAirports-countryName {
+  margin: 0;
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+  font-size: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectAirports-countryBackBtn {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #d9e2ee;
+  background: #f3f6fb;
+  cursor: pointer;
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+}
+
+/* Airport grid */
+.selectAirports-airportGrid {
+  width: 100%;
+}
+
+.selectAirports-airportRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.selectAirports-airportCell {
+  flex: 1;
+}
+
+.selectAirports-airportCell.is-empty {
+  opacity: 0;
+  height: 102px;
+}
+
+.selectAirports-airportBtn {
+  width: 100%;
+  height: 102px;
+  border-radius: 18px;
+  border: 1px solid #d9e2ee;
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.selectAirports-airportBtn.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.selectAirports-airportTop {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 6px 0 6px;
+}
+
+.selectAirports-airportBottom {
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Bottom bar */
+.selectAirports-bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 16px 16px 16px;
+  background: rgba(246, 247, 249, 0.96);
+  border-top: 1px solid #d9e2ee;
+}
+
+.selectAirports-bottomInner {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.selectAirports-bottomBtn {
+  width: 100%;
+  background: #16a34a;
+  padding: 14px;
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+  border: 0;
+  color: #fff;
+  font-weight: 900;
+}
+
+/* Modal */
+.selectAirports-modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.selectAirports-modalCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #d9e2ee;
+  width: 100%;
+  max-width: 520px;
+}
+
+.selectAirports-modalTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--ink-900, #132333);
+}
+
+.selectAirports-modalBody {
+  margin-top: 10px;
+  color: rgba(19, 35, 51, 0.75);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.selectAirports-modalBtnRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.selectAirports-modalBtn {
+  flex: 1;
+  border-radius: 14px;
+  padding: 12px 0;
+  text-align: center;
+  cursor: pointer;
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+  border: 1px solid #d9e2ee;
+  background: #fff;
+}
+
+.selectAirports-modalBtn.primary {
+  background: #e8f0ff;
+}

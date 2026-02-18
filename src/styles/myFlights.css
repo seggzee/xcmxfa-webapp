@@ -1,0 +1,250 @@
+/* src/styles/myFlights.css */
+
+.myFlights-page {
+  min-height: 100dvh;
+  background: var(--app-bg, #f6f7f9);
+}
+
+.myFlights-scroll {
+  padding: var(--space-4, 16px);
+  padding-bottom: 40px;
+  /* IMPORTANT: align with sticky header system */
+  padding-top: calc(var(--appheader-height, 0px) + var(--space-2, 8px));
+}
+
+.myFlights-titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+  margin-bottom: var(--space-3, 12px);
+}
+
+.myFlights-titleCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.myFlights-title {
+  font-weight: 900;
+  font-size: 20px;
+  color: var(--ink-900, #132333);
+}
+
+.myFlights-status {
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 12px;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+.myFlights-backBtn {
+  height: 36px;
+  min-width: 84px;
+  border-radius: 999px;
+  border: 1px solid #d9e2ee;
+  background: #fff;
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 14px;
+}
+
+.myFlights-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 14px 0;
+  border: 2px solid #d9e2ee;
+}
+
+.myFlights-zoneDivider {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid #eef2f7;
+}
+
+.myFlights-zoneTitle {
+  font-weight: 900;
+  color: var(--ink-900, #132333);
+  font-size: 12px;
+}
+
+.myFlights-zoneMeta {
+  margin-top: 6px;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.6);
+  font-size: 12px;
+}
+
+.myFlights-zoneRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.myFlights-zoneHeaderStrong {
+  font-weight: 700;
+  color: var(--ink-900, #132333);
+  font-size: 12px;
+}
+
+.myFlights-commuterList {
+  margin-top: 8px;
+}
+
+.myFlights-commuterRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.myFlights-commuterPos {
+  width: 28px;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.55);
+  font-size: 12px;
+  padding-top: 1px;
+}
+
+.myFlights-commuterName {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.8);
+  font-size: 12px;
+}
+
+.myFlights-commuterName.is-self {
+  font-weight: 900;
+  color: #b91c1c;
+}
+
+.myFlights-commuterStaff {
+  width: 84px;
+  text-align: right;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.7);
+  font-size: 12px;
+}
+
+.myFlights-commuterGroup {
+  width: 44px;
+  text-align: right;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.7);
+  font-size: 12px;
+}
+
+.myFlights-actionWrap {
+  padding-top: 2px;
+  display: flex;
+  justify-content: center;
+}
+
+.myFlights-actionBtn {
+  width: 60%;
+  border-radius: 14px;
+  padding: 12px 0;
+  text-align: center;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--ink-900, #132333);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.myFlights-actionBtn.is-disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.myFlights-actionBtn.variant-green {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.myFlights-actionBtn.variant-amber {
+  background: rgba(217, 119, 6, 0.16);
+  border-color: rgba(217, 119, 6, 0.55);
+}
+
+.myFlights-detailsBlock {
+  margin-top: 8px;
+}
+
+.myFlights-detailsDivider {
+  height: 10px;
+}
+
+.myFlights-detailLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+  gap: 12px;
+}
+
+.myFlights-detailLabel {
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.55);
+  font-size: 12px;
+}
+
+.myFlights-detailValue {
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.8);
+  font-size: 12px;
+  text-align: right;
+  flex-shrink: 1;
+}
+
+/* Footer-right (3:3): P?/total left, icon right */
+.myFlights-footerRightRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+.myFlights-footerRightPos {
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.7);
+}
+
+.myFlights-footerRightIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* Empty state */
+.myFlights-emptyWrap {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.myFlights-emptyTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--ink-900, #132333);
+}
+
+.myFlights-emptyBody {
+  margin-top: 6px;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.6);
+  text-align: center;
+}
+
+/* Guest fallback */
+.myFlights-page--guest {
+  padding: 24px;
+}

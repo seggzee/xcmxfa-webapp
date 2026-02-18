@@ -208,7 +208,7 @@
 /* Tweaked to better align on web with the snippet scaling */
 .week-calDow {
   position: absolute;
-  top: 15px;
+  top: 6px;
   color: #ffffff;
   font-size: 13px;
   font-weight: 900;

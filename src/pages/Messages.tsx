@@ -93,6 +93,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import { getCrewLockerNotifications, markCrewLockerNotificationRead } from "../api/crewLockersApi";
 
+import "../styles/messages.css";
+
 type MessageType = "listing" | "flight" | "commuter" | "system" | "account" | "locker";
 
 type Message = {
@@ -162,7 +164,10 @@ export default function Messages() {
         return;
       }
 
-      const psnForApi = String(psn || auth?.user?.username || "").trim().toUpperCase();
+      const psnForApi = String(psn || auth?.user?.username || "")
+        .trim()
+        .toUpperCase();
+
       if (!psnForApi) {
         setMessages([]);
         return;
@@ -273,100 +278,33 @@ export default function Messages() {
     }
   };
 
-  const styles: Record<string, React.CSSProperties> = {
-    screen: { minHeight: "100vh", background: "#f6f7f9" },
-
-    body: {
-      padding: 16,
-      paddingBottom: 40,
-      paddingTop: "calc(var(--appheader-sticky-offset, 86px) + 12px)",
-      maxWidth: 760,
-      margin: "0 auto",
-    },
-
-    headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 },
-    pageTitle: { fontWeight: 900, fontSize: 20, color: "#132333" },
-    backBtn: {
-      height: 36,
-      minWidth: 84,
-      borderRadius: 999,
-      border: "1px solid #d9e2ee",
-      background: "#ffffff",
-      fontWeight: 900,
-      color: "#132333",
-      cursor: "pointer",
-      fontSize: 14,
-      padding: "0 14px",
-    },
-
-    sectionTitle: { marginTop: 10, fontWeight: 900, fontSize: 12, color: "rgba(19,35,51,0.55)" },
-
-    card: {
-      marginTop: 10,
-      background: "#ffffff",
-      borderRadius: 16,
-      border: "2px solid #d9e2ee",
-      padding: 14,
-      cursor: "pointer",
-    },
-    cardUnread: {
-      background: "rgba(185,28,28,0.04)",
-      borderColor: "rgba(185,28,28,0.18)",
-    },
-
-    topRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
-    typeLeft: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 },
-    typeIcon: { fontSize: 16 },
-    typeText: { fontWeight: 900, fontSize: 12, color: "#132333" },
-
-    whenText: { fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", whiteSpace: "nowrap" as const },
-
-    title: { marginTop: 10, fontWeight: 900, fontSize: 14, color: "#132333" },
-    bodyText: { marginTop: 6, fontWeight: 700, fontSize: 12, color: "rgba(19,35,51,0.75)", lineHeight: "18px" },
-
-    actionsRow: { marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 10 },
-    viewBtn: {
-      borderRadius: 14,
-      padding: "10px 14px",
-      fontWeight: 900,
-      fontSize: 13,
-      border: "1px solid #d9e2ee",
-      background: "#ffffff",
-      cursor: "pointer",
-      color: "#132333",
-    },
-
-    emptyWrap: { marginTop: 50, textAlign: "center" as const },
-    emptyTitle: { fontWeight: 900, fontSize: 16, color: "#132333" },
-    emptyBody: { marginTop: 6, fontWeight: 700, color: "rgba(19,35,51,0.6)" },
-  };
-
   const renderMessage = (m: Message) => {
     const unread = !m.read_at_utc;
+
     return (
       <div
         key={m.id}
-        style={{ ...styles.card, ...(unread ? styles.cardUnread : null) }}
+        className={`messages-card ${unread ? "is-unread" : ""}`}
         onClick={() => onOpenMessage(m)}
         role="button"
         tabIndex={0}
       >
-        <div style={styles.topRow}>
-          <div style={styles.typeLeft}>
-            <span style={styles.typeIcon}>{typeIcon(m.type)}</span>
-            <div style={styles.typeText}>{typeLabel(m.type)}</div>
+        <div className="messages-cardTopRow">
+          <div className="messages-typeLeft">
+            <span className="messages-typeIcon">{typeIcon(m.type)}</span>
+            <div className="messages-typeText">{typeLabel(m.type)}</div>
           </div>
 
-          <div style={styles.whenText}>{fmtWhen(m.created_at_utc)}</div>
+          <div className="messages-whenText">{fmtWhen(m.created_at_utc)}</div>
         </div>
 
-        <div style={styles.title}>{m.title}</div>
-        <div style={styles.bodyText}>{m.body}</div>
+        <div className="messages-title">{m.title}</div>
+        <div className="messages-bodyText">{m.body}</div>
 
-        <div style={styles.actionsRow}>
+        <div className="messages-actionsRow">
           <button
             type="button"
-            style={styles.viewBtn}
+            className="messages-viewBtn"
             onClick={(e) => {
               e.stopPropagation();
               void onOpenMessage(m);
@@ -382,25 +320,25 @@ export default function Messages() {
   const hasAny = visibleMessages.length > 0;
 
   return (
-    <div style={styles.screen}>
-      <div style={styles.body}>
-        <div style={styles.headerRow}>
-          <div style={styles.pageTitle}>Messages</div>
-          <button type="button" style={styles.backBtn} onClick={() => nav(-1)}>
+    <div className="messages-page">
+      <div className="messages-scroll">
+        <div className="messages-headerRow">
+          <div className="messages-pageTitle">Messages</div>
+          <button type="button" className="messages-backBtn" onClick={() => nav(-1)}>
             Back
           </button>
         </div>
 
         {loadingText ? (
-          <div style={{ marginTop: 6, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>{loadingText}</div>
+          <div className="messages-statusLine">{loadingText}</div>
         ) : errorText ? (
-          <div style={{ marginTop: 6, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>{errorText}</div>
+          <div className="messages-statusLine">{errorText}</div>
         ) : null}
 
         {!hasAny ? (
-          <div style={styles.emptyWrap}>
-            <div style={styles.emptyTitle}>No messages</div>
-            <div style={styles.emptyBody}>
+          <div className="messages-emptyWrap">
+            <div className="messages-emptyTitle">No messages</div>
+            <div className="messages-emptyBody">
               {isMember
                 ? "When push notifications are enabled, your locker and flight updates will appear here."
                 : "System updates will appear here."}
@@ -410,14 +348,14 @@ export default function Messages() {
           <>
             {grouped.today.length > 0 ? (
               <>
-                <div style={styles.sectionTitle}>Today</div>
+                <div className="messages-sectionTitle">Today</div>
                 {grouped.today.map(renderMessage)}
               </>
             ) : null}
 
             {grouped.earlier.length > 0 ? (
               <>
-                <div style={styles.sectionTitle}>Earlier</div>
+                <div className="messages-sectionTitle">Earlier</div>
                 {grouped.earlier.map(renderMessage)}
               </>
             ) : null}
