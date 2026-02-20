@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import { getCrewLockers } from "../api/crewLockersApi";
 
+// ✅ Standard back icon button (same as Week)
+import BackButton from "../components/BackButton";
+
 import "../styles/crewLockers.css";
 
 function safeUpper(v: unknown) {
@@ -96,9 +99,9 @@ export default function CrewLockers() {
             <div className="crewLockers-title">Crew lockers</div>
             <div className="crewLockers-status">Member-only page.</div>
           </div>
-          <button type="button" className="crewLockers-backBtn" onClick={() => nav(-1)}>
-            Back
-          </button>
+
+          {/* ✅ Standard icon back button */}
+          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
       </div>
     );
@@ -118,9 +121,8 @@ export default function CrewLockers() {
             ) : null}
           </div>
 
-          <button type="button" className="crewLockers-backBtn" onClick={() => nav(-1)}>
-            Back
-          </button>
+          {/* ✅ Standard icon back button */}
+          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
 
         {list.length === 0 ? (

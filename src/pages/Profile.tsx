@@ -3,6 +3,9 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { UI_ICONS } from "../assets";
 
+// ✅ Standard back icon button (same as Week/MyFlights)
+import BackButton from "../components/BackButton";
+
 export default function Profile() {
   const nav = useNavigate();
 
@@ -12,9 +15,8 @@ export default function Profile() {
         <div className="profile-top">
           <div className="text-title">My Profile</div>
 
-          <button className="btn btn-secondary" onClick={() => nav(-1)}>
-            Back
-          </button>
+          {/* ✅ Standard icon back button */}
+          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
 
         <div className="card">

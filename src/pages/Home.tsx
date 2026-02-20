@@ -42,11 +42,48 @@
 // - No extra fallbacks
 // - No changes to unrelated UI / behaviour / state
 // =====================================================================================
+//
+// =====================================================================================
+// ?? BOOTSTRAP: Countdown Time Truth + Phase Engine — Home “My next flight” (ADD-ONLY)
+// =====================================================================================
+//
+// IDIOT GUIDE:
+// - Countdown is canonical UTC math:
+//     std_utc (absolute UTC instant) - Date.now() (epoch ms).
+// - We do NOT guess.
+//     - If std_utc missing/invalid -> msToStd null -> do not show countdown.
+// - Countdown visibility:
+//     - Starts at Phase 2 (<= 6h) and continues through Phase 3 (until STD).
+//     - Phase 4 is post-STD; we do NOT show countdown here yet (later Schiphol rule overrides).
+//
+// NOTE (2026-02-20):
+// - Countdown format now includes seconds: "HH:MM:SS"
+// - Tick interval is 5 seconds (reasonable smoothness without being silly).
+//
+// What we do here (ADD-ONLY):
+// - Add a ticking nowMs state (interval)
+// - Derive msToStd/phase/countdown via flightsApi helpers
+// - Pass countdown into FlightCard3x3 via headerRightContent slot
+// =====================================================================================
+//
+// =====================================================================================
+// ?? BOOTSTRAP: FlightCard3x3 Row Visibility (Phase 0 hides Row 3 on Home “My next flight”)
+// =====================================================================================
+//
+// IDIOT GUIDE:
+// - Phase 0 is > 24 hours to STD.
+// - On Home, for "My next flight" only, we want a shorter card in Phase 0.
+// - We achieve this with a new optional prop on FlightCard3x3:
+//     visibleRows?: 2 | 3
+//   Default is 3 so nothing changes unless a screen explicitly opts in.
+// - If std_utc is missing/invalid -> msToStd null -> phase defaults to 0 -> show 2 rows.
+// - This thread changes ONLY Home "My next flight" usage. No other screens touched.
+// =====================================================================================
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
 import { STORAGE_PENDING_USERNAME } from "../app/storageKeys";
+
 import { useAuth } from "../app/authStore";
 import { useCrew } from "../app/crewStore";
 import {
@@ -68,7 +105,8 @@ import { API_BASE_URL } from "../config/api";
 // Everything goes through src/assets/index.ts
 import { APP_IMAGES, getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
 
-import { getMyFlights } from "../api/flightsApi";
+// ? ADD-ONLY: canonical time truth + phase helpers
+import { getMyFlights, getMsToStd, getFlightPhase, formatCountdownHHMM } from "../api/flightsApi";
 
 type NextFlightState =
   | { status: "idle" | "loading"; flight: null }
@@ -293,6 +331,43 @@ export default function Home() {
     load();
     return () => ac.abort();
   }, [isMember, staffNo]);
+
+  // ? ADD-ONLY (Step 2): ticking "now" for countdown/phase
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    // NOTE:
+    // - Countdown is HH:MM:SS.
+    // - 5-second ticking gives "live enough" seconds without wasting cycles.
+    const t = window.setInterval(() => setNowMs(Date.now()), 5_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // ? ADD-ONLY (Step 2): derive countdown + phase for "My next flight"
+  const nextFlightDerived = useMemo(() => {
+    if (nextFlightState.status !== "ready") {
+      return { msToStd: null as number | null, phase: 0 as number, countdown: null as string | null };
+    }
+
+    const f: any = nextFlightState.flight || {};
+
+    const msToStd = getMsToStd(f, nowMs);
+
+    // LOCKED RULE:
+    // - If msToStd is null (std_utc missing/invalid), phase defaults to 0.
+    // - This drives row visibility to 2 rows (no guessing).
+    const phase = (getFlightPhase(msToStd) as 0 | 1 | 2 | 3 | 4);
+
+    // Countdown starts at Phase 2 and continues until STD (Phase 3).
+    // Phase 4 is post-STD; do not show countdown here yet.
+    const showCountdown = phase === 2 || phase === 3;
+
+    const countdown = showCountdown && msToStd !== null ? formatCountdownHHMM(msToStd) : null;
+
+    return { msToStd, phase, countdown };
+  }, [nextFlightState.status, nextFlightState.flight, nowMs]);
+
+  const nextFlightCountdownHHMMSS = nextFlightDerived.countdown;
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -539,6 +614,11 @@ export default function Home() {
                   showHeader
                   headerLeftLabel="My next flight:"
                   headerDate={formatHeaderDateFromStdLocal((nextFlightState.flight as any)?.std_local)}
+                  headerRightContent={
+                    nextFlightCountdownHHMMSS ? (
+                      <span style={{ fontWeight: 900, letterSpacing: 0.2 }}>{nextFlightCountdownHHMMSS}</span>
+                    ) : null
+                  }
                   flight={nextFlightState.flight}
                   /**
                    * IMPORTANT (2026-02-20):
@@ -568,6 +648,14 @@ export default function Home() {
                       </span>
                     );
                   })()}
+                  /**
+                   * Phase 0 (>24h) hides Row 3 (Type/Reg/Gate) on Home "My next flight" ONLY.
+                   * - Default behaviour for FlightCard3x3 remains 3 rows everywhere else.
+                   * - If std_utc missing/invalid => msToStd null => phase defaults to 0 => show 2 rows (no guessing).
+                   */
+				   
+				   /*phase 0 includes msToStd null; we deliberately hide row 3 when std_utc is missing*/
+                  visibleRows={nextFlightDerived.phase === 0 ? 2 : 3}
                 />
               ) : nextFlightState.status === "error" ? (
                 <div className="errorLine">My next flight unavailable: {nextFlightState.error.message}</div>
@@ -769,6 +857,7 @@ export default function Home() {
           {!isMember ? (
             <>
               <div className="quickGridRow">
+			  
                 <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
                   <div className="quickTileTitle">Sign up</div>
                   <div className="quickTileSub">Unlock crew features</div>
@@ -778,18 +867,21 @@ export default function Home() {
                   <div className="quickTileTitle">Crew Lockers</div>
                   <div className="quickTileSub">Sign in required</div>
                 </button>
+				
               </div>
 
               <div className="quickGridRow">
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Information</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+			  
+                <button type="button" className="quickTile" onClick={() => nav("/faq")}>
+				  <div className="quickTileTitle">FAQ</div>
+				  <div className="quickTileSub">Help & info</div>
+				</button>
 
                 <div className="quickTile quickTile--disabled" aria-disabled="true">
                   <div className="quickTileTitle">Tools</div>
                   <div className="quickTileSub">Coming soon</div>
                 </div>
+				
               </div>
 
               <div className="promoSpacer">
@@ -823,10 +915,11 @@ export default function Home() {
               </div>
 
               <div className="quickGridRow">
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Information</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+			  
+                <button type="button" className="quickTile" onClick={() => nav("/faq")}>
+				  <div className="quickTileTitle">FAQ</div>
+				  <div className="quickTileSub">Help & info</div>
+				</button>
 
                 <div className="quickTile quickTile--disabled" aria-disabled="true">
                   <div className="quickTileTitle">Tools</div>

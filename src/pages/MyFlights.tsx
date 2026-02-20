@@ -4,7 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import FlightCard3x3 from "../components/FlightCard3x3";
 import { getMyFlights, setBookingListed } from "../api/flightsApi";
-import { LISTING_STATUS_ICONS } from "../assets";
+import { LISTING_STATUS_ICONS, UI_ICONS } from "../assets";
+
+// ✅ Standard back icon button (same component Week uses)
+import BackButton from "../components/BackButton";
 
 import "../styles/myFlights.css";
 
@@ -240,7 +243,7 @@ function SchipholOverlayZone({ flight }: { flight: CardVM }) {
   const s = r0?.schiphol ?? null;
   if (!s || typeof s !== "object") return null;
 
-  const title = isDepAMS ? "Departure information" : "Arrival information";
+  const title = isDepAMS ? "AMS Departure info" : "AMS Arrival info";
 
   // Row 1: Location (T · Pier · Gate)
   const terminalRaw = String((s as any)?.terminal ?? "").trim();
@@ -249,7 +252,7 @@ function SchipholOverlayZone({ flight }: { flight: CardVM }) {
 
   const locationParts: string[] = [];
   if (terminalRaw) {
-    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `T${terminalRaw}`;
+    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
     locationParts.push(t);
   }
   if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
@@ -261,14 +264,14 @@ function SchipholOverlayZone({ flight }: { flight: CardVM }) {
   const timeParts: string[] = [];
 
   if (isDepAMS) {
-    const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
     const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
+    const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
     const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
     const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
 
-    if (board) timeParts.push(`Board ${board}`);
-    if (open) timeParts.push(`Open ${open}`);
-    if (close) timeParts.push(`Close ${close}`);
+    if (open) timeParts.push(`Open: ${open}`);
+    if (board) timeParts.push(`Boarding: ${board}`);
+    if (close) timeParts.push(`Close: ${close}`);
     if (offb) timeParts.push(`Off-block ${offb}`);
   } else {
     const land = fmtTimeLocal((s as any)?.estimated_landing_time_utc);
@@ -291,7 +294,7 @@ function SchipholOverlayZone({ flight }: { flight: CardVM }) {
       {locationLine ? <div className="myFlights-zoneMeta">{locationLine}</div> : null}
       {timesLine ? <div className="myFlights-zoneMeta">{timesLine}</div> : null}
 
-      {showFreshness ? <div className="myFlights-zoneMeta">Schiphol updated: {updated}</div> : null}
+      {/* {showFreshness ? <div className="myFlights-zoneMeta">Schiphol updated: {updated}</div> : null} */}
     </div>
   );
 }
@@ -314,6 +317,33 @@ export default function MyFlights() {
   const [actionSuccessByFlight, setActionSuccessByFlight] = useState<Record<string, "listed" | "unlisted" | null>>(
     {}
   );
+
+  // =====================================================================================
+  // COLLAPSE ENGINE (per-card)
+  //
+  // Locked decisions:
+  // - Header right = MENU icon (menu.webp via UI_ICONS.MENU)
+  // - MENU toggles per-card collapse/expand
+  // - Collapsed:
+  //    - Header + 3x3 card visible
+  //    - All zones below 3x3 hidden
+  //    - Action button ALWAYS visible
+  // - Expanded:
+  //    - Everything visible
+  //
+  // Additive only:
+  // - No deletions of existing logic or notes
+  // - No refactors
+  // - No API/behaviour changes outside collapse feature
+  // =====================================================================================
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+
+  function toggleExpanded(flightId: string) {
+    setExpandedMap((prev) => ({
+      ...prev,
+      [flightId]: !prev[flightId],
+    }));
+  }
 
   async function loadFlights() {
     if (!staffNo) return [];
@@ -456,9 +486,9 @@ export default function MyFlights() {
             <div className="myFlights-title">My flights</div>
             <div className="myFlights-status">Member-only page.</div>
           </div>
-          <button type="button" className="myFlights-backBtn" onClick={() => nav(-1)}>
-            Back
-          </button>
+
+          {/* ✅ Standard back icon (Week parity) */}
+          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
       </div>
     );
@@ -478,9 +508,8 @@ export default function MyFlights() {
             ) : null}
           </div>
 
-          <button type="button" className="myFlights-backBtn" onClick={() => nav(-1)}>
-            Back
-          </button>
+          {/* ✅ Standard back icon (Week parity) */}
+          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
 
         {flightsForRender.length === 0 ? (
@@ -490,6 +519,9 @@ export default function MyFlights() {
           </div>
         ) : (
           flightsForRender.map((flight) => {
+            // Per-card collapse state (default collapsed)
+            const expanded = expandedMap[String(flight.flightInstanceId || "").trim()] ?? false;
+
             const footerRight = (() => {
               const posRaw =
                 flight.row0?.listPos !== undefined && flight.row0?.listPos !== null
@@ -536,73 +568,106 @@ export default function MyFlights() {
                   headerDate={flight.depDate}
                   showHeader={true}
                   footerRightContent={footerRight}
+                  // =================================================================================
+                  // Header right MENU control (per-card collapse engine)
+                  // - Menu icon: UI_ICONS.MENU (menu.webp)
+                  // - Clicking toggles the card between collapsed/expanded.
+                  // =================================================================================
+                  headerRightContent={
+                    <button
+                      type="button"
+                      className="myFlights-menuBtn"
+                      onClick={() => toggleExpanded(String(flight.flightInstanceId || "").trim())}
+                      aria-expanded={expanded}
+                      aria-label={expanded ? "Collapse card" : "Expand card"}
+                    >
+                      <img className="myFlights-menuIcon" src={UI_ICONS.MENU} alt="Menu" />
+                    </button>
+                  }
                 />
 
-                {/* NEW: Schiphol Ultra overlay zone (ADD-ONLY, AMS only) */}
-                <div className="myFlights-zoneDivider" />
-                <SchipholOverlayZone flight={flight} />
+                {/* =================================================================================
+                    COLLAPSIBLE ZONES (below 3x3)
+                    Locked behaviour:
+                    - When collapsed: hide ALL zones below the 3x3 card
+                    - When expanded: show them exactly as before
+                    Additive only: we wrap existing zones; we do NOT alter their logic.
+                   ================================================================================= */}
+                {expanded ? (
+                  <>
+                    {/* NEW: Schiphol Ultra overlay zone (ADD-ONLY, AMS only) */}
+                    <div className="myFlights-zoneDivider" />
+                    <SchipholOverlayZone flight={flight} />
 
-                {/* If overlay zone rendered, keep the next divider so zones remain visually separated */}
-                <div className="myFlights-zoneDivider" />
+                    {/* If overlay zone rendered, keep the next divider so zones remain visually separated */}
+                    <div className="myFlights-zoneDivider" />
 
-                <div className="myFlights-zone">
-                  <div className="myFlights-zoneTitle">Listing information</div>
-                  <div className="myFlights-zoneRow">
-                    <div className="myFlights-zoneMeta">Requested: {flight.requestedAt || "--"}</div>
-                    <div className="myFlights-zoneMeta">Status: {flight.listingStatus || "--"}</div>
-                  </div>
-                </div>
-
-                <div className="myFlights-zoneDivider" />
-
-                <div className="myFlights-zone">
-                  <div className="myFlights-zoneTitle">Commuter summary</div>
-                  <div className="myFlights-zoneRow">
-                    <div className="myFlights-zoneMeta">XCM : {String(flight.commuterSummary?.XCM ?? 0)}</div>
-                    <div className="myFlights-zoneMeta">XFA : {String(flight.commuterSummary?.XFA ?? 0)}</div>
-                    <div className="myFlights-zoneMeta">Other : {String(flight.commuterSummary?.Other ?? 0)}</div>
-                  </div>
-                </div>
-
-                <div className="myFlights-zoneDivider" />
-
-                {Array.isArray(flight.listedCommuters) && flight.listedCommuters.length > 0 ? (
-                  <div className="myFlights-zone">
-                    <div className="myFlights-zoneHeaderStrong">
-                      All listed commuters: {flight.listedCommuters.length}
+                    <div className="myFlights-zone">
+                      <div className="myFlights-zoneTitle">Listing information</div>
+                      <div className="myFlights-zoneRow">
+                        <div className="myFlights-zoneMeta">Requested: {flight.requestedAt || "--"}</div>
+                        <div className="myFlights-zoneMeta">Status: {flight.listingStatus || "--"}</div>
+                      </div>
                     </div>
 
-                    <div className="myFlights-commuterList">
-                      {flight.listedCommuters.map((p, idx) => {
-                        const posLabel =
-                          p.pos !== undefined && p.pos !== null && String(p.pos).trim() !== ""
-                            ? `P${String(p.pos).trim()}.`
-                            : "P—.";
+                    <div className="myFlights-zoneDivider" />
 
-                        return (
-                          <div key={`${p.staffNo}-${idx}`} className="myFlights-commuterRow">
-                            <div className="myFlights-commuterPos">{posLabel}</div>
-
-                            <div className={`myFlights-commuterName ${p.isSelf ? "is-self" : ""}`}>{p.name}</div>
-
-                            <div className="myFlights-commuterStaff" title={p.staffNo}>
-                              {p.staffNo}
-                            </div>
-
-                            <div className="myFlights-commuterGroup" title={p.group}>
-                              {p.group}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="myFlights-zone">
+                      <div className="myFlights-zoneTitle">Commuter summary</div>
+                      <div className="myFlights-zoneRow">
+                        <div className="myFlights-zoneMeta">XCM : {String(flight.commuterSummary?.XCM ?? 0)}</div>
+                        <div className="myFlights-zoneMeta">XFA : {String(flight.commuterSummary?.XFA ?? 0)}</div>
+                        <div className="myFlights-zoneMeta">Other : {String(flight.commuterSummary?.Other ?? 0)}</div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="myFlights-zone">
-                    <div className="myFlights-zoneHeaderStrong">All listed commuters: --</div>
-                  </div>
-                )}
 
+                    <div className="myFlights-zoneDivider" />
+
+                    {Array.isArray(flight.listedCommuters) && flight.listedCommuters.length > 0 ? (
+                      <div className="myFlights-zone">
+                        <div className="myFlights-zoneHeaderStrong">
+                          All listed commuters: {flight.listedCommuters.length}
+                        </div>
+
+                        <div className="myFlights-commuterList">
+                          {flight.listedCommuters.map((p, idx) => {
+                            const posLabel =
+                              p.pos !== undefined && p.pos !== null && String(p.pos).trim() !== ""
+                                ? `P${String(p.pos).trim()}.`
+                                : "P—.";
+
+                            return (
+                              <div key={`${p.staffNo}-${idx}`} className="myFlights-commuterRow">
+                                <div className="myFlights-commuterPos">{posLabel}</div>
+
+                                <div className={`myFlights-commuterName ${p.isSelf ? "is-self" : ""}`}>{p.name}</div>
+
+                                <div className="myFlights-commuterStaff" title={p.staffNo}>
+                                  {p.staffNo}
+                                </div>
+
+                                <div className="myFlights-commuterGroup" title={p.group}>
+                                  {p.group}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="myFlights-zone">
+                        <div className="myFlights-zoneHeaderStrong">All listed commuters: --</div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+
+                {/* =================================================================================
+                    ACTION BUTTON (ALWAYS VISIBLE)
+                    Locked behaviour:
+                    - Must remain visible when collapsed and expanded
+                    - No changes to action logic
+                   ================================================================================= */}
                 <div className="myFlights-zoneDivider" />
 
                 <div className="myFlights-actionWrap">
@@ -618,27 +683,37 @@ export default function MyFlights() {
                   </button>
                 </div>
 
-                <div className="myFlights-zoneDivider" />
+                {/* =================================================================================
+                    COLLAPSIBLE ZONES CONTINUED (below action button)
+                    Locked behaviour:
+                    - Other information must also collapse
+                    Additive only: wrap, do not edit internals
+                   ================================================================================= */}
+                {expanded ? (
+                  <>
+                    <div className="myFlights-zoneDivider" />
 
-                <div className="myFlights-zone">
-                  <div className="myFlights-zoneHeaderStrong">Other information</div>
+                    <div className="myFlights-zone">
+                      <div className="myFlights-zoneHeaderStrong">Other information</div>
 
-                  <div className="myFlights-detailsBlock">
-                    <DetailLine label="Aircraft config" value={null} />
-                    <DetailLine label="WiFi" value={null} />
+                      <div className="myFlights-detailsBlock">
+                        <DetailLine label="Aircraft config" value={null} />
+                        <DetailLine label="WiFi" value={null} />
 
-                    <div className="myFlights-detailsDivider" />
+                        <div className="myFlights-detailsDivider" />
 
-                    <DetailLine label="Departure Terminal" value={flight.depTerminal} />
-                    <DetailLine label="Departure Gate" value={flight.depGate} />
+                        <DetailLine label="Departure Terminal" value={flight.depTerminal} />
+                        <DetailLine label="Departure Gate" value={flight.depGate} />
 
-                    <div className="myFlights-detailsDivider" />
+                        <div className="myFlights-detailsDivider" />
 
-                    <DetailLine label="Arrival Terminal" value={flight.arrTerminal} />
-                    <DetailLine label="Arrival Gate" value={flight.arrGate} />
-                    <DetailLine label="ETA (local)" value={flight.etaLocal} />
-                  </div>
-                </div>
+                        <DetailLine label="Arrival Terminal" value={flight.arrTerminal} />
+                        <DetailLine label="Arrival Gate" value={flight.arrGate} />
+                        <DetailLine label="ETA (local)" value={flight.etaLocal} />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             );
           })

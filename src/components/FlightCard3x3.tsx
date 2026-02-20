@@ -116,6 +116,16 @@ export default function FlightCard3x3({
   showHeader = true,
 
   /**
+   * ✅ Header right content slot (top header row, right of date).
+   *
+   * Idiot guide:
+   * - Home/MyFlights/Day can pass anything here (countdown, badges, etc).
+   * - If not provided, renders blank (RN style: reserved layout slot).
+   * - No defaults, no assumptions.
+   */
+  headerRightContent,
+
+  /**
    * Screen-controlled slot (grid cell 2:3).
    * - If not provided, the cell renders blank.
    * - No defaults, no fallbacks, no assumptions.
@@ -127,6 +137,20 @@ export default function FlightCard3x3({
    */
   footerRightContent,
 
+  /**
+   * ✅ Row visibility control (ADD-ONLY, zero regressions by default)
+   *
+   * Idiot guide:
+   * - Some screens want a "short" card (e.g. Home Phase 0, >24h to STD).
+   * - We allow that by hiding Row 3 (Type/Reg/Gate) ONLY when the screen opts in.
+   * - Default is 3, so existing screens are unchanged unless they pass visibleRows.
+   *
+   * Contract:
+   * - visibleRows = 2 -> show Row 1 + Row 2 only
+   * - visibleRows = 3 -> show Row 1 + Row 2 + Row 3 (normal full card)
+   */
+  visibleRows = 3,
+
   onReport,
 }: {
   flight: any;
@@ -135,11 +159,20 @@ export default function FlightCard3x3({
   showHeader?: boolean;
 
   /**
+   * ✅ Header right content slot (top header row, right of date).
+   */
+  headerRightContent?: React.ReactNode;
+
+  /**
    * Screen-controlled slot (grid cell 2:3).
-   * - If not provided, the cell renders blank.
-   * - No defaults, no fallbacks, no assumptions.
    */
   footerRightContent?: React.ReactNode;
+
+  /**
+   * Row visibility control:
+   * - Default 3 (full card) to guarantee no behaviour change unless a screen opts in.
+   */
+  visibleRows?: 2 | 3;
 
   onReport?: (r: Report) => void;
 }) {
@@ -195,7 +228,19 @@ export default function FlightCard3x3({
     });
 
   // Optional (RN parity): Gate / Type / Reg are NOT guaranteed
-  const gateDisplay = toNonEmptyString(f.dep_gate) || "N/A";
+  //
+  // Schiphol gate authority (DISPLAY RULE ONLY):
+  // - For flights departing AMS, Schiphol gate is generally more accurate than KLM feed.
+  // - If dep_airport === "AMS" and flight.schiphol.gate is present -> prefer it.
+  // - Else fall back to dep_gate.
+  // - No guessing: empty values ignored.
+  const depAirport = toNonEmptyString(f.dep_airport).toUpperCase();
+  const schipholGate = toNonEmptyString(f?.schiphol?.gate);
+  const gateDisplay =
+    (depAirport === "AMS" ? schipholGate : "") ||
+    toNonEmptyString(f.dep_gate) ||
+    "N/A";
+
   const typeDisplay = aircraftDisplayFromTypecode(f.ac_typecode);
   const regDisplay = toNonEmptyString(f.ac_reg) || "N/A";
 
@@ -206,7 +251,7 @@ export default function FlightCard3x3({
 
   return (
     <div className="flightCard">
-      {showHeader && (headerLeftLabel || headerDate) ? (
+      {showHeader && (headerLeftLabel || headerDate || headerRightContent) ? (
         <div className="flightCard-headerRow">
           <div className="flightCard-headerColLeft">
             {headerLeftLabel ? <div className="flightCard-headerTitle">{headerLeftLabel}</div> : null}
@@ -214,7 +259,11 @@ export default function FlightCard3x3({
           <div className="flightCard-headerColCenter">
             {headerDate ? <div className="flightCard-headerDate">{headerDate}</div> : null}
           </div>
-          <div className="flightCard-headerColRight" />
+
+          {/* ✅ Header right slot */}
+          <div className="flightCard-headerColRight">
+            {headerRightContent ? <div className="flightCard-headerRight">{headerRightContent}</div> : null}
+          </div>
         </div>
       ) : null}
 
@@ -271,20 +320,29 @@ export default function FlightCard3x3({
           </div>
         </div>
 
-        <div className="flightCard-row flightCard-rowFooter">
-          <div className="flightCard-cell">
-            <div className="flightCard-footer">Type: {String(typeDisplay)}</div>
-          </div>
+        {/* =================================================================================
+           Row 3 visibility gate (Phase 0 on Home "My next flight" hides this row)
+           RULES (LOCKED):
+           - Do not change parsing logic or JSX inside the row.
+           - Default visibleRows is 3 so all existing screens remain unchanged.
+           - When visibleRows === 2, we render nothing for Row 3.
+           ================================================================================= */}
+        {visibleRows === 3 ? (
+          <div className="flightCard-row flightCard-rowFooter">
+            <div className="flightCard-cell">
+              <div className="flightCard-footer">Type: {String(typeDisplay)}</div>
+            </div>
 
-          <div className="flightCard-cell">
-            <div className="flightCard-footer">Reg: {String(regDisplay)}</div>
-          </div>
+            <div className="flightCard-cell">
+              <div className="flightCard-footer">Reg: {String(regDisplay)}</div>
+            </div>
 
-          {/* ✅ Cell 3:3 is now Gate */}
-          <div className="flightCard-cell flightCard-rightCell">
-            <div className="flightCard-footer">Gate: {String(gateDisplay)}</div>
+            {/* ✅ Cell 3:3 is now Gate */}
+            <div className="flightCard-cell flightCard-rightCell">
+              <div className="flightCard-footer">Gate: {String(gateDisplay)}</div>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

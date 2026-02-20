@@ -9,6 +9,9 @@ import { COUNTRY_AIRPORTS } from "../data/airports";
 import { API_BASE_URL, postJson } from "../app/api";
 import { useSecureUnlock } from "../hooks/useSecureUnlock";
 
+// ✅ Standard back icon button (same as Week/MyFlights)
+import BackButton from "../components/BackButton";
+
 function safeStr(v: any) {
   return (v ?? "") === null ? "" : String(v ?? "");
 }
@@ -100,8 +103,7 @@ export default function Passport() {
     if (!passportName.trim()) return "Passport name(s) is required.";
     if (!dob.trim() || !isYMD(dob.trim())) return "DOB must be YYYY-MM-DD.";
     if (!nationality.trim()) return "Nationality is required.";
-    if (!passportExpiry.trim() || !isYMD(passportExpiry.trim()))
-      return "Expiry must be YYYY-MM-DD.";
+    if (!passportExpiry.trim() || !isYMD(passportExpiry.trim())) return "Expiry must be YYYY-MM-DD.";
     return "";
   }
 
@@ -128,9 +130,7 @@ export default function Passport() {
       };
 
       const token = String(auth?.accessToken || "").trim();
-      const headers: Record<string, string> = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
       await postJson(SAVE_MEMBER_PASSPORT_URL, payload, headers);
     } catch (e: any) {
@@ -146,9 +146,15 @@ export default function Passport() {
         <div className="profile-top">
           <div className="text-title">Passport information</div>
 
-          <button className="btn btn-secondary" onClick={() => nav(-1)} disabled={busy}>
-            Back
-          </button>
+          {/* ✅ Standard icon back button (busy guarded) */}
+          <BackButton
+            onClick={() => {
+              if (busy) return;
+              nav(-1);
+            }}
+            ariaLabel="Back"
+            size={38}
+          />
         </div>
 
         <div className="passport-sub">Enter details exactly as shown in your passport.</div>
@@ -156,21 +162,13 @@ export default function Passport() {
         {!isMember ? (
           <div className="card wizard-warning">
             <div className="wizard-warning-title">Members only</div>
-            <div className="wizard-warning-body">
-              Please sign in as a member to add or edit passport details.
-            </div>
+            <div className="wizard-warning-body">Please sign in as a member to add or edit passport details.</div>
           </div>
         ) : !unlocked ? (
           <div className="card passport-lockCard passport-lockCard--center">
-            <img
-              src={UI_ICONS.STOP_SIGN}
-              alt="Security"
-              className="passport-lockIconCenter"
-            />
+            <img src={UI_ICONS.STOP_SIGN} alt="Security" className="passport-lockIconCenter" />
             <div className="passport-lockTitleCenter">Security sensitive information!</div>
-            <div className="passport-lockBodyCenter">
-              Passport and Residence information are protected.
-            </div>
+            <div className="passport-lockBodyCenter">Passport and Residence information are protected.</div>
             <button type="button" className="passport-unlockLink" onClick={unlock}>
               Unlock to continue
             </button>
@@ -178,12 +176,7 @@ export default function Passport() {
         ) : (
           <div className="card">
             <div className="profile-section-title">PSN (Staff Number)</div>
-            <input
-              value={psn}
-              readOnly
-              disabled
-              className="wizard-input wizard-input--readonly"
-            />
+            <input value={psn} readOnly disabled className="wizard-input wizard-input--readonly" />
 
             <div className="passport-field">
               <div className="profile-section-title">Full name in passport</div>
@@ -282,9 +275,7 @@ export default function Passport() {
                     <button
                       key={c}
                       type="button"
-                      className={`wizard-listRow ${
-                        nationality === c ? "wizard-listRow--active" : ""
-                      }`}
+                      className={`wizard-listRow ${nationality === c ? "wizard-listRow--active" : ""}`}
                       onClick={() => {
                         setNationality(c);
                         setCountryModalOpen(false);
@@ -299,11 +290,7 @@ export default function Passport() {
               </div>
 
               <div className="wizard-modalFooter">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setCountryModalOpen(false)}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => setCountryModalOpen(false)}>
                   Cancel
                 </button>
               </div>

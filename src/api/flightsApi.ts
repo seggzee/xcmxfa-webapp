@@ -569,7 +569,7 @@ export async function setBookingListed(args: {
  * Objective:
  * - Single source of truth in the client for:
  *   - Parsing the flight’s canonical departure instant (UTC)
- *   - Computing ms-to-STD and HH:MM countdown formatting
+ *   - Computing ms-to-STD and countdown formatting
  *   - Computing the locked 5-phase state machine used by Home/MyFlights/Day
  *
  * Time truth (LOCKED):
@@ -580,7 +580,7 @@ export async function setBookingListed(args: {
  * Phase model (LOCKED):
  * - Phase 0: > 24h to STD  -> show rows 1 & 2 only
  * - Phase 1: 24h → 6h     -> show rows 1,2,3
- * - Phase 2: 6h → 3h      -> countdown visible (HH:MM) in header top row
+ * - Phase 2: 6h → 3h      -> countdown visible in header top row
  * - Phase 3: 3h → STD     -> progressively add Day-style panels below card
  * - Phase 4: <= 0         -> post-STD state (later overridden by Schiphol DEP rule)
  *
@@ -627,24 +627,28 @@ export function getMsToStd(flightRow: unknown, nowMs: number = Date.now()): numb
 
 /**
  * formatCountdownHHMM()
- * - Formats ms-to-STD as "HH:MM"
- * - UI-safe:
- *    - invalid input -> "--:--"
- *    - negative -> "00:00" (phase engine handles <= 0 separately)
+ * - IMPORTANT (2026-02-20):
+ *   This function now formats as "HH:MM:SS" (seconds included).
+ *   We keep the function name to avoid churn across screens.
+ *
+ * UI-safe:
+ * - invalid input -> "--:--:--"
+ * - negative -> "00:00:00" (phase engine handles <= 0 separately)
  *
  * NOTE:
- * - Uses floored minutes for stable ticking (prevents flicker).
+ * - Uses floored seconds for stable ticking.
  */
 export function formatCountdownHHMM(msToStd: number): string {
-  if (!Number.isFinite(msToStd)) return "--:--";
+  if (!Number.isFinite(msToStd)) return "--:--:--";
 
   const clamped = Math.max(0, Math.floor(msToStd));
-  const totalMinutes = Math.floor(clamped / 60000);
+  const totalSeconds = Math.floor(clamped / 1000);
 
-  const hh = Math.floor(totalMinutes / 60);
-  const mm = totalMinutes % 60;
+  const hh = Math.floor(totalSeconds / 3600);
+  const mm = Math.floor((totalSeconds % 3600) / 60);
+  const ss = totalSeconds % 60;
 
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
 export type FlightPhase = 0 | 1 | 2 | 3 | 4;

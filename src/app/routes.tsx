@@ -24,6 +24,7 @@ import Week from "../pages/Week";
 import Day from "../pages/Day";
 import Messages from "../pages/Messages";
 import CrewLockers from "../pages/CrewLockers";
+import Faq from "../pages/Faq";
 
 /**
  * Idiot-guide:
@@ -268,6 +269,7 @@ export default function AppRoutes() {
         {/* App routes */}
         <Route path="/selectairports" element={<SelectAirports />} />
         <Route path="/home" element={<Home />} />
+		<Route path="/faq" element={<Faq />} />
 
         <Route
           path="/week"

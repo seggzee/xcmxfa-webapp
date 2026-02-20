@@ -49,6 +49,7 @@ import eyes_open from "../../assets/icons/eyes_open.webp";
 import eyes_closed from "../../assets/icons/eyes_closed.webp";
 import locked from "../../assets/icons/locked.webp";
 import STOP_SIGN from "../../assets/icons/stop.webp";
+import MENU from "../../assets/icons/menu.webp";
 
 import avatar from "../../assets/avatar.jpg";
 import calendar from "../../assets/icons/calendar.webp";
@@ -76,6 +77,7 @@ export const UI_ICONS = {
   eyes_closed,
   locked,
   STOP_SIGN,
+  MENU,
 
   // ? Added (now safe to use everywhere)
   avatar,
@@ -103,3 +105,27 @@ export function getAirportLogo(code: string) {
   const k = String(code || "").toUpperCase();
   return AIRPORT_LOGOS[k] || null;
 }
+
+
+// =====================================================================================
+// DIY SCANS (XCM/XFA listing help cards)
+// =====================================================================================
+// Idiot guide:
+// - These are the 5 “Check in an XCM/XFA in 5 easy steps” reference images.
+// - They MUST be imported here so bundler includes them in PROD build.
+// - Pages/components must NOT string-build /assets/... paths.
+// =====================================================================================
+
+import XCMXFA_SCAN_1 from "../../assets/scans/xcmxfa1.webp";
+import XCMXFA_SCAN_2 from "../../assets/scans/xcmxfa2.webp";
+import XCMXFA_SCAN_3 from "../../assets/scans/xcmxfa3.webp";
+import XCMXFA_SCAN_4 from "../../assets/scans/xcmxfa4.webp";
+import XCMXFA_SCAN_5 from "../../assets/scans/xcmxfa5.webp";
+
+export const DIY_LISTING_SCANS = {
+  xcmxfa1: XCMXFA_SCAN_1,
+  xcmxfa2: XCMXFA_SCAN_2,
+  xcmxfa3: XCMXFA_SCAN_3,
+  xcmxfa4: XCMXFA_SCAN_4,
+  xcmxfa5: XCMXFA_SCAN_5,
+} as const;

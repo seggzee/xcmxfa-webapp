@@ -8,6 +8,9 @@ import { useCrew } from "../app/crewStore";
 import { API_BASE_URL, postJson } from "../app/api";
 import { useSecureUnlock } from "../hooks/useSecureUnlock";
 
+// ✅ Standard back icon button (same as Week/MyFlights)
+import BackButton from "../components/BackButton";
+
 /**
  * IMPORTANT:
  * Keep this endpoint aligned with your backend.
@@ -116,9 +119,7 @@ export default function Esta() {
       };
 
       const token = String(auth?.accessToken || "").trim();
-      const headers: Record<string, string> = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
       await postJson(SAVE_MEMBER_ESTA_URL, payload, headers);
     } catch (e: any) {
@@ -134,34 +135,32 @@ export default function Esta() {
         <div className="profile-top">
           <div className="text-title">Residence information</div>
 
-          <button className="btn btn-secondary" onClick={() => nav(-1)} disabled={busy}>
-            Back
-          </button>
+          {/* ✅ Standard icon back button (busy guarded) */}
+          <BackButton
+            onClick={() => {
+              if (busy) return;
+              nav(-1);
+            }}
+            ariaLabel="Back"
+            size={38}
+          />
         </div>
 
         <div className="passport-sub">
-          ESTA / FX details are required for United States and Canada. Please enter the details
-          exactly as shown on your residence documents / visa
+          ESTA / FX details are required for United States and Canada. Please enter the details exactly as shown on your
+          residence documents / visa
         </div>
 
         {!isMember ? (
           <div className="card wizard-warning">
             <div className="wizard-warning-title">Members only</div>
-            <div className="wizard-warning-body">
-              Please sign in as a member to add or edit esta details.
-            </div>
+            <div className="wizard-warning-body">Please sign in as a member to add or edit esta details.</div>
           </div>
         ) : !unlocked ? (
           <div className="card passport-lockCard passport-lockCard--center">
-            <img
-              src={UI_ICONS.STOP_SIGN}
-              alt="Security"
-              className="passport-lockIconCenter"
-            />
+            <img src={UI_ICONS.STOP_SIGN} alt="Security" className="passport-lockIconCenter" />
             <div className="passport-lockTitleCenter">Security sensitive information!</div>
-            <div className="passport-lockBodyCenter">
-              Passport and Residence information are protected.
-            </div>
+            <div className="passport-lockBodyCenter">Passport and Residence information are protected.</div>
             <button type="button" className="passport-unlockLink" onClick={unlock}>
               Unlock to continue
             </button>
@@ -169,12 +168,7 @@ export default function Esta() {
         ) : (
           <div className="card">
             <div className="profile-section-title">PSN (Staff Number)</div>
-            <input
-              value={psn}
-              readOnly
-              disabled
-              className="wizard-input wizard-input--readonly"
-            />
+            <input value={psn} readOnly disabled className="wizard-input wizard-input--readonly" />
 
             <div className="passport-field">
               <div className="profile-section-title">House No. and Street</div>

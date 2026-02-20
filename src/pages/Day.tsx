@@ -131,7 +131,10 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
   const s = row?.schiphol ?? null;
   if (!s || typeof s !== "object") return null;
 
-  const title = isDepAMS ? "AMS Operational information" : "AMS Arrival information";
+  // Title text (LOCKED BEHAVIOUR, NEW WORDING ONLY)
+  // - Dep AMS: "AMS Departure info"
+  // - Arr AMS: "AMS Arrival info"
+  const title = isDepAMS ? "AMS Departure info" : "AMS Arrival info";
 
   // Location line: T · Pier · Gate
   const terminalRaw = String((s as any)?.terminal ?? "").trim();
@@ -140,7 +143,7 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
 
   const locationParts: string[] = [];
   if (terminalRaw) {
-    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `T${terminalRaw}`;
+    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
     locationParts.push(t);
   }
   if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
@@ -155,9 +158,9 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
     const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
     const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
     const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
-    if (board) timeParts.push(`Board ${board}`);
-    if (open) timeParts.push(`Open ${open}`);
-    if (close) timeParts.push(`Close ${close}`);
+    if (open) timeParts.push(`Open: ${open}`);
+	if (board) timeParts.push(`Boarding: ${board}`);
+    if (close) timeParts.push(`Close: ${close}`);
 
     const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
     if (offb) movementLine = `Off-block ${offb}`;
@@ -231,12 +234,16 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
           {movementLine}
         </div>
       ) : null}
-
+	  
+	  {/*
       {showFreshness ? (
         <div style={{ marginTop: 8, fontWeight: 800, color: "rgba(19,35,51,0.55)", fontSize: 11 }}>
           Schiphol updated {updated}
         </div>
       ) : null}
+	  */}
+	  
+	  
     </div>
   );
 }
@@ -949,6 +956,14 @@ export default function Day() {
                     </div>
                   ) : null}
 
+                  {/* =================================================================================
+                      Behaviour change (as requested):
+                      - Logged-in member should always be able to see "All listed commuters" (when crew.length > 0),
+                        even if they are NOT listed themselves.
+                      - The ONLY section gated by userListed is "Listing information".
+                      - Additive-only: we do not change crew derivation, ordering, or rendering internals.
+                     ================================================================================= */}
+
                   {userListed ? (
                     <>
                       <div className="day-zoneDivider" />
@@ -987,86 +1002,87 @@ export default function Day() {
                           );
                         })()}
                       </div>
+                    </>
+                  ) : null}
 
-                      {/* RN rule: "All listed commuters" only renders when there are commuters */}
-                      {crew.length > 0 ? (
-                        <>
-                          <div className="day-zoneDivider" />
+                  {/* RN rule: "All listed commuters" only renders when there are commuters
+                     Behaviour change (as requested): visible to logged-in members even if not listed */}
+                  {crew.length > 0 ? (
+                    <>
+                      <div className="day-zoneDivider" />
 
-                          <div>
-                            <div className="day-zoneSubtitle">All listed commuters: {crew.length}</div>
+                      <div>
+                        <div className="day-zoneSubtitle">All listed commuters: {crew.length}</div>
 
-                            <div style={{ marginTop: 8 }}>
-                              {crew.map((u, idx) => {
-                                const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
+                        <div style={{ marginTop: 8 }}>
+                          {crew.map((u, idx) => {
+                            const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
 
-                                return (
+                            return (
+                              <div
+                                key={`${u.staffNo}-${u.listedAt}-${idx}`}
+                                style={{ display: "flex", alignItems: "flex-start" }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 8,
+                                    padding: "3px 0",
+                                  }}
+                                >
                                   <div
-                                    key={`${u.staffNo}-${u.listedAt}-${idx}`}
-                                    style={{ display: "flex", alignItems: "flex-start" }}
+                                    style={{
+                                      width: 28,
+                                      fontWeight: 700,
+                                      color: "rgba(19,35,51,0.55)",
+                                      fontSize: 12,
+                                      paddingTop: 1,
+                                    }}
                                   >
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "flex-start",
-                                        gap: 8,
-                                        padding: "3px 0",
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          width: 28,
-                                          fontWeight: 700,
-                                          color: "rgba(19,35,51,0.55)",
-                                          fontSize: 12,
-                                          paddingTop: 1,
-                                        }}
-                                      >
-                                        {`P${idx + 1}.`}
-                                      </div>
-                                      <div
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 0,
-                                          fontWeight: isSelf ? 900 : 700,
-                                          color: isSelf ? "#b91c1c" : "rgba(19,35,51,0.80)",
-                                          fontSize: 12,
-                                        }}
-                                      >
-                                        {u.fullName}
-                                      </div>
-                                      <div
-                                        style={{
-                                          width: 84,
-                                          textAlign: "right",
-                                          fontWeight: 700,
-                                          color: "rgba(19,35,51,0.70)",
-                                          fontSize: 12,
-                                        }}
-                                        title={u.staffNo}
-                                      >
-                                        {u.staffNo}
-                                      </div>
-                                      <div
-                                        style={{
-                                          width: 44,
-                                          textAlign: "right",
-                                          fontWeight: 700,
-                                          color: "rgba(19,35,51,0.70)",
-                                          fontSize: 12,
-                                        }}
-                                        title={u.role || "Other"}
-                                      >
-                                        {u.role || "Other"}
-                                      </div>
-                                    </div>
+                                    {`P${idx + 1}.`}
                                   </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
+                                  <div
+                                    style={{
+                                      flex: 1,
+                                      minWidth: 0,
+                                      fontWeight: isSelf ? 900 : 700,
+                                      color: isSelf ? "#b91c1c" : "rgba(19,35,51,0.80)",
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    {u.fullName}
+                                  </div>
+                                  <div
+                                    style={{
+                                      width: 84,
+                                      textAlign: "right",
+                                      fontWeight: 700,
+                                      color: "rgba(19,35,51,0.70)",
+                                      fontSize: 12,
+                                    }}
+                                    title={u.staffNo}
+                                  >
+                                    {u.staffNo}
+                                  </div>
+                                  <div
+                                    style={{
+                                      width: 44,
+                                      textAlign: "right",
+                                      fontWeight: 700,
+                                      color: "rgba(19,35,51,0.70)",
+                                      fontSize: 12,
+                                    }}
+                                    title={u.role || "Other"}
+                                  >
+                                    {u.role || "Other"}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </>
                   ) : null}
 

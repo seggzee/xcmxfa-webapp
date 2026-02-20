@@ -88,10 +88,15 @@
  * ==========================================================================================
  */
 
+
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import { getCrewLockerNotifications, markCrewLockerNotificationRead } from "../api/crewLockersApi";
+
+// ✅ Standard back icon button (same as Week)
+import BackButton from "../components/BackButton";
 
 import "../styles/messages.css";
 
@@ -324,9 +329,9 @@ export default function Messages() {
       <div className="messages-scroll">
         <div className="messages-headerRow">
           <div className="messages-pageTitle">Messages</div>
-          <button type="button" className="messages-backBtn" onClick={() => nav(-1)}>
-            Back
-          </button>
+
+          {/* ✅ Standard icon back button */}
+          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
 
         {loadingText ? (
