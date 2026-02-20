@@ -114,7 +114,19 @@ export default function FlightCard3x3({
   headerLeftLabel,
   headerDate,
   showHeader = true,
-  footerRightContent, // ✅ screen-controlled slot (cell 3:3)
+
+  /**
+   * Screen-controlled slot (grid cell 2:3).
+   * - If not provided, the cell renders blank.
+   * - No defaults, no fallbacks, no assumptions.
+   *
+   * NOTE (2026-02-20):
+   * - We swapped the meaning of cells 2:3 and 3:3:
+   *     * 2:3 is now the screen-controlled slot (e.g. P1/3, X-staff, etc.)
+   *     * 3:3 is now reserved for Gate (RN parity display)
+   */
+  footerRightContent,
+
   onReport,
 }: {
   flight: any;
@@ -123,7 +135,7 @@ export default function FlightCard3x3({
   showHeader?: boolean;
 
   /**
-   * Screen-controlled footer slot (grid cell 3:3).
+   * Screen-controlled slot (grid cell 2:3).
    * - If not provided, the cell renders blank.
    * - No defaults, no fallbacks, no assumptions.
    */
@@ -253,13 +265,13 @@ export default function FlightCard3x3({
             </div>
           </div>
 
+          {/* ✅ Cell 2:3 is now a pure slot controlled by the screen */}
           <div className="flightCard-cell flightCard-rightCell">
-            <div className="flightCard-meta">Gate: {String(gateDisplay)}</div>
+            <div className="flightCard-meta">{footerRightContent ?? null}</div>
           </div>
         </div>
 
         <div className="flightCard-row flightCard-rowFooter">
-		
           <div className="flightCard-cell">
             <div className="flightCard-footer">Type: {String(typeDisplay)}</div>
           </div>
@@ -268,9 +280,9 @@ export default function FlightCard3x3({
             <div className="flightCard-footer">Reg: {String(regDisplay)}</div>
           </div>
 
-          {/* ✅ Cell 3:3 is now a pure slot controlled by the screen */}
+          {/* ✅ Cell 3:3 is now Gate */}
           <div className="flightCard-cell flightCard-rightCell">
-            <div className="flightCard-footer">{footerRightContent ?? null}</div>
+            <div className="flightCard-footer">Gate: {String(gateDisplay)}</div>
           </div>
         </div>
       </div>

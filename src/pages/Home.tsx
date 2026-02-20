@@ -1,22 +1,22 @@
 // src/pages/Home.tsx
 //
 // =====================================================================================
-// üîß BOOTSTRAP: Unify Asset Loading (Airports / Airlines / Icons) ‚Äî Home.tsx (Airports)
+// ?? BOOTSTRAP: Unify Asset Loading (Airports / Airlines / Icons) ó Home.tsx (Airports)
 // =====================================================================================
 //
 // IDIOT GUIDE (read this once, then forget it):
 //
-// ‚úÖ What broke?
-// - In DEV, Vite serves your /public/assets/... folder ‚Äúmagically‚Äù at /assets/...,
+// ? What broke?
+// - In DEV, Vite serves your /public/assets/... folder ìmagicallyî at /assets/...,
 //   so this worked:
 //
 //      <img src="/assets/airports/AMS.webp" />
 //
 // - In PROD build, your app is bundled and deployed under whatever path Synology serves.
-//   If the build output doesn‚Äôt contain /assets/airports/AMS.webp at that exact absolute URL,
+//   If the build output doesnít contain /assets/airports/AMS.webp at that exact absolute URL,
 //   you get 404s.
 //
-// ‚úÖ What‚Äôs the fix?
+// ? Whatís the fix?
 // - NEVER build image URLs by string like "/assets/..."
 // - ALWAYS resolve image URLs via imports, because the bundler then:
 //
@@ -24,7 +24,7 @@
 //   2) fingerprints it (hash) for caching
 //   3) returns the correct final URL string for PROD
 //
-// ‚úÖ Your rule:
+// ? Your rule:
 /// - Centralise ALL asset resolution in src/assets/index.ts
 // - Components use ONLY:
 //      getAirportLogo(code)
@@ -32,12 +32,12 @@
 //      LISTING_STATUS_ICONS
 //      UI_ICONS
 //
-// ‚úÖ What changes in this file?
+// ? What changes in this file?
 // - ONLY the AirportChip logo resolution changes
 // - We import getAirportLogo
 // - Replace the hardcoded string path with getAirportLogo(resolvedCode)
 //
-// üö´ What we do NOT do here:
+// ?? What we do NOT do here:
 // - No new logic
 // - No extra fallbacks
 // - No changes to unrelated UI / behaviour / state
@@ -63,13 +63,12 @@ import { getCrewLockerNotifications } from "../api/crewLockersApi";
 
 import { API_BASE_URL } from "../config/api";
 
-// ‚úÖ CHANGE 1/2:
+// ? CHANGE 1/2:
 // We add getAirportLogo here so Home never hardcodes "/assets/airports/..."
 // Everything goes through src/assets/index.ts
 import { APP_IMAGES, getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
 
 import { getMyFlights } from "../api/flightsApi";
-
 
 type NextFlightState =
   | { status: "idle" | "loading"; flight: null }
@@ -88,8 +87,23 @@ function normalizeCode(v: any) {
     .slice(0, 3);
 }
 
+/**
+ * listingIconSrcFromStatus()
+ * Idiot guide:
+ * - my_flights API rows can carry:
+ *   - listing_status (web parity field)
+ *   - booking_status (backend canonical: pending|sent|confirmed)
+ * - Home treats "confirmed" as "booked" icon (RN semantics).
+ */
+function listingIconSrcFromStatus(raw: any) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (s === "confirmed" || s === "booked") return LISTING_STATUS_ICONS.booked;
+  if (s === "sent") return LISTING_STATUS_ICONS.sent;
+  if (s === "pending") return LISTING_STATUS_ICONS.pending;
+  return null;
+}
+
 export default function Home() {
-	
   const nav = useNavigate();
   const { auth } = useAuth();
   const { crew } = useCrew();
@@ -98,14 +112,9 @@ export default function Home() {
   const isMember = auth.mode === "member";
 
   // ===== identity display only (no inference) =====
-  const staffNo = String(auth?.user?.username || "")
-    .trim()
-    .toUpperCase();
+  const staffNo = String(auth?.user?.username || "").trim().toUpperCase();
 
-  const who = (crew?.psn || staffNo || "")
-    .toString()
-    .trim()
-    .toUpperCase();
+  const who = (crew?.psn || staffNo || "").toString().trim().toUpperCase();
 
   const employer = (crew?.employer || "").toString().trim().toUpperCase();
 
@@ -193,7 +202,7 @@ export default function Home() {
     saveFavouritesFromHome(next, "remove");
   };
 
-   // =============================================================================
+  // =============================================================================
   // Messages banner (member-only) ó unread count (locker notifications for now)
   // =============================================================================
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
@@ -233,8 +242,7 @@ export default function Home() {
       alive = false;
     };
   }, [isMember, staffNo]);
-  
-  
+
   // =============================================================================
   // Next flight (member-only, real data)
   // =============================================================================
@@ -289,7 +297,7 @@ export default function Home() {
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
   // =============================================================================
-  // Airports carousel sizing ‚Äî callback-ref so we measure as soon as it mounts
+  // Airports carousel sizing ó callback-ref so we measure as soon as it mounts
   // (prevents "wide chips until refresh" after login) + observe width changes
   // =============================================================================
   const carouselElRef = useRef<HTMLDivElement | null>(null);
@@ -350,32 +358,30 @@ export default function Home() {
   }, [measureCarousel]);
 
   const carouselGap = 10;
-  const carouselItemW =
-    typeof carouselOuterW === "number" ? Math.round(carouselOuterW * 0.48) : null;
+  const carouselItemW = typeof carouselOuterW === "number" ? Math.round(carouselOuterW * 0.48) : null;
 
-  const twoUpBlockW =
-    typeof carouselItemW === "number" ? carouselItemW * 2 + carouselGap : null;
+  const twoUpBlockW = typeof carouselItemW === "number" ? carouselItemW * 2 + carouselGap : null;
 
   const carouselSidePad =
     typeof carouselOuterW === "number" && typeof twoUpBlockW === "number"
       ? Math.max(0, Math.round((carouselOuterW - twoUpBlockW) / 2))
       : 0;
-	  
-function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefined {
-  if (!stdLocal) return undefined;
 
-  const d = new Date(stdLocal);
-  if (Number.isNaN(d.getTime())) return undefined;
+  function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefined {
+    if (!stdLocal) return undefined;
 
-  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
-  const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
-  const month = d.toLocaleDateString("en-GB", { month: "short" });
+    const d = new Date(stdLocal);
+    if (Number.isNaN(d.getTime())) return undefined;
 
-  return `${weekday} ${day} ${month}`;
-}	  
+    const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
+    const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
+    const month = d.toLocaleDateString("en-GB", { month: "short" });
+
+    return `${weekday} ${day} ${month}`;
+  }
 
   // =============================================================================
-  // AirportChip ‚Äî RN Home design + behaviour
+  // AirportChip ó RN Home design + behaviour
   // =============================================================================
   function AirportChip({
     code,
@@ -398,12 +404,11 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
   }) {
     const resolvedCode = normalizeCode(code);
 
-    const resolvedLabel =
-      typeof label === "string" ? label : isAdd ? "add airport" : String(resolvedCode);
+    const resolvedLabel = typeof label === "string" ? label : isAdd ? "add airport" : String(resolvedCode);
 
     const shouldShowPlus = typeof showPlus === "boolean" ? showPlus : Boolean(isAdd);
 
-    // ‚úÖ CHANGE 2/2 (THE ACTUAL FIX):
+    // ? CHANGE 2/2 (THE ACTUAL FIX):
     //
     // OLD (BAD):
     //   "/assets/airports/AMS.webp"
@@ -415,7 +420,7 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
     // NEW (GOOD):
     // - getAirportLogo() returns the *real* final URL from src/assets/index.ts
     // - bundler includes the file in build output (hashed) and returns correct link
-    // - works on Synology static hosting because it‚Äôs just a normal built URL
+    // - works on Synology static hosting because itís just a normal built URL
     //
     // Contract:
     // - Home never cares where airport images live.
@@ -470,7 +475,7 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
             title="Remove"
             style={removePressed ? { opacity: 0.85 } : undefined}
           >
-            √ó
+            ◊
           </button>
         ) : null}
 
@@ -504,9 +509,7 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
           </div>
 
           <div className="airportChipBottomRN">
-            <div className={isAdd ? "airportChipLabelAddRN" : "airportChipLabelRN"}>
-              {resolvedLabel}
-            </div>
+            <div className={isAdd ? "airportChipLabelAddRN" : "airportChipLabelRN"}>{resolvedLabel}</div>
           </div>
         </button>
       </div>
@@ -530,47 +533,44 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
           {isMember ? (
             <div className="card-body">
               {nextFlightState.status === "loading" ? (
-                <div className="mutedLine">Loading next flight‚Ä¶</div>
+                <div className="mutedLine">Loading next flightÖ</div>
               ) : nextFlightState.status === "ready" ? (
-			  
-			  
-					<FlightCard3x3
-					  showHeader
-					  headerLeftLabel="My next flight:"
-						headerDate={formatHeaderDateFromStdLocal(
-						  (nextFlightState.flight as any)?.std_local
-						)}
-					  flight={nextFlightState.flight}
-					  footerRightContent={
-						nextFlightState.flight &&
-						(nextFlightState.flight as any).list_position &&
-						(nextFlightState.flight as any).list_total ? (
-						  <span className="flightCard-cell flightCard-rightCell">
-							P{(nextFlightState.flight as any).list_position}/
-							{(nextFlightState.flight as any).list_total}
-							{" "}
-							<img
-							  src={
-								(nextFlightState.flight as any).listing_status === "confirmed"
-								  ? LISTING_STATUS_ICONS.booked
-								  : (nextFlightState.flight as any).listing_status === "sent"
-								  ? LISTING_STATUS_ICONS.sent
-								  : LISTING_STATUS_ICONS.pending
-							  }
-							  alt={(nextFlightState.flight as any).listing_status}
-							  style={{ width: 20, height: 20, marginLeft: 26 }}
-							/>
-						  </span>
-						) : null
-					  }
-					/>
+                <FlightCard3x3
+                  showHeader
+                  headerLeftLabel="My next flight:"
+                  headerDate={formatHeaderDateFromStdLocal((nextFlightState.flight as any)?.std_local)}
+                  flight={nextFlightState.flight}
+                  /**
+                   * IMPORTANT (2026-02-20):
+                   * - FlightCard3x3 cell 2:3 is now the screen slot (P1/3, X-staff, etc).
+                   * - Gate now lives in cell 3:3 (inside the card itself).
+                   */
+                  footerRightContent={(() => {
+                    const f: any = nextFlightState.flight || {};
+                    const pos = f?.list_position ?? f?.listPos ?? null;
+                    const total = f?.list_total ?? f?.listTotal ?? null;
 
-				
-				
+                    if (!pos || !total) return null;
+
+                    const iconSrc = listingIconSrcFromStatus(f?.listing_status ?? f?.booking_status ?? null);
+
+                    return (
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                        <span style={{ fontWeight: 900 }}>P{String(pos)}/{String(total)}</span>
+
+                        {iconSrc ? (
+                          <img
+                            src={iconSrc}
+                            alt={String(f?.listing_status ?? f?.booking_status ?? "")}
+                            style={{ width: 20, height: 20 }}
+                          />
+                        ) : null}
+                      </span>
+                    );
+                  })()}
+                />
               ) : nextFlightState.status === "error" ? (
-                <div className="errorLine">
-                  My next flight unavailable: {nextFlightState.error.message}
-                </div>
+                <div className="errorLine">My next flight unavailable: {nextFlightState.error.message}</div>
               ) : (
                 <div className="mutedLine">No upcoming flights.</div>
               )}
@@ -713,7 +713,7 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
           </div>
           ===== =============================== ===== */}
         </section>
-		
+
         {/* ===== Messages banner (member-only) ===== */}
         {isMember && unreadMsgCount > 0 ? (
           <section
@@ -761,7 +761,6 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
             </div>
           </section>
         ) : null}
-		
 
         {/* ===== Quick actions (RN) ===== */}
         <section className="quickWrap">
@@ -770,20 +769,15 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
           {!isMember ? (
             <>
               <div className="quickGridRow">
-                <button
-                  type="button"
-                  className="quickTile"
-                  onClick={() => setSignUpModalVisible(true)}
-                >
+                <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
                   <div className="quickTileTitle">Sign up</div>
                   <div className="quickTileSub">Unlock crew features</div>
                 </button>
 
-				<button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
-				  <div className="quickTileTitle">Crew Lockers</div>
-				  <div className="quickTileSub">Sign in required</div>
-				</button>
-				
+                <button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
+                  <div className="quickTileTitle">Crew Lockers</div>
+                  <div className="quickTileSub">Sign in required</div>
+                </button>
               </div>
 
               <div className="quickGridRow">
@@ -810,29 +804,22 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
                   <div className="quickTileSub">View your flights</div>
                 </button>
 
-				<button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
-				  <div className="quickTileTitle">Crew Lockers</div>
-				  <div className="quickTileSub">Open & manage</div>
-				</button>
-				
+                <button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
+                  <div className="quickTileTitle">Crew Lockers</div>
+                  <div className="quickTileSub">Open & manage</div>
+                </button>
               </div>
 
               <div className="quickGridRow">
-			  
                 <button type="button" className="quickTile" onClick={() => nav("/profile")}>
                   <div className="quickTileTitle">My Profile</div>
                   <div className="quickTileSub">Personal details</div>
                 </button>
 
-                <button
-				  type="button"
-				  className="quickTile"
-				  onClick={() => nav("/messages")}
-				>
-				  <div className="quickTileTitle">Messages</div>
-				  <div className="quickTileSub">View notifications</div>
-				</button>
-				
+                <button type="button" className="quickTile" onClick={() => nav("/messages")}>
+                  <div className="quickTileTitle">Messages</div>
+                  <div className="quickTileSub">View notifications</div>
+                </button>
               </div>
 
               <div className="quickGridRow">
@@ -879,15 +866,11 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
         <div className="modalOverlay" onClick={() => setShowAirportsHelp(false)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalTitle">My airports</div>
-            <div className="modalBody">‚Ä¢ Tap an airport to open its weekly schedule.</div>
-            <div className="modalBody">‚Ä¢ Long-press an airport to replace it.</div>
-            <div className="modalBody">‚Ä¢ Tap √ó to remove an airport.</div>
+            <div className="modalBody">ï Tap an airport to open its weekly schedule.</div>
+            <div className="modalBody">ï Long-press an airport to replace it.</div>
+            <div className="modalBody">ï Tap ◊ to remove an airport.</div>
 
-            <button
-              type="button"
-              className="modalBtn modalBtnPrimary"
-              onClick={() => setShowAirportsHelp(false)}
-            >
+            <button type="button" className="modalBtn modalBtnPrimary" onClick={() => setShowAirportsHelp(false)}>
               Close
             </button>
           </div>
@@ -941,16 +924,12 @@ function formatHeaderDateFromStdLocal(stdLocal?: string | null): string | undefi
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalTitle">Create an account</div>
             <div className="modalBody">Members can:</div>
-            <div className="modalBody">‚Ä¢ Save up to 3 airports</div>
-            <div className="modalBody">‚Ä¢ List/unlist on eligible flights</div>
-            <div className="modalBody">‚Ä¢ View crew lists and booking status</div>
+            <div className="modalBody">ï Save up to 3 airports</div>
+            <div className="modalBody">ï List/unlist on eligible flights</div>
+            <div className="modalBody">ï View crew lists and booking status</div>
 
             <div className="modalBtnRow">
-              <button
-                type="button"
-                className="modalBtn modalBtnGhost"
-                onClick={() => setSignUpModalVisible(false)}
-              >
+              <button type="button" className="modalBtn modalBtnGhost" onClick={() => setSignUpModalVisible(false)}>
                 Not now
               </button>
 

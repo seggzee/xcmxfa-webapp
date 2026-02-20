@@ -53,6 +53,17 @@ function extractHHMM(localDateTimeString: any) {
   return "";
 }
 
+function safeUpper(v: unknown) {
+  return String(v || "").trim().toUpperCase();
+}
+
+function fmtTimeLocal(dtLike: unknown) {
+  if (!dtLike) return "";
+  const d = new Date(String(dtLike));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
 const ICON_SENT = "✉︎";
 const ICON_PENDING = "⏳";
 
@@ -97,6 +108,138 @@ type CrewRow = {
 };
 
 const POLL_MS = 2.5 * 60 * 1000;
+
+/* ----------------------------- Schiphol Ultra overlay (LOCKED) ----------------------------- */
+/**
+ * Idiot guide:
+ * - Overlay is additive-only. It never alters FlightCard3x3.
+ * - Day screen shows a dedicated AMS ops panel:
+ *     - Divider + tinted background (LOCKED)
+ *     - Visible for guests + members
+ * - Render only when:
+ *     - dep_airport === "AMS" OR arr_airport === "AMS"
+ *     - AND row.schiphol is non-null
+ */
+function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
+  const dep = safeUpper(row?.dep_airport);
+  const arr = safeUpper(row?.arr_airport);
+
+  const isDepAMS = dep === "AMS";
+  const isArrAMS = !isDepAMS && arr === "AMS";
+  if (!isDepAMS && !isArrAMS) return null;
+
+  const s = row?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const title = isDepAMS ? "AMS Operational information" : "AMS Arrival information";
+
+  // Location line: T · Pier · Gate
+  const terminalRaw = String((s as any)?.terminal ?? "").trim();
+  const pierRaw = String((s as any)?.pier ?? "").trim();
+  const gateRaw = String((s as any)?.gate ?? "").trim();
+
+  const locationParts: string[] = [];
+  if (terminalRaw) {
+    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `T${terminalRaw}`;
+    locationParts.push(t);
+  }
+  if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
+  if (gateRaw) locationParts.push(`Gate ${gateRaw}`);
+  const locationLine = locationParts.join(" · ");
+
+  // Times
+  const timeParts: string[] = [];
+  let movementLine = "";
+
+  if (isDepAMS) {
+    const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
+    const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
+    const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
+    if (board) timeParts.push(`Board ${board}`);
+    if (open) timeParts.push(`Open ${open}`);
+    if (close) timeParts.push(`Close ${close}`);
+
+    const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
+    if (offb) movementLine = `Off-block ${offb}`;
+  } else {
+    const land = fmtTimeLocal((s as any)?.estimated_landing_time_utc);
+    if (land) timeParts.push(`Est. landing ${land}`);
+  }
+
+  const timesLine = timeParts.join(" · ");
+
+  // Optional tiny “state” badge (NEVER replaces KLM status pill)
+  const stateRaw = String((s as any)?.public_flight_state ?? "").toUpperCase();
+  const stateLabel = (() => {
+    // Schiphol can provide codes like BRD / GCL etc (sometimes in an array/string).
+    if (!stateRaw) return "";
+    if (stateRaw.includes("BRD") || stateRaw.includes("BOARD")) return "Boarding";
+    if (stateRaw.includes("GCL") || stateRaw.includes("GATECLOS") || stateRaw.includes("GATE_CLOS")) return "Gate closing";
+    return "";
+  })();
+
+  const updated = fmtTimeLocal((s as any)?.updated_at_utc);
+  const showFreshness = Boolean(updated);
+
+  // If literally nothing useful, don't render.
+  if (!locationLine && !timesLine && !movementLine && !stateLabel && !showFreshness) return null;
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        borderRadius: 14,
+        padding: "10px 12px",
+        background: "rgba(232, 240, 255, 0.85)", // subtle tint (LOCKED)
+        border: "1px solid rgba(19,35,51,0.08)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ fontWeight: 900, color: "#132333", fontSize: 13 }}>{title}</div>
+
+        {stateLabel ? (
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 12,
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: "rgba(19,35,51,0.08)",
+              color: "rgba(19,35,51,0.85)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {stateLabel}
+          </div>
+        ) : null}
+      </div>
+
+      {locationLine ? (
+        <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.82)", fontSize: 12 }}>
+          {locationLine}
+        </div>
+      ) : null}
+
+      {timesLine ? (
+        <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.75)", fontSize: 12 }}>
+          {timesLine}
+        </div>
+      ) : null}
+
+      {movementLine ? (
+        <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.75)", fontSize: 12 }}>
+          {movementLine}
+        </div>
+      ) : null}
+
+      {showFreshness ? (
+        <div style={{ marginTop: 8, fontWeight: 800, color: "rgba(19,35,51,0.55)", fontSize: 11 }}>
+          Schiphol updated {updated}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function Day() {
   const nav = useNavigate();
@@ -769,6 +912,11 @@ export default function Day() {
           const xfa = crew.filter((u) => u.role === "XFA").length;
           const other = crew.filter((u) => u.role !== "XCM" && u.role !== "XFA").length;
 
+          // Precompute whether ops panel will render, so we don't leave extra dividers.
+          const willRenderOps =
+            (safeUpper(row?.dep_airport) === "AMS" || safeUpper(row?.arr_airport) === "AMS") &&
+            Boolean(row?.schiphol);
+
           return (
             <div key={f.uiKey} className="card day-flightCard">
               <div className="day-publicSection">
@@ -777,6 +925,14 @@ export default function Day() {
                   showHeader={false}
                   footerRightContent={<span className="flightCard-xstaff">X-staff: {xStaff}</span>}
                 />
+
+                {/* NEW: Schiphol Ultra AMS ops panel (divider + tinted background, LOCKED) */}
+                {willRenderOps ? (
+                  <>
+                    <div className="day-zoneDivider" />
+                    <SchipholOpsPanel row={row} />
+                  </>
+                ) : null}
               </div>
 
               {resolvedIsLoggedIn ? (

@@ -217,6 +217,85 @@ function DetailLine({ label, value }: { label: string; value: any }) {
   );
 }
 
+/* ----------------------------- schiphol overlay (LOCKED CONTRACT) ----------------------------- */
+
+/**
+ * Idiot guide:
+ * - Schiphol overlay is additive-only. It never alters FlightCard3x3 fields.
+ * - We show a dedicated zone ONLY when:
+ *    - dep_airport === "AMS"  -> "Departure information"
+ *    - arr_airport === "AMS"  -> "Arrival information"
+ * - If flight.row0.schiphol is null -> render nothing (even if AMS).
+ */
+function SchipholOverlayZone({ flight }: { flight: CardVM }) {
+  const r0 = flight?.row0 || {};
+  const dep = safeUpper(r0?.dep_airport);
+  const arr = safeUpper(r0?.arr_airport);
+
+  const isDepAMS = dep === "AMS";
+  const isArrAMS = !isDepAMS && arr === "AMS"; // dep takes priority if somehow both match (shouldn't happen)
+
+  if (!isDepAMS && !isArrAMS) return null;
+
+  const s = r0?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const title = isDepAMS ? "Departure information" : "Arrival information";
+
+  // Row 1: Location (T · Pier · Gate)
+  const terminalRaw = String((s as any)?.terminal ?? "").trim();
+  const pierRaw = String((s as any)?.pier ?? "").trim();
+  const gateRaw = String((s as any)?.gate ?? "").trim();
+
+  const locationParts: string[] = [];
+  if (terminalRaw) {
+    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `T${terminalRaw}`;
+    locationParts.push(t);
+  }
+  if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
+  if (gateRaw) locationParts.push(`Gate ${gateRaw}`);
+
+  const locationLine = locationParts.join(" · ");
+
+  // Row 2: Times
+  const timeParts: string[] = [];
+
+  if (isDepAMS) {
+    const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
+    const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
+    const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
+    const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
+
+    if (board) timeParts.push(`Board ${board}`);
+    if (open) timeParts.push(`Open ${open}`);
+    if (close) timeParts.push(`Close ${close}`);
+    if (offb) timeParts.push(`Off-block ${offb}`);
+  } else {
+    const land = fmtTimeLocal((s as any)?.estimated_landing_time_utc);
+    if (land) timeParts.push(`Est. landing ${land}`);
+  }
+
+  const timesLine = timeParts.join(" · ");
+
+  // Optional freshness (tiny)
+  const updated = fmtTimeLocal((s as any)?.updated_at_utc);
+  const showFreshness = Boolean(updated);
+
+  // If there's literally nothing useful, don't show the zone.
+  if (!locationLine && !timesLine && !showFreshness) return null;
+
+  return (
+    <div className="myFlights-zone">
+      <div className="myFlights-zoneTitle">{title}</div>
+
+      {locationLine ? <div className="myFlights-zoneMeta">{locationLine}</div> : null}
+      {timesLine ? <div className="myFlights-zoneMeta">{timesLine}</div> : null}
+
+      {showFreshness ? <div className="myFlights-zoneMeta">Schiphol updated: {updated}</div> : null}
+    </div>
+  );
+}
+
 /* ----------------------------- page ----------------------------- */
 
 export default function MyFlights() {
@@ -441,11 +520,7 @@ export default function MyFlights() {
                 <div className="myFlights-footerRightRow">
                   <div className="myFlights-footerRightPos">{listPosDisplay}</div>
                   {iconSrc ? (
-                    <img
-                      src={iconSrc}
-                      alt={flight.listingStatus || ""}
-                      className="myFlights-footerRightIcon"
-                    />
+                    <img src={iconSrc} alt={flight.listingStatus || ""} className="myFlights-footerRightIcon" />
                   ) : (
                     <div className="myFlights-footerRightIcon" />
                   )}
@@ -463,6 +538,11 @@ export default function MyFlights() {
                   footerRightContent={footerRight}
                 />
 
+                {/* NEW: Schiphol Ultra overlay zone (ADD-ONLY, AMS only) */}
+                <div className="myFlights-zoneDivider" />
+                <SchipholOverlayZone flight={flight} />
+
+                {/* If overlay zone rendered, keep the next divider so zones remain visually separated */}
                 <div className="myFlights-zoneDivider" />
 
                 <div className="myFlights-zone">
@@ -488,12 +568,16 @@ export default function MyFlights() {
 
                 {Array.isArray(flight.listedCommuters) && flight.listedCommuters.length > 0 ? (
                   <div className="myFlights-zone">
-                    <div className="myFlights-zoneHeaderStrong">All listed commuters: {flight.listedCommuters.length}</div>
+                    <div className="myFlights-zoneHeaderStrong">
+                      All listed commuters: {flight.listedCommuters.length}
+                    </div>
 
                     <div className="myFlights-commuterList">
                       {flight.listedCommuters.map((p, idx) => {
                         const posLabel =
-                          p.pos !== undefined && p.pos !== null && String(p.pos).trim() !== "" ? `P${String(p.pos).trim()}.` : "P—.";
+                          p.pos !== undefined && p.pos !== null && String(p.pos).trim() !== ""
+                            ? `P${String(p.pos).trim()}.`
+                            : "P—.";
 
                         return (
                           <div key={`${p.staffNo}-${idx}`} className="myFlights-commuterRow">

@@ -4,50 +4,13 @@
 // =============================================================================
 // Purpose
 // =============================================================================
-// Client-side adapter for API endpoints used by Home / Day / Week.
+// Client-side adapter for API endpoints used by Home / Day / Week / MyFlights.
 //
-// The UI components (especially FlightCard3x3) have a strict expectation about
-// certain fields existing *by specific names*.
-//
-// Key rule for this file:
-// - Do NOT “invent” data.
-// - Do NOT translate meaning.
-// - ONLY do deterministic, RN-parity *shape* shims where the server feed uses
-//   different field names or formatting.
-//
-// =============================================================================
-// “Idiot guide” (read this when you touch anything)
-// =============================================================================
-// 1) requestJson() is the only place that does fetch + error normalisation.
-// 2) Identity invariants are enforced BEFORE network calls (requirePsnStrict).
-// 3) Flights payload parity shims live in one place (mapFlightsPayloadFor3x3):
-//    - Ensure flight.op_status exists (derived from flight_status_text when needed)
-//    - Ensure flight.ac_reg is formatted consistently (PH- / D- / G- / N- rules)
-// 4) Any endpoint that returns flight rows for FlightCard3x3 MUST pass through the
-//    same parity shim, so Home/Day/Week all behave identically.
-//
-// =============================================================================
-// What FlightCard3x3 expects from a “raw flight row”
-// =============================================================================
-// At minimum (for the 3×3 head zone):
-// - airline_iata
-// - flight_number
-// - dep_airport / arr_airport
-// - std_local / sta_local
-// - dep_gate (optional)
-// - ac_typecode (optional)
-// - ac_reg (optional BUT should be formatted consistently when present)
-// - op_status  ✅ (MUST exist; FlightCard3x3 maps label/colour locally)
-//
-// Server reality (what we actually get sometimes):
-// - flight_status_text exists
-// - op_status may NOT exist
-//
-// RN parity decision we already use in getMyFlights():
-// - op_status := flight_status_text (fallback "On time")
-//
-// This file applies the same shim for day/window feeds too.
-//
+// Schiphol Ultra overlay rule (LOCKED):
+// - Overlay is additive-only.
+// - Client must NOT do matching.
+// - Backend may attach: flight.schiphol (object) or null.
+// - Our parity shims MUST NOT drop or mutate flight.schiphol.
 // =============================================================================
 
 import { API_BASE_URL } from "../config/api";
@@ -143,11 +106,36 @@ async function requestJson<T = ApiJson>(
 }
 
 /* =============================================================================
+ * Schiphol Ultra overlay types (ADD-ONLY)
+ * ============================================================================= */
+
+export type SchipholOverlay = {
+  terminal?: string | null;
+  gate?: string | null;
+  pier?: string | null;
+
+  expected_boarding_time_utc?: string | null;
+  expected_gate_open_utc?: string | null;
+  expected_gate_closing_utc?: string | null;
+
+  actual_off_block_time_utc?: string | null;
+  estimated_landing_time_utc?: string | null;
+
+  public_flight_state?: string | null;
+
+  last_updated_utc?: string | null;
+  updated_at_utc?: string | null; // "Ultra touched this row"
+};
+
+/* =============================================================================
  * Internal parity helpers (DO NOT export)
  * =============================================================================
  *
  * These helpers exist ONLY to keep Home/Day/Week consistent with RN expectations.
  * They do NOT “translate meaning”; they only standardise shape + formatting.
+ *
+ * IMPORTANT:
+ * - These shims MUST NOT drop or mutate flight.schiphol.
  */
 
 type AnyRow = Record<string, any>;
@@ -198,6 +186,9 @@ function formatReg(raw: unknown): string {
  * 2) ac_reg formatting:
  *    - Standardise aircraft registration formatting via formatReg().
  *    - Missing becomes "" (not null), allowing FlightCard3x3 to render "N/A".
+ *
+ * NOTE:
+ * - We spread `...r` first, so any attached `schiphol` object survives untouched.
  */
 function with3x3ParityFields(r: AnyRow): AnyRow {
   if (!r || typeof r !== "object") return r;
@@ -282,6 +273,7 @@ export async function ensureScheduleFresh(args: {
  * - MUST return flight rows compatible with FlightCard3x3:
  *   - ensures op_status exists
  *   - formats ac_reg
+ * - Schiphol overlay (if present) is preserved untouched.
  */
 export async function getAirportWindowFlights(args: {
   airportCode: string;
@@ -305,6 +297,7 @@ export async function getAirportWindowFlights(args: {
  * - Day screen uses this “day” endpoint.
  * - MUST behave identically to Home’s flight rows for the 3x3 card.
  * - Therefore it uses the same payload parity shim.
+ * - Schiphol overlay (if present) is preserved untouched.
  */
 export async function getFlightsForDay(args: {
   airportCode: string;
@@ -392,6 +385,9 @@ export type MyFlightRow = {
   status_last_updated_utc: string | null;
   schedule_last_updated_utc: string | null;
 
+  // Schiphol Ultra overlay (ADD-ONLY)
+  schiphol: SchipholOverlay | null;
+
   flight_no: string;
   op_status: string;
   listing_status: string;
@@ -409,10 +405,8 @@ export type MyFlightRow = {
  *     1) Upcoming flights first (std_local >= now), soonest first
  *     2) Past flights after, most recent past first
  *
- * This guarantees:
- * - Home rows[0] === next upcoming flight
- * - MyFlights top card matches Home
- * - Backend order becomes irrelevant
+ * Schiphol Ultra:
+ * - Preserve attached `schiphol` object exactly as provided by backend (or null).
  */
 export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlightRow[]> {
   const psn = requirePsnStrict(args.staffNo, "getMyFlights");
@@ -465,6 +459,9 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
     cancelled: (r.cancelled as any) ?? null,
     status_last_updated_utc: (r.status_last_updated_utc as any) ?? null,
     schedule_last_updated_utc: (r.schedule_last_updated_utc as any) ?? null,
+
+    // ✅ Schiphol overlay pass-through (ADD-ONLY)
+    schiphol: ((r as any).schiphol as any) ?? null,
 
     flight_no: (r.flight_number as any) ?? "",
 
@@ -563,4 +560,118 @@ export async function setBookingListed(args: {
     method: "POST",
     body: { flight_instance_id, psn },
   });
+}
+
+/* =============================================================================
+ * Time truth + Phase engine (Client canonical layer)  (ADD-ONLY)
+ * =============================================================================
+ *
+ * Objective:
+ * - Single source of truth in the client for:
+ *   - Parsing the flight’s canonical departure instant (UTC)
+ *   - Computing ms-to-STD and HH:MM countdown formatting
+ *   - Computing the locked 5-phase state machine used by Home/MyFlights/Day
+ *
+ * Time truth (LOCKED):
+ * - Countdown/phase logic uses std_utc (absolute UTC instant)
+ * - Client “now” is Date.now() (epoch ms)
+ * - User timezone is accessible via browser APIs (no server dependency)
+ *
+ * Phase model (LOCKED):
+ * - Phase 0: > 24h to STD  -> show rows 1 & 2 only
+ * - Phase 1: 24h → 6h     -> show rows 1,2,3
+ * - Phase 2: 6h → 3h      -> countdown visible (HH:MM) in header top row
+ * - Phase 3: 3h → STD     -> progressively add Day-style panels below card
+ * - Phase 4: <= 0         -> post-STD state (later overridden by Schiphol DEP rule)
+ *
+ * Rules:
+ * - No guessing:
+ *     - If std_utc is missing/invalid -> return null
+ *     - Phase defaults to 0 when msToStd is null/invalid
+ */
+
+/**
+ * getStdUtcMs()
+ * - Returns epoch ms for flightRow.std_utc
+ * - No guessing: missing/invalid -> null
+ */
+export function getStdUtcMs(flightRow: unknown): number | null {
+  if (!flightRow || typeof flightRow !== "object") return null;
+
+  const stdUtc = (flightRow as any).std_utc;
+  if (typeof stdUtc !== "string") return null;
+
+  const s = stdUtc.trim();
+  if (!s) return null;
+
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) return null;
+
+  return ms;
+}
+
+/**
+ * getMsToStd()
+ * - Returns (std_utc_ms - nowMs)
+ * - nowMs defaults to Date.now()
+ * - No guessing: if std_utc missing/invalid -> null
+ */
+export function getMsToStd(flightRow: unknown, nowMs: number = Date.now()): number | null {
+  const stdUtcMs = getStdUtcMs(flightRow);
+  if (stdUtcMs === null) return null;
+
+  if (!Number.isFinite(nowMs)) return null;
+
+  return stdUtcMs - nowMs;
+}
+
+/**
+ * formatCountdownHHMM()
+ * - Formats ms-to-STD as "HH:MM"
+ * - UI-safe:
+ *    - invalid input -> "--:--"
+ *    - negative -> "00:00" (phase engine handles <= 0 separately)
+ *
+ * NOTE:
+ * - Uses floored minutes for stable ticking (prevents flicker).
+ */
+export function formatCountdownHHMM(msToStd: number): string {
+  if (!Number.isFinite(msToStd)) return "--:--";
+
+  const clamped = Math.max(0, Math.floor(msToStd));
+  const totalMinutes = Math.floor(clamped / 60000);
+
+  const hh = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
+
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+export type FlightPhase = 0 | 1 | 2 | 3 | 4;
+
+/**
+ * getFlightPhase()
+ * - Locked phase engine based on msToStd.
+ *
+ * Boundaries (explicit):
+ * - msToStd > 24h          -> 0
+ * - 24h >= msToStd > 6h    -> 1
+ * - 6h  >= msToStd > 3h    -> 2
+ * - 3h  >= msToStd > 0     -> 3
+ * - msToStd <= 0           -> 4
+ *
+ * If msToStd is null/invalid -> 0 (per contract).
+ */
+export function getFlightPhase(msToStd: number | null): FlightPhase {
+  if (msToStd === null || !Number.isFinite(msToStd)) return 0;
+
+  if (msToStd <= 0) return 4;
+
+  const HOUR = 60 * 60 * 1000;
+
+  if (msToStd > 24 * HOUR) return 0;
+  if (msToStd > 6 * HOUR) return 1;
+  if (msToStd > 3 * HOUR) return 2;
+
+  return 3;
 }
