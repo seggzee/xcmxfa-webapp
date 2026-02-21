@@ -1,0 +1,25 @@
+/* src/styles/donate.css */
+
+/* Force a hard 3-column layout that cannot push the right column off-screen */
+.donateHeaderRow{
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: var(--space-4, 16px);
+}
+
+/* Ensure the right cell always hugs the right edge */
+.donateHeaderRight{
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 44px; /* tap target */
+}
+
+/* Center cell stays centered */
+.donateHeaderCenter{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+}

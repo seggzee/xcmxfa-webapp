@@ -2,24 +2,24 @@
 //
 // =====================================================================================
 // FAQ / Info — legacy content modernised (best effort, editable)
+// Week-style sticky header junction (bleed-safe)
 // =====================================================================================
 //
 // IDIOT GUIDE:
 // - This page is intentionally "dumb": no API calls, no auth requirements.
-// - It's a safety valve: reduces support noise and explains how things work.
-// - Keep answers short, specific, and practical.
-// - Content is best-effort and may lag reality: you (human) will revise it.
+// - Uses the SAME sticky header junction pattern as Week (week-sticky + app-container + header card).
+// - Back control uses the standard BackButton component.
 //
 // Notes:
-// - We incorporate legacy FAQ themes: unofficial app, voluntary usage, outstations variability,
-//   cutoffs, passport details, notifications, lockers, DIY listing help, contacts, legal.
-// - No new CSS required: uses existing "card" patterns and inline styles for the accordion.
-//
+// - DIY scans come from assets: DIY_LISTING_SCANS.xcmxfa1..xcmxfa5
+// - Search only matches question text + keywords + topic label (we don't stringify ReactNode bodies).
+// =====================================================================================
 
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { DIY_LISTING_SCANS } from "../assets";
+import BackButton from "../components/BackButton";
 
 type Topic =
   | "intro"
@@ -140,9 +140,7 @@ function FaqRow({
         aria-expanded={open}
         aria-controls={`faq-${item.id}`}
       >
-        <div style={{ fontWeight: 950, color: "#132333", lineHeight: 1.25 }}>
-          {item.q}
-        </div>
+        <div style={{ fontWeight: 950, color: "#132333", lineHeight: 1.25 }}>{item.q}</div>
 
         <div
           aria-hidden="true"
@@ -187,17 +185,15 @@ export default function Faq() {
 
   const items: FaqItem[] = useMemo(
     () => [
-      // =================================================================================
-      // INTRO / TRANSPARENCY
-      // =================================================================================
+      // INTRO
       {
         id: "unofficial",
         topic: "intro",
         q: "Is this an official KLM app?",
         a: (
           <>
-            No. This is a privately developed app used by kind agreement of some airports/teams to
-            help them plan for XCM/XFA travel and reduce day-of-travel friction.
+            No. This is a privately developed app used by kind agreement of some airports/teams to help
+            them plan for XCM/XFA travel and reduce day-of-travel friction.
             <br />
             <br />
             There is no direct link from this app to airline booking systems or KLM IT infrastructure.
@@ -214,10 +210,7 @@ export default function Faq() {
             No — use is voluntary.
             <ul style={{ margin: "8px 0 0 18px" }}>
               <li>All previous methods (e.g. telephone listing) remain available in parallel.</li>
-              <li>
-                Using the app may involve storing/transmitting personal info (depending on what you
-                choose to provide).
-              </li>
+              <li>Using the app may involve storing/transmitting personal info (depending on what you choose to provide).</li>
               <li>If you have privacy concerns, use the traditional methods.</li>
             </ul>
           </>
@@ -225,9 +218,7 @@ export default function Faq() {
         keywords: ["voluntary", "optional", "do i have to"],
       },
 
-      // =================================================================================
-      // ACCOUNT / ACCESS
-      // =================================================================================
+      // ACCOUNT
       {
         id: "register",
         topic: "account",
@@ -237,16 +228,14 @@ export default function Faq() {
             You can browse general flight information without being a verified member.
             <br />
             <br />
-            For security reasons, member-only features (e.g. seeing crew lists / requesting listings /
-            personal features) require sign-in and verification.
+            For security reasons, member-only features (e.g. seeing crew lists / requesting listings / personal features)
+            require sign-in and verification.
           </>
         ),
         keywords: ["register", "sign in", "member", "guest"],
       },
 
-      // =================================================================================
-      // NOTIFICATIONS (legacy + modern)
-      // =================================================================================
+      // NOTIFICATIONS
       {
         id: "notifications",
         topic: "notifications",
@@ -257,10 +246,7 @@ export default function Faq() {
             <ul style={{ margin: "8px 0 0 18px" }}>
               <li>SMS should be reserved for urgent messaging.</li>
               <li>Push notifications may be platform-dependent.</li>
-              <li>
-                In-app messages remain the “always available” channel (and are designed to be
-                reliable even when push is not).
-              </li>
+              <li>In-app messages remain the “always available” channel.</li>
             </ul>
             Tip: if you rely on notifications, ensure your chosen notification method is enabled in the app.
           </>
@@ -268,9 +254,7 @@ export default function Faq() {
         keywords: ["push", "sms", "email", "notifications", "ios", "android"],
       },
 
-      // =================================================================================
-      // LOCKERS (legacy steps; you will edit to new flow later)
-      // =================================================================================
+      // LOCKERS
       {
         id: "locker-setup",
         topic: "lockers",
@@ -279,16 +263,9 @@ export default function Faq() {
           <>
             Legacy flow (best-effort; update to your new “auto-link” flow when ready):
             <ol style={{ margin: "8px 0 0 18px" }}>
-              <li>
-                Home → My Crew Locker → Locker settings: ensure your email is correct (or submit it).
-              </li>
-              <li>
-                Find your locker email (Keynius) or a locker-sharing email from a colleague and follow
-                the linking instructions.
-              </li>
-              <li>
-                If the app offers “find my locker”, use it after linking to display your locker(s).
-              </li>
+              <li>Home → My Crew Locker → Locker settings: ensure your email is correct (or submit it).</li>
+              <li>Find your locker email (Keynius) or a locker-sharing email from a colleague and follow the linking instructions.</li>
+              <li>If the app offers “find my locker”, use it after linking to display your locker(s).</li>
               <li>Use the keys icon to open the locker management screen.</li>
             </ol>
             If something looks stuck, capture screenshots and contact admin (see “Contact / Support”).
@@ -297,25 +274,21 @@ export default function Faq() {
         keywords: ["locker", "crew locker", "keynius", "link", "share"],
       },
 
-      // =================================================================================
-      // FLIGHTS (searching / next flight)
-      // =================================================================================
+      // FLIGHTS
       {
         id: "search-flights",
         topic: "flights",
         q: "How do I search for flights?",
         a: (
           <>
-            From Home, pick an airport (favourite). You’ll see a week-style overview showing arrivals
-            and departures. Select a date and direction to open the flight list for that day.
+            From Home, pick an airport (favourite). You’ll see a week-style overview showing arrivals and departures.
+            Select a date and direction to open the flight list for that day.
           </>
         ),
         keywords: ["search", "week", "airport", "arrivals", "departures"],
       },
 
-      // =================================================================================
-      // LISTING / ACCEPTANCE (legacy operational content)
-      // =================================================================================
+      // LISTING
       {
         id: "cutoff",
         topic: "listing",
@@ -341,12 +314,8 @@ export default function Faq() {
             Legacy model:
             <ul style={{ margin: "8px 0 0 18px" }}>
               <li>Schiphol teams may create the listing and (where applicable) progress check-in.</li>
-              <li>
-                You typically receive confirmation via in-app message and/or your configured notification channel.
-              </li>
-              <li>
-                If you do not receive confirmation close to departure, use the official telephone option (below).
-              </li>
+              <li>You typically receive confirmation via in-app message and/or your configured notification channel.</li>
+              <li>If you do not receive confirmation close to departure, use the official telephone option (below).</li>
             </ul>
           </>
         ),
@@ -364,18 +333,13 @@ export default function Faq() {
             <strong>+31 (0)20 649 4090</strong>
             <br />
             <br />
-            Legacy note: Option #2 (Boarding) was the correct option for XCM/XFA matters.
-            <br />
-            <br />
-            (Confirm current options before relying on this.)
+            Legacy note: Option #2 (Boarding) was the correct option for XCM/XFA matters. (Confirm current options.)
           </>
         ),
         keywords: ["telephone", "listing line", "number", "4090"],
       },
 
-      // =================================================================================
-      // OUTSTATIONS / VARIABILITY
-      // =================================================================================
+      // OUTSTATIONS
       {
         id: "outstations",
         topic: "outstations",
@@ -385,8 +349,8 @@ export default function Faq() {
             No. Coverage is variable.
             <br />
             <br />
-            Legacy explanation: some outstations act on the daily request and some do not, because the app
-            is not an “official” KLM system. Treat it as helpful — not guaranteed — outside AMS.
+            Legacy explanation: some outstations act on the daily request and some do not, because the app is not an
+            “official” KLM system. Treat it as helpful — not guaranteed — outside AMS.
           </>
         ),
         keywords: ["outstations", "coverage", "works everywhere", "not all airports"],
@@ -397,8 +361,8 @@ export default function Faq() {
         q: "Departing outstations: what should I do at the check-in desk?",
         a: (
           <>
-            First ask the agent to check if a listing exists. If they can’t find you, it doesn’t necessarily
-            mean you can’t travel — it usually means a listing/check-in must be created.
+            First ask the agent to check if a listing exists. If they can’t find you, it usually means a listing/check-in
+            must be created.
             <br />
             <br />
             If the agent is unfamiliar, use the “DIY Listing” guidance (below) to help them create it quickly.
@@ -407,9 +371,7 @@ export default function Faq() {
         keywords: ["check in agent", "cant find", "outstation"],
       },
 
-      // =================================================================================
-      // PASSPORT DETAILS (legacy + disclaimer)
-      // =================================================================================
+      // PASSPORT
       {
         id: "passport-needed",
         topic: "passport",
@@ -422,10 +384,7 @@ export default function Faq() {
             Legacy rules (confirm current behaviour):
             <ul style={{ margin: "8px 0 0 18px" }}>
               <li>Outstations may not require stored passport details (passport swipe at airport still needed).</li>
-              <li>
-                For AMS, passport details historically were required for the app-based listing/check-in path.
-                If you don’t store them, you may need to use the telephone method instead.
-              </li>
+              <li>For AMS, passport details historically were required for the app-based listing/check-in path.</li>
               <li>Passport data should be encrypted at rest and only transmitted when needed.</li>
             </ul>
           </>
@@ -433,47 +392,43 @@ export default function Faq() {
         keywords: ["passport", "personal data", "required", "ams"],
       },
 
-      // =================================================================================
-      // DIY LISTING (legacy “5 easy steps” concept — we can later add images/resources)
-      // =================================================================================
-		{
-		  id: "diy",
-		  topic: "troubleshooting",
-		  q: "DIY XCM/XFA listing — agent doesn’t know the process",
-		  a: (
-			<>
-			  If a check-in agent is new/unsure, the quickest solution is to show them the step cards below.
-			  <br />
-			  <br />
-			  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-				{[
-				  DIY_LISTING_SCANS.xcmxfa1,
-				  DIY_LISTING_SCANS.xcmxfa2,
-				  DIY_LISTING_SCANS.xcmxfa3,
-				  DIY_LISTING_SCANS.xcmxfa4,
-				  DIY_LISTING_SCANS.xcmxfa5,
-				].map((src, idx) => (
-				  <img
-					key={idx}
-					src={src}
-					alt={`DIY listing step ${idx + 1}`}
-					style={{
-					  width: "100%",
-					  borderRadius: 14,
-					  border: "1px solid rgba(19,35,51,0.10)",
-					}}
-					loading="lazy"
-				  />
-				))}
-			  </div>
-			</>
-		  ),
-		  keywords: ["diy", "agent", "steps", "instructions", "english", "french"],
-		},
+      // DIY
+      {
+        id: "diy",
+        topic: "troubleshooting",
+        q: "DIY XCM/XFA listing — agent doesn’t know the process",
+        a: (
+          <>
+            If a check-in agent is new/unsure, the quickest solution is to show them the step cards below.
+            <br />
+            <br />
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                DIY_LISTING_SCANS.xcmxfa1,
+                DIY_LISTING_SCANS.xcmxfa2,
+                DIY_LISTING_SCANS.xcmxfa3,
+                DIY_LISTING_SCANS.xcmxfa4,
+                DIY_LISTING_SCANS.xcmxfa5,
+              ].map((src, idx) => (
+                <img
+                  key={idx}
+                  src={src}
+                  alt={`DIY listing step ${idx + 1}`}
+                  style={{
+                    width: "100%",
+                    borderRadius: 14,
+                    border: "1px solid rgba(19,35,51,0.10)",
+                  }}
+                  loading="lazy"
+                />
+              ))}
+            </div>
+          </>
+        ),
+        keywords: ["diy", "agent", "steps", "instructions", "english", "french"],
+      },
 
-      // =================================================================================
       // TROUBLESHOOTING
-      // =================================================================================
       {
         id: "no-countdown",
         topic: "troubleshooting",
@@ -490,9 +445,7 @@ export default function Faq() {
         keywords: ["countdown", "missing", "timer", "std_utc"],
       },
 
-      // =================================================================================
-      // CONTACT / SUPPORT
-      // =================================================================================
+      // CONTACT
       {
         id: "bug-report",
         topic: "troubleshooting",
@@ -528,9 +481,7 @@ export default function Faq() {
         keywords: ["contact", "admin"],
       },
 
-      // =================================================================================
-      // LEGAL (light pointers; you can link to your actual pages later)
-      // =================================================================================
+      // LEGAL
       {
         id: "privacy",
         topic: "legal",
@@ -562,7 +513,18 @@ export default function Faq() {
   );
 
   const topics: Topic[] = useMemo(
-    () => ["intro", "account", "flights", "listing", "outstations", "passport", "notifications", "lockers", "troubleshooting", "legal"],
+    () => [
+      "intro",
+      "account",
+      "flights",
+      "listing",
+      "outstations",
+      "passport",
+      "notifications",
+      "lockers",
+      "troubleshooting",
+      "legal",
+    ],
     []
   );
 
@@ -577,12 +539,7 @@ export default function Faq() {
       if (activeTopic !== "all" && it.topic !== activeTopic) return false;
       if (!q) return true;
 
-      const hay = [
-        it.q,
-        typeof it.a === "string" ? it.a : "",
-        ...(it.keywords || []),
-        topicLabel(it.topic),
-      ]
+      const hay = [it.q, ...(it.keywords || []), topicLabel(it.topic)]
         .map(normalizeText)
         .join(" | ");
 
@@ -591,102 +548,115 @@ export default function Faq() {
   }, [items, query, activeTopic]);
 
   return (
-    <div className="homeScreen">
-      <div className="homeInner">
-        <section className="card">
-          <div className="sectionTitleRow">
-            <div className="sectionTitle">FAQ & Info</div>
-
-            <button
-              type="button"
-              className="infoDot"
-              onClick={() => nav(-1)}
-              aria-label="Back"
-              title="Back"
-            >
-              ←
-            </button>
-          </div>
-
-          <div className="card-body" style={{ paddingTop: 0 }}>
-            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search FAQ… (e.g. passport, cutoff, locker, outstation)"
-                style={{
-                  width: "100%",
-                  padding: "12px 12px",
-                  borderRadius: 14,
-                  border: "2px solid rgba(19,35,51,0.10)",
-                  outline: "none",
-                  fontWeight: 800,
-                  color: "#132333",
-                }}
-              />
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <Pill label="All" active={activeTopic === "all"} onClick={() => setActiveTopic("all")} />
-                {topics.map((t) => (
-                  <Pill
-                    key={t}
-                    label={topicLabel(t)}
-                    active={activeTopic === t}
-                    onClick={() => setActiveTopic(t)}
-                  />
-                ))}
+    <div className="app-screen">
+      {/* ✅ Week-style sticky junction wrapper */}
+      <div className="week-sticky">
+        <div className="app-container">
+          {/* ✅ Reuse the exact Week header card class so we inherit the same bleed fix */}
+          <section className="week-headerCard">
+            {/* Match Week top row layout */}
+            <div className="week-headerTopRow">
+              <div className="week-headerLeft">
+                {/* FAQ has no airport logo; keep spacing identical */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    background: "rgba(19,35,51,0.06)",
+                    border: "1px solid rgba(19,35,51,0.08)",
+                  }}
+                />
               </div>
 
-              <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.60)" }}>
-                {filtered.length} item{filtered.length === 1 ? "" : "s"}
+              <div className="week-headerCode">FAQ</div>
+
+              <div className="week-headerRight">
+                <BackButton
+                  onClick={() => nav(-1)}
+                  ariaLabel="Back"
+                  size={38}
+                />
               </div>
             </div>
-          </div>
-        </section>
 
-        {/* Optional “quick actions” row — safe, no dependency on routes you may not have */}
+            {/* Use Week's secondary line slot for a short subtitle */}
+            <div className="week-range">Info, rules, and troubleshooting</div>
+          </section>
+        </div>
+      </div>
+
+      {/* Body uses Week’s body container so spacing matches */}
+      <div className="app-container week-body" style={{ paddingBottom: 20 }}>
+        {/* Search + topic pills */}
         <section className="card" style={{ padding: 14 }}>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="quickTile"
-              onClick={() => setActiveTopic("troubleshooting")}
-              style={{ padding: 12 }}
-            >
-              <div style={{ fontWeight: 950 }}>Troubleshooting</div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", marginTop: 2 }}>
-                Common fixes
-              </div>
-            </button>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search FAQ… (e.g. passport, cutoff, locker, outstation)"
+            style={{
+              width: "100%",
+              padding: "12px 12px",
+              borderRadius: 14,
+              border: "2px solid rgba(19,35,51,0.10)",
+              outline: "none",
+              fontWeight: 800,
+              color: "#132333",
+            }}
+          />
 
-            <button
-              type="button"
-              className="quickTile"
-              onClick={() => setActiveTopic("listing")}
-              style={{ padding: 12 }}
-            >
-              <div style={{ fontWeight: 950 }}>Listing & cutoffs</div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", marginTop: 2 }}>
-                AMS vs outstations
-              </div>
-            </button>
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Pill label="All" active={activeTopic === "all"} onClick={() => setActiveTopic("all")} />
+            {topics.map((t) => (
+              <Pill
+                key={t}
+                label={topicLabel(t)}
+                active={activeTopic === t}
+                onClick={() => setActiveTopic(t)}
+              />
+            ))}
+          </div>
 
-            <button
-              type="button"
-              className="quickTile"
-              onClick={() => setActiveTopic("lockers")}
-              style={{ padding: 12 }}
-            >
-              <div style={{ fontWeight: 950 }}>Crew Lockers</div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", marginTop: 2 }}>
-                Link / share
-              </div>
-            </button>
+          <div style={{ marginTop: 10, fontWeight: 800, color: "rgba(19,35,51,0.60)" }}>
+            {filtered.length} item{filtered.length === 1 ? "" : "s"}
           </div>
         </section>
 
-        <section className="card">
-          <div className="card-body">
+        {/* Quick filters */}
+        <section className="card" style={{ padding: 14, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {[
+              { t: "troubleshooting" as const, title: "Troubleshooting", sub: "Common fixes" },
+              { t: "listing" as const, title: "Listing & cutoffs", sub: "AMS vs outstations" },
+              { t: "lockers" as const, title: "Crew Lockers", sub: "Link / share" },
+            ].map((x) => (
+              <button
+                key={x.t}
+                type="button"
+                onClick={() => setActiveTopic(x.t)}
+                style={{
+                  flex: "1 1 160px",
+                  padding: 12,
+                  borderRadius: 14,
+                  border: "1px solid rgba(19,35,51,0.10)",
+                  background: "#fff",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontWeight: 950 }}>{x.title}</div>
+                <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", marginTop: 2 }}>
+                  {x.sub}
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* FAQ list */}
+        <section className="card" style={{ marginTop: 12 }}>
+          <div style={{ padding: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {filtered.map((it) => (
                 <FaqRow
@@ -698,7 +668,6 @@ export default function Faq() {
               ))}
             </div>
 
-            {/* Footer note */}
             <div style={{ marginTop: 14, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>
               Note: Some content is “best-effort” and may lag policy changes. For time-critical items, validate via official channels.
             </div>
@@ -706,7 +675,7 @@ export default function Faq() {
         </section>
 
         {/* Support CTA */}
-        <section className="card" style={{ padding: 14 }}>
+        <section className="card" style={{ padding: 14, marginTop: 12 }}>
           <div style={{ fontWeight: 950, color: "#132333" }}>Need help?</div>
           <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.65)" }}>
             Email <strong>admin@xcmxfa.com</strong> with a short description and screenshots.

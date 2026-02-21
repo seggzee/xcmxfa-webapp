@@ -877,10 +877,10 @@ export default function Home() {
 				  <div className="quickTileSub">Help & info</div>
 				</button>
 
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Tools</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+                <button type="button" className="quickTile" onClick={() => nav("/donate")}>
+				  <div className="quickTileTitle">Donate</div>
+				  <div className="quickTileSub">Keep the app running</div>
+				</button>
 				
               </div>
 
@@ -921,10 +921,10 @@ export default function Home() {
 				  <div className="quickTileSub">Help & info</div>
 				</button>
 
-                <div className="quickTile quickTile--disabled" aria-disabled="true">
-                  <div className="quickTileTitle">Tools</div>
-                  <div className="quickTileSub">Coming soon</div>
-                </div>
+                <button type="button" className="quickTile" onClick={() => nav("/donate")}>
+				  <div className="quickTileTitle">Donate</div>
+				  <div className="quickTileSub">Keep the app running</div>
+				</button>
               </div>
             </>
           )}

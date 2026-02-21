@@ -50,6 +50,7 @@ import eyes_closed from "../../assets/icons/eyes_closed.webp";
 import locked from "../../assets/icons/locked.webp";
 import STOP_SIGN from "../../assets/icons/stop.webp";
 import MENU from "../../assets/icons/menu.webp";
+import DONATE from "../../assets/icons/donate.webp";
 
 import avatar from "../../assets/avatar.jpg";
 import calendar from "../../assets/icons/calendar.webp";
@@ -78,6 +79,7 @@ export const UI_ICONS = {
   locked,
   STOP_SIGN,
   MENU,
+  DONATE,
 
   // ? Added (now safe to use everywhere)
   avatar,

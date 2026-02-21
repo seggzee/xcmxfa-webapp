@@ -25,6 +25,8 @@ import Day from "../pages/Day";
 import Messages from "../pages/Messages";
 import CrewLockers from "../pages/CrewLockers";
 import Faq from "../pages/Faq";
+import Donate from "../pages/Donate";
+import DonateReturn from "../pages/DonateReturn";
 
 /**
  * Idiot-guide:
@@ -270,6 +272,8 @@ export default function AppRoutes() {
         <Route path="/selectairports" element={<SelectAirports />} />
         <Route path="/home" element={<Home />} />
 		<Route path="/faq" element={<Faq />} />
+		<Route path="/donate" element={<Donate />} />
+		<Route path="/donate-return" element={<DonateReturn />} />		
 
         <Route
           path="/week"
