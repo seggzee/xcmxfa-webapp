@@ -543,6 +543,10 @@ export async function setBookingListed(args: {
   mode: "list" | "unlist";
   flightInstanceId: string;
   staffNo: unknown;
+
+  // ADD-ONLY (AMS capture; ignored by backend for non-AMS)
+  previous_duty?: string;
+  previous_duty_details?: string;
 }): Promise<ApiJson> {
   const psn = requirePsnStrict(args.staffNo, "setBookingListed");
   const flight_instance_id = String(args.flightInstanceId || "").trim();
@@ -556,9 +560,19 @@ export async function setBookingListed(args: {
       ? `/api/bookings/list.php`
       : `/api/bookings/unlist.php`;
 
+  // Payload contract:
+  // - Always send { flight_instance_id, psn }
+  // - For LIST only, we may additionally send AMS capture fields (ADD-ONLY).
+  const body: any = { flight_instance_id, psn };
+
+  if (args.mode === "list") {
+    if (typeof args.previous_duty === "string") body.previous_duty = args.previous_duty;
+    if (typeof args.previous_duty_details === "string") body.previous_duty_details = args.previous_duty_details;
+  }
+
   return requestJson(path, {
     method: "POST",
-    body: { flight_instance_id, psn },
+    body,
   });
 }
 

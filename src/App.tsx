@@ -1,9 +1,9 @@
-
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./app/authStore";
 import { CrewProvider } from "./app/crewStore";
 import { PendingOnboardingGate, UseOnboardingBackOverride } from "./app/guards";
 import AppRoutes from "./app/routes";
+import PopupNoticeHost from "./components/PopupNoticeHost";
 
 /**
  * Idiot-guide:
@@ -21,14 +21,19 @@ export default function App() {
     <AuthProvider>
       <CrewProvider>
         <BrowserRouter>
+
           {/* Auto-resume onboarding if pendingUsername exists */}
           <PendingOnboardingGate />
 
           {/* Override browser back during locked onboarding */}
           <UseOnboardingBackOverride />
 
+          {/* Global messaging popup host */}
+          <PopupNoticeHost />
+
           {/* Render route table */}
           <AppRoutes />
+
         </BrowserRouter>
       </CrewProvider>
     </AuthProvider>

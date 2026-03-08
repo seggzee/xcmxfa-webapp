@@ -42,6 +42,19 @@ export const CREW_LOCKERS_LIST_URL = `${API_BASE_URL}/api/crew_lockers/list.php`
 export const CREW_LOCKERS_NOTIFICATIONS_LIST_URL = `${API_BASE_URL}/api/crew_lockers/notifications_list.php`;
 export const CREW_LOCKERS_NOTIFICATIONS_MARK_READ_URL = `${API_BASE_URL}/api/crew_lockers/notifications_mark_read.php`;
 
+// ===============================
+// Messages / Notifications
+// ===============================
+export const MESSAGES_LIST_URL = `${API_BASE_URL}/api/messages/list.php`;
+export const MESSAGES_UNREAD_COUNT_URL = `${API_BASE_URL}/api/messages/unread_count.php`;
+export const MESSAGES_MARK_READ_URL = `${API_BASE_URL}/api/messages/mark_read.php`;
+
+// ===============================
+// Message popups / announcements
+// ===============================
+export const MESSAGES_ACTIVE_POPUP_URL = `${API_BASE_URL}/api/messages/active_popup.php`;
+export const MESSAGES_DISMISS_POPUP_URL = `${API_BASE_URL}/api/messages/dismiss_popup.php`;
+
 export type Json = Record<string, any>;
 
 async function readJsonOrThrow<T>(res: Response, url: string): Promise<T> {

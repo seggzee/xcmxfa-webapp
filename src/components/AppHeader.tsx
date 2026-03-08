@@ -1,7 +1,7 @@
 // src/components/AppHeader.tsx
 //
 // =====================================================================================
-// ?? ASSET LOADING FIX (NO VITE MAGIC): AppHeader assets must NOT use "/assets/..."
+// ASSET LOADING FIX (NO VITE MAGIC): AppHeader assets must NOT use "/assets/..."
 // =====================================================================================
 //
 // NOTE (V2 HEADER LOGO):
@@ -20,7 +20,6 @@ import LoginModal from "./LoginModal";
 type Props = {
   auth: any;
 
-  // Kept for compatibility (not rendered in header anymore because logo includes text)
   title?: string;
   subtitle?: string;
 
@@ -55,7 +54,6 @@ export default function AppHeader({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Measure header height so page-level sticky headers can sit UNDER it cleanly.
   const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -72,12 +70,11 @@ export default function AppHeader({
     apply();
 
     let ro: ResizeObserver | null = null;
+
     try {
       ro = new ResizeObserver(() => apply());
       ro.observe(el);
-    } catch {
-      // ignore
-    }
+    } catch {}
 
     window.addEventListener("resize", apply);
 
@@ -93,16 +90,17 @@ export default function AppHeader({
       setLoginOpen(true);
       return;
     }
+
     setLoginOpen(false);
     setAccountOpen(true);
   };
 
   const loginHandlersOk = Boolean(onLoginSubmit && onCancelLogin && onCreateAccount);
 
-  // Option B: /login -> /home?login=1 -> auto-open modal once, then clear param
   useEffect(() => {
     const params = new URLSearchParams(location.search || "");
     const wantsLogin = params.get("login") === "1";
+
     if (!wantsLogin) return;
 
     if (!isLoggedIn) setLoginOpen(true);
@@ -119,7 +117,7 @@ export default function AppHeader({
   return (
     <>
       <header ref={headerRef} className="appHeader">
-        {/* Left: single rectangular logo (includes text) */}
+        {/* Left: rectangular logo */}
         <button
           type="button"
           className="appHeader-brand"
@@ -133,10 +131,24 @@ export default function AppHeader({
           />
         </button>
 
-        {/* Right: reserved msg slot + avatar */}
+        {/* Right side controls */}
         <div className="appHeader-actions">
-          <div className="appHeader-msgSlot" />
 
+          {/* Message bell slot */}
+          <div className="appHeader-msgSlot">
+            {isLoggedIn && (
+              <button
+                type="button"
+                className="appHeader-msgBtn"
+                onClick={() => navigate("/messages")}
+                aria-label="Messages"
+              >
+                🔔
+              </button>
+            )}
+          </div>
+
+          {/* Avatar */}
           <button
             type="button"
             className="appHeader-avatarBtn"
@@ -158,7 +170,7 @@ export default function AppHeader({
         </div>
       </header>
 
-      {/* LOGIN MODAL (guest only) */}
+      {/* LOGIN MODAL */}
       {loginOpen && !isLoggedIn && (
         <>
           {!loginHandlersOk ? (
@@ -192,11 +204,14 @@ export default function AppHeader({
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                <div style={{ fontWeight: 900, marginBottom: 8 }}>Login modal misconfigured</div>
-                <div style={{ color: "#111827", fontWeight: 700 }}>
-                  AppHeader requires <code>onLoginSubmit</code>, <code>onCancelLogin</code>, and{" "}
-                  <code>onCreateAccount</code>.
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>
+                  Login modal misconfigured
                 </div>
+                <div style={{ color: "#111827", fontWeight: 700 }}>
+                  AppHeader requires <code>onLoginSubmit</code>,{" "}
+                  <code>onCancelLogin</code>, and <code>onCreateAccount</code>.
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setLoginOpen(false)}
@@ -226,7 +241,7 @@ export default function AppHeader({
         </>
       )}
 
-      {/* Account sheet (member only) */}
+      {/* ACCOUNT SHEET */}
       {accountOpen && isLoggedIn && (
         <div className="appHeader-overlay" onClick={() => setAccountOpen(false)}>
           <div className="appHeader-sheet" onClick={(e) => e.stopPropagation()}>
@@ -252,7 +267,10 @@ export default function AppHeader({
               <div className="sub">Switch to guest mode</div>
             </button>
 
-            <button className="appHeader-sheetCancel" onClick={() => setAccountOpen(false)}>
+            <button
+              className="appHeader-sheetCancel"
+              onClick={() => setAccountOpen(false)}
+            >
               Cancel
             </button>
           </div>

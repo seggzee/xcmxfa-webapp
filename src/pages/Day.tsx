@@ -5,11 +5,8 @@ import { useAuth } from "../app/authStore";
 import FlightCard3x3 from "../components/FlightCard3x3";
 import BackButton from "../components/BackButton";
 import { getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
-
-// ✅ Day adopts global primitives + Day-only fixes
 import "../styles/day.css";
 
-// IMPORTANT: these MUST exist in your web flightsApi (same names as RN parity)
 import {
   ensureDayStatusFresh,
   getFlightsForDay,
@@ -64,9 +61,6 @@ function fmtTimeLocal(dtLike: unknown) {
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-const ICON_SENT = "✉︎";
-const ICON_PENDING = "⏳";
-
 function normalizeBookingStatusStrict(raw: any): "confirmed" | "sent" | "pending" {
   const s = String(raw || "").trim().toLowerCase();
   invariant(Boolean(s), "Invariant violation: booking row missing status");
@@ -75,16 +69,6 @@ function normalizeBookingStatusStrict(raw: any): "confirmed" | "sent" | "pending
     `Invariant violation: unexpected booking status "${s}" (expected confirmed|sent|pending)`
   );
   return s as any;
-}
-
-function statusIconChar(status: "confirmed" | "sent" | "pending") {
-  if (status === "confirmed") return "✅";
-  if (status === "sent") return ICON_SENT;
-  return ICON_PENDING;
-}
-function statusIconStyle(status: "confirmed" | "sent" | "pending"): React.CSSProperties {
-  if (status === "sent") return { color: "#d97706" };
-  return { color: "rgba(19,35,51,0.65)" };
 }
 
 function actionConfigForFlight(airlineIata: any, userListed: boolean) {
@@ -110,16 +94,6 @@ type CrewRow = {
 const POLL_MS = 2.5 * 60 * 1000;
 
 /* ----------------------------- Schiphol Ultra overlay (LOCKED) ----------------------------- */
-/**
- * Idiot guide:
- * - Overlay is additive-only. It never alters FlightCard3x3.
- * - Day screen shows a dedicated AMS ops panel:
- *     - Divider + tinted background (LOCKED)
- *     - Visible for guests + members
- * - Render only when:
- *     - dep_airport === "AMS" OR arr_airport === "AMS"
- *     - AND row.schiphol is non-null
- */
 function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
   const dep = safeUpper(row?.dep_airport);
   const arr = safeUpper(row?.arr_airport);
@@ -131,12 +105,8 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
   const s = row?.schiphol ?? null;
   if (!s || typeof s !== "object") return null;
 
-  // Title text (LOCKED BEHAVIOUR, NEW WORDING ONLY)
-  // - Dep AMS: "AMS Departure info"
-  // - Arr AMS: "AMS Arrival info"
   const title = isDepAMS ? "AMS Departure info" : "AMS Arrival info";
 
-  // Location line: T · Pier · Gate
   const terminalRaw = String((s as any)?.terminal ?? "").trim();
   const pierRaw = String((s as any)?.pier ?? "").trim();
   const gateRaw = String((s as any)?.gate ?? "").trim();
@@ -150,7 +120,6 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
   if (gateRaw) locationParts.push(`Gate ${gateRaw}`);
   const locationLine = locationParts.join(" · ");
 
-  // Times
   const timeParts: string[] = [];
   let movementLine = "";
 
@@ -159,7 +128,7 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
     const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
     const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
     if (open) timeParts.push(`Open: ${open}`);
-	if (board) timeParts.push(`Boarding: ${board}`);
+    if (board) timeParts.push(`Boarding: ${board}`);
     if (close) timeParts.push(`Close: ${close}`);
 
     const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
@@ -171,21 +140,15 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
 
   const timesLine = timeParts.join(" · ");
 
-  // Optional tiny “state” badge (NEVER replaces KLM status pill)
   const stateRaw = String((s as any)?.public_flight_state ?? "").toUpperCase();
   const stateLabel = (() => {
-    // Schiphol can provide codes like BRD / GCL etc (sometimes in an array/string).
     if (!stateRaw) return "";
     if (stateRaw.includes("BRD") || stateRaw.includes("BOARD")) return "Boarding";
     if (stateRaw.includes("GCL") || stateRaw.includes("GATECLOS") || stateRaw.includes("GATE_CLOS")) return "Gate closing";
     return "";
   })();
 
-  const updated = fmtTimeLocal((s as any)?.updated_at_utc);
-  const showFreshness = Boolean(updated);
-
-  // If literally nothing useful, don't render.
-  if (!locationLine && !timesLine && !movementLine && !stateLabel && !showFreshness) return null;
+  if (!locationLine && !timesLine && !movementLine && !stateLabel) return null;
 
   return (
     <div
@@ -193,7 +156,7 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
         marginTop: 10,
         borderRadius: 14,
         padding: "10px 12px",
-        background: "rgba(232, 240, 255, 0.85)", // subtle tint (LOCKED)
+        background: "rgba(232, 240, 255, 0.85)",
         border: "1px solid rgba(19,35,51,0.08)",
       }}
     >
@@ -234,18 +197,18 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
           {movementLine}
         </div>
       ) : null}
-	  
-	  {/*
-      {showFreshness ? (
-        <div style={{ marginTop: 8, fontWeight: 800, color: "rgba(19,35,51,0.55)", fontSize: 11 }}>
-          Schiphol updated {updated}
-        </div>
-      ) : null}
-	  */}
-	  
-	  
     </div>
   );
+}
+
+/* ----------------------------- AMS previous duty modal (NEW, LOCKED RULE) ----------------------------- */
+
+type PrevDutyChoice = "Flight duty" | "Training" | "Simulator" | "Office duty" | "Other";
+
+const PREV_DUTY_CHOICES: PrevDutyChoice[] = ["Flight duty", "Training", "Simulator", "Office duty", "Other"];
+
+function requiresDetails(choice: PrevDutyChoice) {
+  return choice === "Flight duty" || choice === "Other";
 }
 
 export default function Day() {
@@ -260,7 +223,6 @@ export default function Day() {
 
   const resolvedIsLoggedIn = auth?.mode === "member";
 
-  // Identity invariant: member must have psn; no fallbacks beyond explicit auth fields, and hard error if missing.
   const psn = useMemo(() => {
     if (!resolvedIsLoggedIn) return null;
 
@@ -280,7 +242,6 @@ export default function Day() {
   const [dateKey, setDateKey] = useState<string>(String(dateKeyParam));
   useEffect(() => setDateKey(String(dateKeyParam)), [dateKeyParam]);
 
-  // tab: "departures" | "arrivals" (RN)
   const initialTab = useMemo(() => {
     const qs = new URLSearchParams(loc.search || "");
     const t = String(qs.get("tab") || "").trim().toLowerCase();
@@ -378,7 +339,7 @@ export default function Day() {
       const qs = tab === "arrivals" ? "tab=arrivals" : "tab=departures";
       nav(`/day/${nextKey}?${qs}`, { state: { airport: airportCode } });
     } catch {
-      // RN parity: ignore
+      // ignore
     }
   };
 
@@ -387,7 +348,6 @@ export default function Day() {
   const [errorText, setErrorText] = useState("");
   const [lastStatusUpdatedUtc, setLastStatusUpdatedUtc] = useState<string | null>(null);
   const [lastScheduleUpdatedUtc, setLastScheduleUpdatedUtc] = useState<string | null>(null);
-  const [lastRefreshedAtUtc, setLastRefreshedAtUtc] = useState<string | null>(null);
 
   const [rawRows, setRawRows] = useState<any>({
     departures: [],
@@ -443,7 +403,6 @@ export default function Day() {
         flights: flatRows,
       });
 
-      // R meaning (locked): status refresh time (prefer status_last_updated_utc; fall back to legacy last_updated_utc)
       const last2 =
         dayResp?.status_last_updated_utc ??
         dayResp?.meta?.status_last_updated_utc ??
@@ -453,7 +412,6 @@ export default function Day() {
         null;
       if (last2) setLastStatusUpdatedUtc(String(last2));
 
-      // D meaning (locked): schedule refresh time
       const sched =
         dayResp?.schedule_last_updated_utc ??
         dayResp?.meta?.schedule_last_updated_utc ??
@@ -462,7 +420,7 @@ export default function Day() {
         null;
       if (sched) setLastScheduleUpdatedUtc(String(sched));
 
-      // 3) bookings (ALWAYS load; required for X-staff 3:3)
+      // 3) bookings (ALWAYS load)
       try {
         const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey });
 
@@ -486,7 +444,6 @@ export default function Day() {
         setBookingsByFlight({});
       }
 
-      setLastRefreshedAtUtc(new Date().toISOString());
       setLoading(false);
     } catch (e: any) {
       setErrorText(e?.message || "Failed to load flights");
@@ -515,16 +472,10 @@ export default function Day() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airportCode, dateKey]);
 
-  // ---------------------------------------------------------------------------
-  // RN parity:
-  // - Do NOT build a synthetic FlightVM for FlightCard3x3.
-  // - Pass the RAW API flight row (snake_case) into FlightCard3x3.
-  // ---------------------------------------------------------------------------
-
   type FlightItem = {
     flightInstanceId: string;
     uiKey: string;
-    row: ApiFlightRow; // RAW row from API (snake_case)
+    row: ApiFlightRow;
   };
 
   const flights: FlightItem[] = useMemo(() => {
@@ -538,7 +489,6 @@ export default function Day() {
     if (tab === "departures") filtered = fromApiDepartures || [];
     else filtered = fromApiArrivals || [];
 
-    // RN fallback path (only if API doesn't return split arrays)
     if ((!fromApiDepartures || !fromApiArrivals) && Array.isArray(rawRows?.flights)) {
       const legacyRows: ApiFlightRow[] = rawRows.flights;
       if (tab === "departures") {
@@ -590,8 +540,6 @@ export default function Day() {
       ? bookingsByFlight[flightInstanceId]
       : [];
 
-    // RN canonical order:
-    // listing_prio ASC, requested_at_utc ASC, id ASC
     return rows
       .slice()
       .sort((a, b) => {
@@ -619,7 +567,6 @@ export default function Day() {
         const fullName = `${first} ${last}`.trim();
         invariant(Boolean(fullName), "Invariant violation: booking row missing firstname/lastname");
 
-        // Backend contract: status field is "status" (pending|sent|confirmed)
         const status = normalizeBookingStatusStrict(b?.status);
 
         return {
@@ -651,6 +598,28 @@ export default function Day() {
     {}
   );
 
+  // ---- AMS previous duty modal state (only used when dep_airport === AMS and listing) ----
+  const [amsDutyVisible, setAmsDutyVisible] = useState(false);
+  const [amsDutyFlightMeta, setAmsDutyFlightMeta] = useState<{ flightInstanceId: string; row: ApiFlightRow } | null>(
+    null
+  );
+  const [amsDutyChoice, setAmsDutyChoice] = useState<PrevDutyChoice>("Flight duty");
+  const [amsDutyDetails, setAmsDutyDetails] = useState("");
+  const [amsDutyError, setAmsDutyError] = useState("");
+
+  // ---- Info modal (for ALL listed commuters) ----
+  type InfoMeta = {
+    fullName: string;
+    staffNo: string;
+    role: string | null;
+    listedAt: string | null;
+    status: "confirmed" | "sent" | "pending";
+    flightNo: string;
+  };
+
+  const [infoVisible, setInfoVisible] = useState(false);
+  const [infoMeta, setInfoMeta] = useState<InfoMeta | null>(null);
+
   function openConfirm(mode: "list" | "unlist", args: { flightInstanceId: string; row: ApiFlightRow }) {
     setConfirmMode(mode);
     setConfirmErrorText("");
@@ -658,7 +627,43 @@ export default function Day() {
     setConfirmVisible(true);
   }
 
-  async function commitConfirm() {
+  function openAmsDutyModal(args: { flightInstanceId: string; row: ApiFlightRow }) {
+    setAmsDutyFlightMeta(args);
+    setAmsDutyChoice("Flight duty");
+    setAmsDutyDetails("");
+    setAmsDutyError("");
+    setAmsDutyVisible(true);
+  }
+
+  function openInfoModal(meta: InfoMeta) {
+    setInfoMeta(meta);
+    setInfoVisible(true);
+  }
+
+  function mapBackendErrorToUserMessage(e: any): string {
+    // We expect backend to return { ok:false, code, message } and requestJson throws message
+    const msg = String(e?.message || "Request failed");
+
+    // Make the known rule failures explicit to the user
+    if (msg.toLowerCase().includes("not allowed to have 2 listings")) {
+      return "Not allowed to have 2 listings from the same airport on the same day.";
+    }
+    if (msg.toLowerCase().includes("cutoff")) {
+      return "Listing cutoff has passed for this departure station.";
+    }
+    if (msg.toLowerCase().includes("day of travel")) {
+      return "Listing is not allowed on the day of travel.";
+    }
+    if (msg.toLowerCase().includes("60 minutes")) {
+      return "Unlisting is not allowed within 60 minutes of departure (or after departure).";
+    }
+    if (msg.toLowerCase().includes("cancelled flight")) {
+      return "Action not available: flight is cancelled.";
+    }
+    return msg;
+  }
+
+  async function commitConfirm(extra?: { previous_duty?: string; previous_duty_details?: string }) {
     if (!confirmMeta?.flightInstanceId) {
       setConfirmVisible(false);
       return;
@@ -680,6 +685,7 @@ export default function Day() {
         mode,
         flightInstanceId,
         staffNo: psn,
+        ...(mode === "list" ? extra : null),
       });
 
       setConfirmVisible(false);
@@ -694,7 +700,7 @@ export default function Day() {
         });
       }, 1200);
     } catch (e: any) {
-      setConfirmErrorText(e?.message || "Request failed");
+      setConfirmErrorText(mapBackendErrorToUserMessage(e));
     } finally {
       setActionBusyByFlight((prev) => {
         const next = { ...prev };
@@ -704,22 +710,6 @@ export default function Day() {
     }
   }
 
-  // ---- info modal ----
-  const [infoVisible, setInfoVisible] = useState(false);
-  const [infoMeta, setInfoMeta] = useState<any>(null);
-
-  function openInfoModal(args: { flightNo: string; u: CrewRow; isSelf: boolean; notesText?: string }) {
-    const whoLabel = args.isSelf ? "Your" : `${args.u.fullName}'s`;
-    setInfoMeta({
-      flightNo: args.flightNo,
-      whoLabel,
-      securityNo: args.u.securityNo, // STRICT: no fabricated fallback
-      statusText: args.u.status,
-      notesText: args.notesText || "",
-    });
-    setInfoVisible(true);
-  }
-
   const onManualRefresh = async () => {
     if (isRefreshing || refreshInFlightRef.current) return;
     setIsRefreshing(true);
@@ -727,7 +717,6 @@ export default function Day() {
     startAutoRefreshTimer();
   };
 
-  // --- header lines ---
   const databaseLabel = useMemo(() => {
     if (!lastScheduleUpdatedUtc) return "";
     return new Date(lastScheduleUpdatedUtc).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -740,23 +729,19 @@ export default function Day() {
 
   const airportLogoSrc = getAirportLogo(airportCode);
 
-  // Compact meta text (matches Week compact look)
   const metaD = databaseLabel ? `D: ${databaseLabel}` : "";
   const metaR = refreshedLabel ? `R: ${refreshedLabel}` : "";
 
-  // ✅ Single helper text for the one "i" button
   const metaHelpText =
     "D = Schedule refresh: when the backend last refreshed scheduled times.\n" +
     "R = Status refresh: when the backend last refreshed live status.";
 
   return (
     <div className="app-screen">
-      {/* Day-local sticky header stack (Day-only bleed fix lives in .day-sticky) */}
       <div className="day-sticky">
         <div className="app-container">
           <section className="day-headerCard">
             <div className="day-headerTopRow">
-              {/* Left: meta + info helper */}
               <div className="day-metaLeft">
                 <div className="day-metaHead">
                   <div className="day-metaLines">
@@ -783,7 +768,6 @@ export default function Day() {
                     ) : null}
                   </div>
 
-                  {/* ✅ ONE "i" button. It MUST do something on tap, so we use alert. */}
                   <button
                     type="button"
                     className="day-metaInfo"
@@ -798,14 +782,10 @@ export default function Day() {
                 </div>
               </div>
 
-              {/* Centre: airport logo (no airport code on Day) */}
               <div className="day-logoCenter">
-                {airportLogoSrc ? (
-                  <img src={airportLogoSrc} alt={`${airportCode} logo`} className="day-airportLogo" />
-                ) : null}
+                {airportLogoSrc ? <img src={airportLogoSrc} alt={`${airportCode} logo`} className="day-airportLogo" /> : null}
               </div>
 
-              {/* Right: unified back image button */}
               <div className="day-backRight">
                 <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
               </div>
@@ -869,10 +849,7 @@ export default function Day() {
 
           const userListed = resolvedIsLoggedIn ? isUserListed(fid) : false;
 
-          // Step 1 (RN parity): X-staff total ALWAYS derived from bookingsByFlight (guests + members)
           const xStaff = Array.isArray(bookingsByFlight?.[fid]) ? bookingsByFlight[fid].length : 0;
-
-          // Crew list remains member-only (unchanged behaviour)
           const crew = resolvedIsLoggedIn ? crewListForFlight(fid) : [];
 
           const actionCfg = actionConfigForFlight(row?.airline_iata, userListed);
@@ -883,6 +860,7 @@ export default function Day() {
           const todayKey = dateToLocalDateKey(new Date());
           const isDayOfTravel = dateKey === todayKey;
 
+          // Unlist cutoff display/disable (client-side approximation only; server is authoritative)
           let tooLateToUnlist = false;
           try {
             const hhmm = extractHHMM(row?.std_local || "") || extractHHMM(row?.std_utc || "");
@@ -912,17 +890,18 @@ export default function Day() {
             return actionCfg.label;
           })();
 
-          // STRICT RN parity: FlightCard3x3 receives RAW API row only (no booking overlays invented here)
           const cardFlight = row;
 
           const xcm = crew.filter((u) => u.role === "XCM").length;
           const xfa = crew.filter((u) => u.role === "XFA").length;
           const other = crew.filter((u) => u.role !== "XCM" && u.role !== "XFA").length;
 
-          // Precompute whether ops panel will render, so we don't leave extra dividers.
           const willRenderOps =
-            (safeUpper(row?.dep_airport) === "AMS" || safeUpper(row?.arr_airport) === "AMS") &&
-            Boolean(row?.schiphol);
+            (safeUpper(row?.dep_airport) === "AMS" || safeUpper(row?.arr_airport) === "AMS") && Boolean(row?.schiphol);
+
+          const isDepAMS = safeUpper(row?.dep_airport) === "AMS";
+
+          const flightNo = `${String(row?.airline_iata || "").toUpperCase()}${String(row?.flight_number || "").trim()}`.trim();
 
           return (
             <div key={f.uiKey} className="card day-flightCard">
@@ -933,7 +912,6 @@ export default function Day() {
                   footerRightContent={<span className="flightCard-xstaff">X-staff: {xStaff}</span>}
                 />
 
-                {/* NEW: Schiphol Ultra AMS ops panel (divider + tinted background, LOCKED) */}
                 {willRenderOps ? (
                   <>
                     <div className="day-zoneDivider" />
@@ -956,127 +934,103 @@ export default function Day() {
                     </div>
                   ) : null}
 
-                  {/* =================================================================================
-                      Behaviour change (as requested):
-                      - Logged-in member should always be able to see "All listed commuters" (when crew.length > 0),
-                        even if they are NOT listed themselves.
-                      - The ONLY section gated by userListed is "Listing information".
-                      - Additive-only: we do not change crew derivation, ordering, or rendering internals.
-                     ================================================================================= */}
+                  {/* Listing information block removed (per confirmed scope) */}
 
-                  {userListed ? (
-                    <>
-                      <div className="day-zoneDivider" />
-
-                      <div>
-                        <div className="day-zoneSubtitle">Listing information</div>
-
-                        {(() => {
-                          const me = crew.find((u) => String(u.staffNo || "").trim() === String(psn || "").trim());
-                          return (
-                            <div className="day-zoneRow2">
-                              <div className="day-zoneMetaText">Requested: {formatListedAtDisplay(me?.listedAt)}</div>
-
-                              <div className="day-zoneMetaText">
-                                Status:{" "}
-                                {me?.status ? (
-                                  <>
-                                    {me.status}
-                                    <img
-                                      src={
-                                        me.status === "confirmed"
-                                          ? LISTING_STATUS_ICONS.booked
-                                          : me.status === "sent"
-                                          ? LISTING_STATUS_ICONS.sent
-                                          : LISTING_STATUS_ICONS.pending
-                                      }
-                                      alt={me.status}
-                                      style={{ width: 20, height: 20, marginLeft: 6, verticalAlign: "middle" }}
-                                    />
-                                  </>
-                                ) : (
-                                  "--"
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </>
-                  ) : null}
-
-                  {/* RN rule: "All listed commuters" only renders when there are commuters
-                     Behaviour change (as requested): visible to logged-in members even if not listed */}
                   {crew.length > 0 ? (
                     <>
                       <div className="day-zoneDivider" />
 
                       <div>
-                        <div className="day-zoneSubtitle">All listed commuters: {crew.length}</div>
+                        <div className="day-zoneSubtitle">Listed commuters: {crew.length}</div>
 
                         <div style={{ marginTop: 8 }}>
                           {crew.map((u, idx) => {
                             const isSelf = String(u.staffNo || "").trim() === String(psn || "").trim();
 
+                            const statusIcon =
+                              u.status === "confirmed"
+                                ? LISTING_STATUS_ICONS.booked
+                                : u.status === "sent"
+                                ? LISTING_STATUS_ICONS.sent
+                                : LISTING_STATUS_ICONS.pending;
+
                             return (
                               <div
                                 key={`${u.staffNo}-${u.listedAt}-${idx}`}
-                                style={{ display: "flex", alignItems: "flex-start" }}
+                                onClick={() =>
+                                  openInfoModal({
+                                    fullName: u.fullName,
+                                    staffNo: u.staffNo,
+                                    role: u.role || null,
+                                    listedAt: u.listedAt || null,
+                                    status: u.status,
+                                    flightNo,
+                                  })
+                                }
+                                style={{
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 10,
+                                  padding: "8px 8px",
+                                  borderRadius: 12,
+                                  background: "rgba(19,35,51,0.04)",
+                                  border: "1px solid rgba(19,35,51,0.06)",
+                                  marginBottom: 8,
+                                  WebkitTapHighlightColor: "rgba(0,0,0,0)",
+                                }}
+                                aria-label={`Open info for ${u.fullName}`}
                               >
                                 <div
                                   style={{
-                                    display: "flex",
-                                    alignItems: "flex-start",
-                                    gap: 8,
-                                    padding: "3px 0",
+                                    width: 28,
+                                    fontWeight: 700,
+                                    color: "rgba(19,35,51,0.55)",
+                                    fontSize: 12,
+                                    paddingTop: 2,
+                                    flexShrink: 0,
                                   }}
                                 >
+                                  {`P${idx + 1}.`}
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                   <div
                                     style={{
-                                      width: 28,
-                                      fontWeight: 700,
-                                      color: "rgba(19,35,51,0.55)",
+                                      fontWeight: isSelf ? 900 : 800,
+                                      color: isSelf ? "#b91c1c" : "rgba(19,35,51,0.86)",
                                       fontSize: 12,
-                                      paddingTop: 1,
-                                    }}
-                                  >
-                                    {`P${idx + 1}.`}
-                                  </div>
-                                  <div
-                                    style={{
-                                      flex: 1,
-                                      minWidth: 0,
-                                      fontWeight: isSelf ? 900 : 700,
-                                      color: isSelf ? "#b91c1c" : "rgba(19,35,51,0.80)",
-                                      fontSize: 12,
+                                      lineHeight: "16px",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
                                     }}
                                   >
                                     {u.fullName}
                                   </div>
+
                                   <div
                                     style={{
-                                      width: 84,
-                                      textAlign: "right",
-                                      fontWeight: 700,
-                                      color: "rgba(19,35,51,0.70)",
+                                      marginTop: 2,
+                                      fontWeight: 800,
+                                      color: "rgba(19,35,51,0.62)",
                                       fontSize: 12,
+                                      lineHeight: "16px",
+                                      display: "flex",
+                                      gap: 10,
+                                      flexWrap: "wrap",
                                     }}
-                                    title={u.staffNo}
                                   >
-                                    {u.staffNo}
+                                    <span title={u.staffNo}>{u.staffNo}</span>
+                                    <span title={u.role || "Other"}>{u.role || "Other"}</span>
                                   </div>
-                                  <div
-                                    style={{
-                                      width: 44,
-                                      textAlign: "right",
-                                      fontWeight: 700,
-                                      color: "rgba(19,35,51,0.70)",
-                                      fontSize: 12,
-                                    }}
-                                    title={u.role || "Other"}
-                                  >
-                                    {u.role || "Other"}
-                                  </div>
+                                </div>
+
+                                <div style={{ width: 22, flexShrink: 0, paddingTop: 1 }}>
+                                  <img
+                                    src={statusIcon}
+                                    alt={u.status}
+                                    style={{ width: 20, height: 20, display: "block" }}
+                                  />
                                 </div>
                               </div>
                             );
@@ -1092,7 +1046,19 @@ export default function Day() {
 
                       <button
                         type="button"
-                        onClick={() => openConfirm(userListed ? "unlist" : "list", { flightInstanceId: fid, row })}
+                        onClick={() => {
+                          // CANCELLED: no action at all (server also enforces)
+                          if (opStatusKey === "CANCELLED") return;
+
+                          if (!userListed && isDepAMS) {
+                            // Step 1: open AMS duty modal, which will then open Confirm
+                            openAmsDutyModal({ flightInstanceId: fid, row });
+                            return;
+                          }
+
+                          // Normal flow: confirm list/unlist
+                          openConfirm(userListed ? "unlist" : "list", { flightInstanceId: fid, row });
+                        }}
                         disabled={disableActionButton || busyMode !== null}
                         className={`day-actionBtn ${userListed ? "day-actionBtnAmber" : "day-actionBtnGreen"}`}
                         style={{
@@ -1111,6 +1077,127 @@ export default function Day() {
           );
         })}
       </div>
+
+      {/* AMS previous duty modal */}
+      {amsDutyVisible ? (
+        <div
+          className="day-overlay"
+          onClick={() => {
+            setAmsDutyVisible(false);
+            setAmsDutyError("");
+          }}
+        >
+          <div className="day-modalCard" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 900, fontSize: 16, color: "#132333" }}>Previous duty (AMS)</div>
+
+            <div style={{ marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" }}>
+              Required for Amsterdam departures.
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.75)", marginBottom: 6 }}>Select duty</div>
+              <select
+                className="select"
+                value={amsDutyChoice}
+                onChange={(e) => {
+                  const v = e.target.value as PrevDutyChoice;
+                  setAmsDutyChoice(v);
+                  setAmsDutyError("");
+                }}
+                style={{ width: "100%" }}
+              >
+                {PREV_DUTY_CHOICES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {requiresDetails(amsDutyChoice) ? (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.75)", marginBottom: 6 }}>
+                  {amsDutyChoice === "Flight duty" ? "Flight number" : "More details"}
+                </div>
+                <input
+                  className="input"
+                  value={amsDutyDetails}
+                  onChange={(e) => {
+                    setAmsDutyDetails(e.target.value);
+                    setAmsDutyError("");
+                  }}
+                  placeholder={amsDutyChoice === "Flight duty" ? "e.g. KL1234" : "Type details"}
+                  style={{ width: "100%" }}
+                />
+              </div>
+            ) : null}
+
+            {amsDutyError ? <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>{amsDutyError}</div> : null}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button
+                type="button"
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  padding: "12px 0",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  border: "1px solid #d9e2ee",
+                  fontSize: 14,
+                  background: "#fff",
+                  color: "#132333",
+                }}
+                onClick={() => {
+                  setAmsDutyVisible(false);
+                  setAmsDutyError("");
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  padding: "12px 0",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  border: "1px solid transparent",
+                  fontSize: 14,
+                  background: "#132333",
+                  color: "#ffffff",
+                }}
+                onClick={() => {
+                  // Local validation mirrors server expectation (server is authoritative)
+                  if (requiresDetails(amsDutyChoice) && String(amsDutyDetails || "").trim() === "") {
+                    setAmsDutyError(amsDutyChoice === "Flight duty" ? "Flight number required." : "Details required.");
+                    return;
+                  }
+
+                  // Close this modal, then open confirm in LIST mode for that flight
+                  const meta = amsDutyFlightMeta;
+                  if (!meta?.flightInstanceId) {
+                    setAmsDutyVisible(false);
+                    return;
+                  }
+
+                  setAmsDutyVisible(false);
+
+                  // Open confirm explicitly as LIST
+                  setConfirmMode("list");
+                  setConfirmErrorText("");
+                  setConfirmMeta({ flightInstanceId: meta.flightInstanceId, row: meta.row });
+                  setConfirmVisible(true);
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Confirm modal */}
       {confirmVisible ? (
@@ -1132,9 +1219,7 @@ export default function Day() {
                 : "You will lose your position in the list."}
             </div>
 
-            {confirmErrorText ? (
-              <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>{confirmErrorText}</div>
-            ) : null}
+            {confirmErrorText ? <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>{confirmErrorText}</div> : null}
 
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button
@@ -1175,7 +1260,25 @@ export default function Day() {
                     : 1,
                 }}
                 disabled={Boolean(confirmMeta?.flightInstanceId && actionBusyByFlight?.[confirmMeta.flightInstanceId])}
-                onClick={commitConfirm}
+                onClick={() => {
+                  const meta = confirmMeta;
+                  if (!meta?.flightInstanceId) {
+                    setConfirmVisible(false);
+                    return;
+                  }
+
+                  // If LIST and dep=AMS, pass through captured duty fields
+                  const dep = safeUpper(meta.row?.dep_airport);
+                  if (confirmMode === "list" && dep === "AMS") {
+                    commitConfirm({
+                      previous_duty: amsDutyChoice,
+                      previous_duty_details: amsDutyDetails,
+                    });
+                    return;
+                  }
+
+                  commitConfirm();
+                }}
               >
                 Confirm
               </button>
@@ -1184,39 +1287,60 @@ export default function Day() {
         </div>
       ) : null}
 
-      {/* Info modal */}
+      {/* Info modal (updated per confirmed scope) */}
       {infoVisible ? (
-        <div className="day-overlay" onClick={() => setInfoVisible(false)}>
+        <div
+          className="day-overlay"
+          onClick={() => {
+            setInfoVisible(false);
+            setInfoMeta(null);
+          }}
+        >
           <div className="day-modalCard" onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
-              {infoMeta?.whoLabel || "Your"} security number for flight{" "}
-              <span style={{ fontWeight: 900 }}>{infoMeta?.flightNo || ""}</span> on{" "}
-              <span style={{ fontWeight: 900 }}>{shortDateForModal}</span> is:{" "}
-              <span style={{ fontWeight: 900 }}>
-                {infoMeta?.securityNo ? String(infoMeta.securityNo) : "--"}
+            <div style={{ fontWeight: 900, fontSize: 16, color: "#132333" }}>
+              {(infoMeta?.fullName || "").trim() || "Commuter"}{" "}
+              <span style={{ fontWeight: 800, color: "rgba(19,35,51,0.70)", fontSize: 13 }}>
+                — {infoMeta?.flightNo || ""} — {shortDateForModal}
               </span>
             </div>
 
-            <div style={{ height: 14 }} />
+            <div style={{ height: 12 }} />
 
-            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
+            <div style={{ fontWeight: 800, color: "rgba(19,35,51,0.78)", lineHeight: "18px" }}>
+              PSN: <span style={{ fontWeight: 900 }}>{infoMeta?.staffNo || "--"}</span>
+            </div>
+
+            <div style={{ height: 8 }} />
+
+            <div style={{ fontWeight: 800, color: "rgba(19,35,51,0.78)", lineHeight: "18px" }}>
+              Role: <span style={{ fontWeight: 900 }}>{infoMeta?.role || "Other"}</span>
+            </div>
+
+            <div style={{ height: 8 }} />
+
+            <div style={{ fontWeight: 800, color: "rgba(19,35,51,0.78)", lineHeight: "18px" }}>
+              Requested: <span style={{ fontWeight: 900 }}>{formatListedAtDisplay(infoMeta?.listedAt || null)}</span>
+            </div>
+
+            <div style={{ height: 8 }} />
+
+            <div style={{ fontWeight: 800, color: "rgba(19,35,51,0.78)", lineHeight: "18px" }}>
               Status:{" "}
-              <span style={{ fontWeight: 900 }}>
-                {infoMeta?.statusText ? String(infoMeta.statusText) : "--"}
-              </span>
+              <span style={{ fontWeight: 900, textTransform: "capitalize" }}>{infoMeta?.status || "--"}</span>
+              {infoMeta?.status ? (
+                <img
+                  src={
+                    infoMeta.status === "confirmed"
+                      ? LISTING_STATUS_ICONS.booked
+                      : infoMeta.status === "sent"
+                      ? LISTING_STATUS_ICONS.sent
+                      : LISTING_STATUS_ICONS.pending
+                  }
+                  alt={infoMeta.status}
+                  style={{ width: 20, height: 20, marginLeft: 8, verticalAlign: "middle" }}
+                />
+              ) : null}
             </div>
-
-            <div style={{ height: 14 }} />
-
-            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px" }}>
-              Booking notes:
-            </div>
-
-            {String(infoMeta?.notesText || "").trim().length > 0 ? (
-              <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.80)", lineHeight: "18px", marginTop: 6 }}>
-                {String(infoMeta?.notesText || "")}
-              </div>
-            ) : null}
 
             <button
               type="button"
@@ -1231,7 +1355,10 @@ export default function Day() {
                 width: "100%",
                 border: "1px solid transparent",
               }}
-              onClick={() => setInfoVisible(false)}
+              onClick={() => {
+                setInfoVisible(false);
+                setInfoMeta(null);
+              }}
             >
               Close
             </button>
