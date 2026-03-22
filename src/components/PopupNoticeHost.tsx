@@ -1,4 +1,21 @@
-// src/components/PopupNoticeHost.tsx
+// FILE: src/components/PopupNoticeHost.tsx
+//
+// PURPOSE
+// - Host and render the current active popup notice for the logged-in member.
+// - Reads popup notices from the canonical /api/messages/* backend.
+//
+// LOCKED CONTRACT
+// - Member-facing messaging backend is currently PSN-based.
+// - Therefore this component must supply psn to the messages API wrapper.
+// - Backend popup shape uses:
+//     popup_dismiss_text
+//     popup_action_text
+// - Do not guess alternate contracts here.
+//
+// THIS CHANGE ONLY
+// - After popup state changes (dismiss / action-dismiss), dispatch a global
+//   "messages:summary-refresh" event so AppHeader bell/badge refresh immediately.
+// - No other behaviour changes.
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -14,8 +31,8 @@ type PopupMessage = {
   link_type?: "internal_route" | "external_url" | "none";
   link_target?: string | null;
   link_fallback?: string | null;
-  dismiss_text?: string | null;
-  action_text?: string | null;
+  popup_dismiss_text?: string | null;
+  popup_action_text?: string | null;
 };
 
 function openExternal(url: string) {
@@ -28,9 +45,10 @@ function openExternal(url: string) {
 
 export default function PopupNoticeHost() {
   const nav = useNavigate();
-  const { auth } = useAuth();
+  const { auth, psn } = useAuth();
 
   const isMember = auth?.mode === "member";
+  const memberPsn = String(psn || "").trim().toUpperCase();
 
   const [popup, setPopup] = useState<PopupMessage | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,8 +62,13 @@ export default function PopupNoticeHost() {
         return;
       }
 
+      if (!memberPsn) {
+        setPopup(null);
+        return;
+      }
+
       try {
-        const resp: any = await getActivePopupMessage();
+        const resp: any = await getActivePopupMessage(memberPsn);
         if (!alive) return;
 
         const row = resp?.popup ?? null;
@@ -59,14 +82,17 @@ export default function PopupNoticeHost() {
     return () => {
       alive = false;
     };
-  }, [isMember]);
+  }, [isMember, memberPsn]);
 
   const closePopup = async () => {
-    if (!popup || busy) return;
+    if (!popup || busy || !memberPsn) return;
 
     setBusy(true);
     try {
-      await dismissPopupMessage(Number(popup.id));
+      await dismissPopupMessage(memberPsn, Number(popup.id));
+
+      // Immediate global header refresh after successful popup dismiss.
+      window.dispatchEvent(new Event("messages:summary-refresh"));
     } catch {
       // silent
     } finally {
@@ -76,7 +102,7 @@ export default function PopupNoticeHost() {
   };
 
   const handleAction = async () => {
-    if (!popup || busy) return;
+    if (!popup || busy || !memberPsn) return;
 
     const linkType = popup.link_type || "none";
     const target = String(popup.link_target || "").trim();
@@ -84,7 +110,10 @@ export default function PopupNoticeHost() {
 
     setBusy(true);
     try {
-      await dismissPopupMessage(Number(popup.id));
+      await dismissPopupMessage(memberPsn, Number(popup.id));
+
+      // Immediate global header refresh after successful popup action-dismiss.
+      window.dispatchEvent(new Event("messages:summary-refresh"));
     } catch {
       // silent
     } finally {
@@ -118,8 +147,8 @@ export default function PopupNoticeHost() {
 
   if (!isMember || !popup) return null;
 
-  const dismissText = String(popup.dismiss_text || "Dismiss");
-  const actionText = String(popup.action_text || "View");
+  const dismissText = String(popup.popup_dismiss_text || "Dismiss");
+  const actionText = String(popup.popup_action_text || "View");
   const hasAction =
     popup.link_type === "internal_route" || popup.link_type === "external_url";
 

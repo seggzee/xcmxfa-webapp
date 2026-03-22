@@ -58,7 +58,7 @@
 //
 // NOTE (2026-02-20):
 // - Countdown format now includes seconds: "HH:MM:SS"
-// - Tick interval is 5 seconds (reasonable smoothness without being silly).
+// - Tick interval is 1 second.
 //
 // What we do here (ADD-ONLY):
 // - Add a ticking nowMs state (interval)
@@ -336,10 +336,7 @@ export default function Home() {
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   useEffect(() => {
-    // NOTE:
-    // - Countdown is HH:MM:SS.
-    // - 5-second ticking gives "live enough" seconds without wasting cycles.
-    const t = window.setInterval(() => setNowMs(Date.now()), 5_000);
+    const t = window.setInterval(() => setNowMs(Date.now()), 1_000);
     return () => window.clearInterval(t);
   }, []);
 
@@ -356,11 +353,12 @@ export default function Home() {
     // LOCKED RULE:
     // - If msToStd is null (std_utc missing/invalid), phase defaults to 0.
     // - This drives row visibility to 2 rows (no guessing).
-    const phase = (getFlightPhase(msToStd) as 0 | 1 | 2 | 3 | 4);
+    const phase = getFlightPhase(msToStd) as 0 | 1 | 2 | 3 | 4;
 
     // Countdown starts at Phase 2 and continues until STD (Phase 3).
     // Phase 4 is post-STD; do not show countdown here yet.
-    const showCountdown = phase === 2 || phase === 3;
+    //const showCountdown = phase === 2 || phase === 3; //ORIGINAL (RESTORE AFTER REVIEW)
+	const showCountdown = true; //TEMP OVERRIDE FOR UI REVIEW
 
     const countdown = showCountdown && msToStd !== null ? formatCountdownHHMM(msToStd) : null;
 
@@ -464,7 +462,6 @@ export default function Home() {
     label,
     showPlus,
     onPress,
-    onLongPress,
     showRemove = false,
     onRemove,
   }: {
@@ -473,7 +470,6 @@ export default function Home() {
     label?: string;
     showPlus?: boolean;
     onPress?: () => void;
-    onLongPress?: () => void;
     showRemove?: boolean;
     onRemove?: () => void;
   }) {
@@ -505,32 +501,6 @@ export default function Home() {
     const [pressed, setPressed] = useState(false);
     const [removePressed, setRemovePressed] = useState(false);
 
-    const lpTimerRef = useRef<number | null>(null);
-    const longPressedRef = useRef(false);
-
-    const clearLongPress = () => {
-      if (lpTimerRef.current) {
-        window.clearTimeout(lpTimerRef.current);
-        lpTimerRef.current = null;
-      }
-    };
-
-    const startLongPress = () => {
-      longPressedRef.current = false;
-      if (!onLongPress) return;
-
-      clearLongPress();
-      lpTimerRef.current = window.setTimeout(() => {
-        longPressedRef.current = true;
-        onLongPress();
-      }, 320);
-    };
-
-    const endPress = () => {
-      clearLongPress();
-      setPressed(false);
-    };
-
     return (
       <div className="airportChipWrap">
         {showRemove ? (
@@ -548,31 +518,22 @@ export default function Home() {
             onTouchEnd={() => setRemovePressed(false)}
             aria-label="Remove airport"
             title="Remove"
-            style={removePressed ? { opacity: 0.85 } : undefined}
+            style={removePressed ? { opacity: 0.88 } : undefined}
           >
-            ×
+		  {"\u00D7"}
           </button>
         ) : null}
 
         <button
           type="button"
           className="airportChipBtn"
-          onClick={() => {
-            if (longPressedRef.current) return;
-            onPress?.();
-          }}
-          onMouseDown={() => {
-            setPressed(true);
-            startLongPress();
-          }}
-          onMouseUp={endPress}
-          onMouseLeave={endPress}
-          onTouchStart={() => {
-            setPressed(true);
-            startLongPress();
-          }}
-          onTouchEnd={endPress}
-          onTouchCancel={endPress}
+          onClick={() => onPress?.()}
+          onMouseDown={() => setPressed(true)}
+          onMouseUp={() => setPressed(false)}
+          onMouseLeave={() => setPressed(false)}
+          onTouchStart={() => setPressed(true)}
+          onTouchEnd={() => setPressed(false)}
+          onTouchCancel={() => setPressed(false)}
           style={pressed ? { opacity: 0.92 } : undefined}
         >
           <div className="airportChipTopRN">
@@ -610,53 +571,74 @@ export default function Home() {
               {nextFlightState.status === "loading" ? (
                 <div className="mutedLine">Loading next flight…</div>
               ) : nextFlightState.status === "ready" ? (
-                <FlightCard3x3
-                  showHeader
-                  headerLeftLabel="My next flight:"
-                  headerDate={formatHeaderDateFromStdLocal((nextFlightState.flight as any)?.std_local)}
-                  headerRightContent={
-                    nextFlightCountdownHHMMSS ? (
-                      <span style={{ fontWeight: 900, letterSpacing: 0.2 }}>{nextFlightCountdownHHMMSS}</span>
-                    ) : null
-                  }
-                  flight={nextFlightState.flight}
-                  /**
-                   * IMPORTANT (2026-02-20):
-                   * - FlightCard3x3 cell 2:3 is now the screen slot (P1/3, X-staff, etc).
-                   * - Gate now lives in cell 3:3 (inside the card itself).
-                   */
-                  footerRightContent={(() => {
-                    const f: any = nextFlightState.flight || {};
-                    const pos = f?.list_position ?? f?.listPos ?? null;
-                    const total = f?.list_total ?? f?.listTotal ?? null;
+			  
+				<div
+					role="button"
+					tabIndex={0}
+					onClick={() => nav("/myflights")}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") nav("/myflights");
+					}}
+					style={{ cursor: "pointer", transition: "opacity 0.15s" }}
+					onMouseDown={(e) => (e.currentTarget.style.opacity = "0.92")}
+					onMouseUp={(e) => (e.currentTarget.style.opacity = "1")}
+					onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+					onTouchStart={(e) => (e.currentTarget.style.opacity = "0.92")}
+					onTouchEnd={(e) => (e.currentTarget.style.opacity = "1")}
+				>
+								
+					<FlightCard3x3
+					  showHeader
+					  headerLeftLabel="My next flight:"
+					  headerDate={formatHeaderDateFromStdLocal((nextFlightState.flight as any)?.std_local)}
+					  headerRightContent={
+						nextFlightCountdownHHMMSS ? (
+						  <span className="homeNextFlightCountdown" aria-label={`Countdown ${nextFlightCountdownHHMMSS}`}>
+							{nextFlightCountdownHHMMSS}
+						  </span>
+						) : null
+					  }
+					  flight={nextFlightState.flight}
+					  /**
+					   * IMPORTANT (2026-02-20):
+					   * - FlightCard3x3 cell 2:3 is now the screen slot (P1/3, X-staff, etc).
+					   * - Gate now lives in cell 3:3 (inside the card itself).
+					   */
+					  footerRightContent={(() => {
+						const f: any = nextFlightState.flight || {};
+						const pos = f?.list_position ?? f?.listPos ?? null;
+						const total = f?.list_total ?? f?.listTotal ?? null;
 
-                    if (!pos || !total) return null;
+						if (!pos || !total) return null;
 
-                    const iconSrc = listingIconSrcFromStatus(f?.listing_status ?? f?.booking_status ?? null);
+						const iconSrc = listingIconSrcFromStatus(f?.listing_status ?? f?.booking_status ?? null);
 
-                    return (
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                        <span style={{ fontWeight: 900 }}>P{String(pos)}/{String(total)}</span>
+						return (
+						  <span className="homeNextFlightListMeta">
+							<span className="homeNextFlightListPos">P{String(pos)}/{String(total)}</span>
 
-                        {iconSrc ? (
-                          <img
-                            src={iconSrc}
-                            alt={String(f?.listing_status ?? f?.booking_status ?? "")}
-                            style={{ width: 20, height: 20 }}
-                          />
-                        ) : null}
-                      </span>
-                    );
-                  })()}
-                  /**
-                   * Phase 0 (>24h) hides Row 3 (Type/Reg/Gate) on Home "My next flight" ONLY.
-                   * - Default behaviour for FlightCard3x3 remains 3 rows everywhere else.
-                   * - If std_utc missing/invalid => msToStd null => phase defaults to 0 => show 2 rows (no guessing).
-                   */
-				   
-				   /*phase 0 includes msToStd null; we deliberately hide row 3 when std_utc is missing*/
-                  visibleRows={nextFlightDerived.phase === 0 ? 2 : 3}
-                />
+							{iconSrc ? (
+							  <img
+								src={iconSrc}
+								alt={String(f?.listing_status ?? f?.booking_status ?? "")}
+								className="homeNextFlightListIcon"
+							  />
+							) : null}
+						  </span>
+						);
+					  })()}
+					  /**
+					   * Phase 0 (>24h) hides Row 3 (Type/Reg/Gate) on Home "My next flight" ONLY.
+					   * - Default behaviour for FlightCard3x3 remains 3 rows everywhere else.
+					   * - If std_utc missing/invalid => msToStd null => phase defaults to 0 => show 2 rows (no guessing).
+					   */
+
+					  /* phase 0 includes msToStd null; we deliberately hide row 3 when std_utc is missing */
+					  visibleRows={nextFlightDerived.phase === 0 ? 2 : 3}
+					/>
+				
+				</div>
+					
               ) : nextFlightState.status === "error" ? (
                 <div className="errorLine">My next flight unavailable: {nextFlightState.error.message}</div>
               ) : (
@@ -731,17 +713,6 @@ export default function Home() {
                           nav("/selectairports", {
                             state: {
                               mode: "add",
-                              targetSlotIndex: idx,
-                              openPicker: true,
-                              focusSearch: true,
-                              highlightSlot: true,
-                            },
-                          });
-                        }}
-                        onLongPress={() => {
-                          nav("/selectairports", {
-                            state: {
-                              mode: "replace",
                               targetSlotIndex: idx,
                               openPicker: true,
                               focusSearch: true,
@@ -852,12 +823,12 @@ export default function Home() {
 
         {/* ===== Quick actions (RN) ===== */}
         <section className="quickWrap">
-          <div className="quickTitle">Quick actions</div>
+		
+         {/*   <div className="quickTitle">Quick actions</div>   */}
 
           {!isMember ? (
             <>
               <div className="quickGridRow">
-			  
                 <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
                   <div className="quickTileTitle">Sign up</div>
                   <div className="quickTileSub">Unlock crew features</div>
@@ -867,21 +838,18 @@ export default function Home() {
                   <div className="quickTileTitle">Crew Lockers</div>
                   <div className="quickTileSub">Sign in required</div>
                 </button>
-				
               </div>
 
               <div className="quickGridRow">
-			  
                 <button type="button" className="quickTile" onClick={() => nav("/faq")}>
-				  <div className="quickTileTitle">FAQ</div>
-				  <div className="quickTileSub">Help & info</div>
-				</button>
+                  <div className="quickTileTitle">FAQ</div>
+                  <div className="quickTileSub">Help & info</div>
+                </button>
 
                 <button type="button" className="quickTile" onClick={() => nav("/donate")}>
-				  <div className="quickTileTitle">Donate</div>
-				  <div className="quickTileSub">Keep the app running</div>
-				</button>
-				
+                  <div className="quickTileTitle">Donate</div>
+                  <div className="quickTileSub">Keep the app running</div>
+                </button>
               </div>
 
               <div className="promoSpacer">
@@ -915,16 +883,15 @@ export default function Home() {
               </div>
 
               <div className="quickGridRow">
-			  
                 <button type="button" className="quickTile" onClick={() => nav("/faq")}>
-				  <div className="quickTileTitle">FAQ</div>
-				  <div className="quickTileSub">Help & info</div>
-				</button>
+                  <div className="quickTileTitle">FAQ</div>
+                  <div className="quickTileSub">Help & info</div>
+                </button>
 
                 <button type="button" className="quickTile" onClick={() => nav("/donate")}>
-				  <div className="quickTileTitle">Donate</div>
-				  <div className="quickTileSub">Keep the app running</div>
-				</button>
+                  <div className="quickTileTitle">Donate</div>
+                  <div className="quickTileSub">Keep the app running</div>
+                </button>
               </div>
             </>
           )}
@@ -959,9 +926,10 @@ export default function Home() {
         <div className="modalOverlay" onClick={() => setShowAirportsHelp(false)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalTitle">My airports</div>
-            <div className="modalBody">• Tap an airport to open its weekly schedule.</div>
-            <div className="modalBody">• Long-press an airport to replace it.</div>
-            <div className="modalBody">• Tap × to remove an airport.</div>
+						
+            <div className="modalBody">Tap an airport to open its weekly schedule.</div>
+						<div className="modalBody">Tap{"\u00D7"} to remove an airport.</div>
+						<div className="modalBody">Tap Add airport to choose another.</div>
 
             <button type="button" className="modalBtn modalBtnPrimary" onClick={() => setShowAirportsHelp(false)}>
               Close

@@ -41,6 +41,7 @@ export const AUTH_LOGOUT_URL = `${API_BASE_URL}/auth/login/logout.php`;
 export const CREW_LOCKERS_LIST_URL = `${API_BASE_URL}/api/crew_lockers/list.php`;
 export const CREW_LOCKERS_NOTIFICATIONS_LIST_URL = `${API_BASE_URL}/api/crew_lockers/notifications_list.php`;
 export const CREW_LOCKERS_NOTIFICATIONS_MARK_READ_URL = `${API_BASE_URL}/api/crew_lockers/notifications_mark_read.php`;
+export const CREW_LOCKERS_REMOVE_URL = `${API_BASE_URL}/api/crew_lockers/remove.php`;
 
 // ===============================
 // Messages / Notifications
@@ -49,11 +50,17 @@ export const MESSAGES_LIST_URL = `${API_BASE_URL}/api/messages/list.php`;
 export const MESSAGES_UNREAD_COUNT_URL = `${API_BASE_URL}/api/messages/unread_count.php`;
 export const MESSAGES_MARK_READ_URL = `${API_BASE_URL}/api/messages/mark_read.php`;
 
+// ADDED FOR THIS REVISION:
+// Member-facing dismiss for normal message cards.
+export const MESSAGES_DISMISS_MESSAGE_URL = `${API_BASE_URL}/api/messages/dismiss.php`;
+
 // ===============================
 // Message popups / announcements
 // ===============================
 export const MESSAGES_ACTIVE_POPUP_URL = `${API_BASE_URL}/api/messages/active_popup.php`;
 export const MESSAGES_DISMISS_POPUP_URL = `${API_BASE_URL}/api/messages/dismiss_popup.php`;
+
+export const MESSAGES_SUMMARY_URL = `${API_BASE_URL}/api/messages/summary.php`;
 
 export type Json = Record<string, any>;
 

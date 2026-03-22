@@ -3,13 +3,14 @@
   top: 0;
   z-index: 50;
 
-  background: #f6f7f9; /* same as screen bg */
-  border-bottom: 0px solid rgba(19, 35, 51, 0.08);
+  background: #f6f7f9;
+  border-bottom: 1px solid rgba(19, 35, 51, 0.06);
 
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 14px;
+  padding: 12px 14px;
+  backdrop-filter: saturate(140%) blur(6px);
 }
 
 /* Brand */
@@ -23,25 +24,77 @@
   cursor: pointer;
 }
 
-/* ✅ NEW: rectangular header logo (includes text) */
+/* Rectangular header logo (already contains text) */
 .appHeader-logo {
-  height: 52px;
+  height: 48px;
   width: auto;
   max-width: 240px;
   object-fit: contain;
   display: block;
 }
 
-/* Right side */
+/* Right side controls */
 .appHeader-actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+/* Message bell slot:
+   fixed footprint so avatar alignment does not jump */
 .appHeader-msgSlot {
   width: 44px;
   height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Message bell button */
+.appHeader-msgBtn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #132333;
+}
+
+/* The bell glyph itself */
+.appHeader-msgIcon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Unread badge:
+   - shown only when unread count > 0
+   - border colour matches header background */
+.appHeader-msgBadge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #dc2626;
+  color: #fff;
+  border: 2px solid #f6f7f9;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 /* Avatar */
@@ -56,7 +109,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 3px solid rgba(19, 35, 51, 0.18);
+  border: 3px solid rgba(19, 35, 51, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,7 +124,7 @@
   height: 44px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid rgba(19, 35, 51, 0.15);
+  border: 2px solid rgba(19, 35, 51, 0.10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,8 +154,9 @@
   width: 100%;
   background: #fff;
   border-radius: 18px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: 0 14px 36px rgba(17, 24, 39, 0.14);
 }
 
 .appHeader-sheetHeader {
@@ -140,35 +194,45 @@
 
 .appHeader-sheetBtn {
   margin-top: 10px;
-  padding: 14px;
+  width: 100%;
+  padding: 15px 16px;
   border-radius: 16px;
   border: 1px solid #d9e2ee;
   background: #fff;
   text-align: left;
+  cursor: pointer;
 }
 
 .appHeader-sheetBtn .title {
   font-weight: 900;
   font-size: 16px;
+  line-height: 20px;
+  color: #111827;
 }
 
 .appHeader-sheetBtn .sub {
   margin-top: 6px;
   font-weight: 700;
+  font-size: 13px;
+  line-height: 18px;
   color: var(--text-muted);
 }
 
 .appHeader-sheetBtn.danger {
-  border-color: rgba(220, 38, 38, 0.25);
-  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.22);
+  background: rgba(220, 38, 38, 0.07);
 }
 
 .appHeader-sheetCancel {
-  margin-top: 12px;
-  background: none;
-  border: 0;
-  font-weight: 900;
-  font-size: 14px;
-  color: rgba(17, 24, 39, 0.7);
+  margin-top: 14px;
   width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 20px;
+  color: #111827;
+  cursor: pointer;
 }

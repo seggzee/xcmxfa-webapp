@@ -112,12 +112,17 @@
   color: var(--ink-900, #132333);
 }
 
+/* ADDED FOR THIS REVISION:
+   Force proper wrapping for long and normal multi-line message bodies. */
 .messages-bodyText {
   margin-top: 6px;
   font-weight: 700;
   font-size: 12px;
   color: rgba(19, 35, 51, 0.75);
   line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .messages-actionsRow {
@@ -136,6 +141,19 @@
   background: #fff;
   cursor: pointer;
   color: var(--ink-900, #132333);
+}
+
+/* ADDED FOR THIS REVISION:
+   Secondary action for removing a message from the current user's view. */
+.messages-dismissBtn {
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 900;
+  font-size: 13px;
+  border: 1px solid #d9e2ee;
+  background: transparent;
+  cursor: pointer;
+  color: rgba(19, 35, 51, 0.7);
 }
 
 /* Empty state */

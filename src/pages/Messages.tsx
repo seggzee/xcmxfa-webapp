@@ -1,8 +1,4 @@
-// src/pages/Messages.tsx
-//
-// ==========================================================================================
-// MESSAGES SCREEN (GENERIC MESSAGING VERSION)
-// ==========================================================================================
+// FILE: src/pages/Messages.tsx
 //
 // PURPOSE
 // - Full member-facing in-app notification history screen
@@ -10,18 +6,31 @@
 // - Uses normalized message records from backend
 // - Supports mark-as-read + navigation via link contract
 //
-// LOCKED FIRST-PASS RULES
-// - Member-only
-// - No dropdown logic here
-// - No payload parsing
-// - No route guessing
-// - No feature-specific API coupling
-// ==========================================================================================
+// LOCKED CONTRACT
+// - Member-facing messaging backend is currently PSN-based
+// - Therefore this screen must supply psn to the messages API wrapper
+// - No payload parsing here
+// - No route guessing here
+// - No feature-specific API coupling here
+//
+// THIS CHANGE ONLY
+// - After message state changes (mark-as-read), dispatch a global
+//   "messages:summary-refresh" event so AppHeader bell/badge refresh immediately.
+// - Add a contextual push-notifications CTA on Messages page.
+// - CTA is shown only when browser permission state is "default".
+// - Permission request occurs ONLY after explicit user action.
+// - No other behaviour changes.
+//
+// ADDED FOR THIS REVISION
+// - Show "View" only when a real link exists on the message.
+// - Add "Dismiss" button to remove a message from the user's view.
+// - After dismiss, dispatch the same global summary refresh event.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
-import { getMessages, markMessageRead } from "../api/messagesApi";
+import { getMessages, markMessageRead, dismissMessage } from "../api/messagesApi";
+import { requestPushPermissionAndRegister } from "../api/pushApi";
 import BackButton from "../components/BackButton";
 import "../styles/messages.css";
 
@@ -83,13 +92,20 @@ function openExternal(url: string) {
 
 export default function Messages() {
   const nav = useNavigate();
-  const { auth } = useAuth();
+  const { auth, psn } = useAuth();
 
   const isMember = auth?.mode === "member";
+  const memberPsn = String(psn || "").trim().toUpperCase();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingText, setLoadingText] = useState("");
   const [errorText, setErrorText] = useState("");
+
+  // THIS CHANGE ONLY:
+  // Local state controlling whether the Messages page should show the
+  // contextual "Enable notifications" CTA.
+  const [showPushCta, setShowPushCta] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -103,10 +119,16 @@ export default function Messages() {
         return;
       }
 
+      if (!memberPsn) {
+        setMessages([]);
+        setErrorText("Missing member identity");
+        return;
+      }
+
       setLoadingText("Loading…");
 
       try {
-        const resp: any = await getMessages();
+        const resp: any = await getMessages(memberPsn);
         const rows = Array.isArray(resp?.messages) ? resp.messages : [];
 
         if (!alive) return;
@@ -124,7 +146,29 @@ export default function Messages() {
     return () => {
       alive = false;
     };
-  }, [isMember]);
+  }, [isMember, memberPsn]);
+
+  // THIS CHANGE ONLY:
+  // Decide whether to show the contextual push CTA.
+  //
+  // Rules:
+  // - member only
+  // - must have usable PSN
+  // - browser must support Notification API
+  // - show only while permission state is "default"
+  useEffect(() => {
+    if (!isMember || !memberPsn) {
+      setShowPushCta(false);
+      return;
+    }
+
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setShowPushCta(false);
+      return;
+    }
+
+    setShowPushCta(Notification.permission === "default");
+  }, [isMember, memberPsn]);
 
   const grouped = useMemo(() => {
     const todayKey = new Date().toISOString().slice(0, 10);
@@ -151,8 +195,8 @@ export default function Messages() {
 
   const onOpenMessage = async (m: Message) => {
     try {
-      if (!m.read_at_utc) {
-        await markMessageRead(Number(m.id));
+      if (!m.read_at_utc && memberPsn) {
+        await markMessageRead(memberPsn, Number(m.id));
 
         setMessages((prev) =>
           prev.map((x) =>
@@ -161,6 +205,9 @@ export default function Messages() {
               : x
           )
         );
+
+        // Immediate global header refresh after successful mark-as-read.
+        window.dispatchEvent(new Event("messages:summary-refresh"));
       }
     } catch {
       // silent: opening a message must not explode the page
@@ -194,8 +241,52 @@ export default function Messages() {
     }
   };
 
+  // ADDED FOR THIS REVISION:
+  // Dismiss one message for this member and remove it from local state immediately.
+  const onDismissMessage = async (m: Message) => {
+    if (!memberPsn) return;
+
+    try {
+      await dismissMessage(memberPsn, Number(m.id));
+
+      setMessages((prev) => prev.filter((x) => x.id !== m.id));
+
+      window.dispatchEvent(new Event("messages:summary-refresh"));
+    } catch {
+      // silent by design
+    }
+  };
+
+  // THIS CHANGE ONLY:
+  // Explicit user-triggered permission request.
+  // This is the first allowed moment to ask for push permission.
+  const onEnableNotifications = async () => {
+    if (!memberPsn || pushBusy) return;
+
+    setPushBusy(true);
+    try {
+      await requestPushPermissionAndRegister(memberPsn);
+
+      // Re-check actual browser permission after request finishes.
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setShowPushCta(Notification.permission === "default");
+      } else {
+        setShowPushCta(false);
+      }
+    } catch {
+      // silent by design
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   const renderMessage = (m: Message) => {
     const unread = !m.read_at_utc;
+
+    // ADDED FOR THIS REVISION:
+    // Only show "View" when there is a real link action available.
+    const hasLink =
+      m.link_type === "internal_route" || m.link_type === "external_url";
 
     return (
       <div
@@ -224,15 +315,28 @@ export default function Messages() {
         <div className="messages-bodyText">{m.body}</div>
 
         <div className="messages-actionsRow">
+          {hasLink ? (
+            <button
+              type="button"
+              className="messages-viewBtn"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onOpenMessage(m);
+              }}
+            >
+              View
+            </button>
+          ) : null}
+
           <button
             type="button"
-            className="messages-viewBtn"
+            className="messages-dismissBtn"
             onClick={(e) => {
               e.stopPropagation();
-              void onOpenMessage(m);
+              void onDismissMessage(m);
             }}
           >
-            View
+            Dismiss
           </button>
         </div>
       </div>
@@ -268,6 +372,61 @@ export default function Messages() {
           <div className="messages-pageTitle">Messages</div>
           <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
         </div>
+
+        {/* THIS CHANGE ONLY:
+            Contextual push-notifications CTA.
+            Shown only when browser permission state is still "default". */}
+        {showPushCta ? (
+          <div
+            style={{
+              marginBottom: 16,
+              border: "1px solid #dbe7ff",
+              background: "#f7faff",
+              borderRadius: 16,
+              padding: 16,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 900,
+                color: "#111827",
+                marginBottom: 8,
+              }}
+            >
+              Enable notifications
+            </div>
+
+            <div
+              style={{
+                color: "#374151",
+                lineHeight: "20px",
+                marginBottom: 14,
+              }}
+            >
+              Receive important alerts about flights, listings, crew lockers, and admin notices.
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void onEnableNotifications()}
+              disabled={pushBusy}
+              style={{
+                border: "none",
+                borderRadius: 999,
+                padding: "12px 18px",
+                fontWeight: 900,
+                fontSize: 15,
+                background: "#111827",
+                color: "#ffffff",
+                cursor: pushBusy ? "default" : "pointer",
+                opacity: pushBusy ? 0.7 : 1,
+              }}
+            >
+              {pushBusy ? "Please wait…" : "Enable notifications"}
+            </button>
+          </div>
+        ) : null}
 
         {loadingText ? (
           <div className="messages-statusLine">{loadingText}</div>

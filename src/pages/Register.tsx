@@ -65,8 +65,7 @@ function transaviaLocalPart(input: string) {
  * - If your /auth/register-start endpoint differs, change ONLY this constant.
  * - Do NOT change payload shape. Payload shape is locked by RN file.
  */
- 
- 
+
 // RN registerStart() endpoint (your confirmed path)
 const REGISTER_START_URL = `${API_BASE_URL}/auth/register/start.php`;
 
@@ -207,16 +206,40 @@ export default function Register() {
     }
   };
 
-  // --------------------------------------------
-  // UI (minimal, but logically equivalent)
-  // --------------------------------------------
   return (
-    <div style={{ padding: 24, maxWidth: 520 }}>
-      <h2>Sign up for XCM / XFA App</h2>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 520,
+        padding: 24,
+        boxSizing: "border-box",
+      }}
+    >
+      <h2
+        style={{
+          margin: "4px 0 20px",
+          fontSize: 28,
+          lineHeight: "34px",
+          fontWeight: 800,
+          color: "#111827",
+        }}
+      >
+        Sign up for XCM / XFA App
+      </h2>
 
       {/* Employer selection */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Your Employer</div>
+      <div style={{ marginTop: 0 }}>
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: 15,
+            lineHeight: "20px",
+            marginBottom: 10,
+            color: "#111827",
+          }}
+        >
+          Your Employer
+        </div>
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
@@ -225,11 +248,15 @@ export default function Register() {
             disabled={isSubmitting}
             style={{
               flex: 1,
-              padding: 16,
+              padding: "15px 16px",
               borderRadius: 12,
-              border: "1px solid #ddd",
-              background: company === "KLM" ? "#e9f1ff" : "#fff",
+              border: company === "KLM" ? "1px solid #1d4ed8" : "1px solid #d1d5db",
+              background: company === "KLM" ? "#eff6ff" : "#fff",
+              color: "#111827",
               fontWeight: 800,
+              fontSize: 16,
+              lineHeight: "20px",
+              cursor: isSubmitting ? "default" : "pointer",
             }}
           >
             KLM
@@ -241,11 +268,15 @@ export default function Register() {
             disabled={isSubmitting}
             style={{
               flex: 1,
-              padding: 16,
+              padding: "15px 16px",
               borderRadius: 12,
-              border: "1px solid #ddd",
-              background: company === "HV" ? "#e9f1ff" : "#fff",
+              border: company === "HV" ? "1px solid #1d4ed8" : "1px solid #d1d5db",
+              background: company === "HV" ? "#eff6ff" : "#fff",
+              color: "#111827",
               fontWeight: 800,
+              fontSize: 16,
+              lineHeight: "20px",
+              cursor: isSubmitting ? "default" : "pointer",
             }}
           >
             Transavia (HV)
@@ -253,11 +284,21 @@ export default function Register() {
         </div>
       </div>
 
-      {/* Job function pills */}
-      <div style={{ marginTop: 20 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Your job function</div>
+      {/* Job function selector */}
+      <div style={{ marginTop: 22 }}>
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: 15,
+            lineHeight: "20px",
+            marginBottom: 10,
+            color: "#111827",
+          }}
+        >
+          Your job function
+        </div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "nowrap" }}>
+        <div style={{ display: "flex", gap: 10 }}>
           {JOB_FUNCTIONS.map((j) => {
             const active = jobFunction === j.key;
             return (
@@ -268,11 +309,15 @@ export default function Register() {
                 disabled={isSubmitting}
                 style={{
                   flex: 1,
-                  padding: 12,
-                  borderRadius: 999,
-                  border: "1px solid #ddd",
-                  background: active ? "#e9f1ff" : "#fff",
+                  padding: "15px 16px",
+                  borderRadius: 12,
+                  border: active ? "1px solid #1d4ed8" : "1px solid #d1d5db",
+                  background: active ? "#eff6ff" : "#fff",
+                  color: "#111827",
                   fontWeight: 800,
+                  fontSize: 16,
+                  lineHeight: "20px",
+                  cursor: isSubmitting ? "default" : "pointer",
                 }}
               >
                 {j.label}
@@ -283,100 +328,202 @@ export default function Register() {
       </div>
 
       {/* Staff digits */}
-      <div style={{ marginTop: 20 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Your staff number (digits only)</div>
+      <div style={{ marginTop: 22 }}>
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: 15,
+            lineHeight: "20px",
+            marginBottom: 10,
+            color: "#111827",
+          }}
+        >
+          Your staff number (digits only)
+        </div>
 
         <input
           value={staffDigits}
           onChange={(e) => {
-            // RN sanitizes to digits and max 6
             const next = onlyDigits(e.target.value).slice(0, 6);
             setStaffDigits(next);
           }}
           inputMode="numeric"
           placeholder="e.g. 12345"
           disabled={isSubmitting}
-          style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          style={{
+            width: "100%",
+            padding: "14px 14px",
+            borderRadius: 12,
+            border: "1px solid #d1d5db",
+            boxSizing: "border-box",
+            fontSize: 16,
+            lineHeight: "20px",
+            color: "#111827",
+            background: "#fff",
+          }}
         />
 
-        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 13,
+            lineHeight: "18px",
+            color: "#6b7280",
+          }}
+        >
           Valid length: 5 or 6 digits. Current: {normalizedStaffDigits.length}
         </div>
       </div>
 
       {/* HV email local part */}
       {company === "HV" && (
-        <div style={{ marginTop: 20 }}>
-          <div style={{ fontWeight: 800, marginBottom: 10 }}>Transavia email address</div>
+        <div style={{ marginTop: 22 }}>
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: 15,
+              lineHeight: "20px",
+              marginBottom: 10,
+              color: "#111827",
+            }}
+          >
+            Transavia email address
+          </div>
 
           <input
             value={transaviaEmailInput}
             onChange={(e) => setTransaviaEmailInput(e.target.value)}
             placeholder="e.g. patrick.vansteen"
             disabled={isSubmitting}
-            style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+            style={{
+              width: "100%",
+              padding: "14px 14px",
+              borderRadius: 12,
+              border: "1px solid #d1d5db",
+              boxSizing: "border-box",
+              fontSize: 16,
+              lineHeight: "20px",
+              color: "#111827",
+              background: "#fff",
+            }}
           />
 
-          <div style={{ marginTop: 8, fontSize: 13 }}>
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 13,
+              lineHeight: "18px",
+              color: "#374151",
+            }}
+          >
             We will use: <strong>{tvLocal || "local-part"}@transavia.com</strong>
           </div>
         </div>
       )}
 
       {/* Contract confirmation */}
-      <div style={{ marginTop: 20, display: "flex", gap: 10, alignItems: "center" }}>
+      <label
+        style={{
+          marginTop: 22,
+          display: "grid",
+          gridTemplateColumns: "20px minmax(0, 1fr)",
+          gap: 10,
+          alignItems: "start",
+          cursor: isSubmitting ? "default" : "pointer",
+        }}
+      >
         <input
           type="checkbox"
           checked={contractOk}
           onChange={(e) => setContractOk(e.target.checked)}
           disabled={isSubmitting}
+          style={{
+            width: 18,
+            height: 18,
+            margin: "2px 0 0 0",
+          }}
         />
-        <div style={{ fontWeight: 700 }}>
+        <div
+          style={{
+            fontWeight: 600,
+            fontSize: 14,
+            lineHeight: "20px",
+            color: "#374151",
+            minWidth: 0,
+            wordBreak: "break-word",
+          }}
+        >
           I confirm that I am permitted by my employment contract to use the KLM XCM / XFA facility.
         </div>
-      </div>
+      </label>
 
-      {/* Submit */}
-      <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
+      {/* Submit / actions */}
+      <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
           style={{
-            padding: 14,
+            width: "100%",
+            padding: "15px 16px",
             borderRadius: 999,
-            border: "1px solid #d6e3ff",
-            background: "#e9f1ff",
-            fontWeight: 900,
-            opacity: canSubmit ? 1 : 0.55,
+            border: "1px solid #1d4ed8",
+            background: canSubmit ? "#2563eb" : "#dbe7ff",
+            color: canSubmit ? "#ffffff" : "#6b7280",
+            fontWeight: 800,
+            fontSize: 16,
+            lineHeight: "20px",
+            cursor: canSubmit ? "pointer" : "not-allowed",
           }}
         >
           {isSubmitting ? "Working..." : "Request verification email"}
         </button>
-
-        {errorMsg && (
-          <div style={{ color: "#b91c1c", fontWeight: 800, fontSize: 13 }}>
-            {errorMsg}
-          </div>
-        )}
 
         <button
           type="button"
           onClick={() => nav("/home")}
           disabled={isSubmitting}
           style={{
-            padding: 10,
-            borderRadius: 10,
-            background: "transparent",
-            fontWeight: 900,
+            width: "100%",
+            padding: "14px 16px",
+            borderRadius: 12,
+            border: "1px solid #d1d5db",
+            background: "#fff",
+            color: "#111827",
+            fontWeight: 700,
+            fontSize: 16,
+            lineHeight: "20px",
+            cursor: isSubmitting ? "default" : "pointer",
           }}
         >
           Cancel
         </button>
+
+        {errorMsg && (
+          <div
+            style={{
+              color: "#b91c1c",
+              fontWeight: 800,
+              fontSize: 13,
+              lineHeight: "18px",
+              marginTop: 2,
+            }}
+          >
+            {errorMsg}
+          </div>
+        )}
       </div>
 
-      {/* Helpful debug display (safe) */}
-      <div style={{ marginTop: 22, fontSize: 12, opacity: 0.8 }}>
+      {/* Helpful debug display (safe) - intentionally hidden in production UI */}
+      <div
+        aria-hidden="true"
+        style={{
+          display: "none",
+          marginTop: 22,
+          fontSize: 12,
+          opacity: 0.8,
+        }}
+      >
         <div>
           <strong>Derived username:</strong> {derivedUsername || "(incomplete)"}
         </div>

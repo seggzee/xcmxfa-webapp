@@ -38,6 +38,17 @@ function EyeIcon({ open }: { open: boolean }) {
   );
 }
 
+function LoginIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export default function LoginModal({
   open,
   onClose,
@@ -91,11 +102,8 @@ export default function LoginModal({
           rememberDevice,
         });
       } catch (e: any) {
-        // We rely on caller to throw either auth error or post-login error messages.
         const msg = String(e?.message || "Login failed.");
 
-        // Mirror your Login.tsx semantics:
-        // If caller throws "POST_LOGIN_FAILED" or the post-login message, bucket it.
         if (
           msg.includes("post-login checks failed") ||
           msg.includes("POST_LOGIN_FAILED")
@@ -109,14 +117,13 @@ export default function LoginModal({
         return;
       }
 
-      // success: close
       onClose();
     } finally {
       setBusy(false);
     }
   };
 
-  const handleCancel = () => {
+  const handleContinueAsGuest = () => {
     onClose();
     onCancel();
   };
@@ -143,27 +150,53 @@ export default function LoginModal({
         alignItems: "flex-start",
         justifyContent: "center",
         zIndex: 9999,
+        overflowY: "auto",
       }}
     >
       <div
         style={{
           width: "100%",
           maxWidth: 420,
-          marginTop: 24,
+          marginTop: 48,
           background: "#fff",
-          borderRadius: 16,
-          padding: 16,
+          borderRadius: 18,
+          padding: 20,
           border: "1px solid #e6e9ee",
+          boxShadow: "0 10px 30px rgba(17,24,39,0.10)",
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 10,
+            color: "#2563eb",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 999,
+              background: "#eff6ff",
+              border: "1px solid #dbeafe",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <LoginIcon />
+          </div>
+        </div>
+
         <div style={{ textAlign: "center", marginBottom: 18 }}>
           <div
             style={{
               fontWeight: 800,
-              fontSize: 16,
+              fontSize: 20,
+              lineHeight: "28px",
               color: "#111827",
-              textDecoration: "underline",
             }}
           >
             Sign into your account
@@ -171,7 +204,7 @@ export default function LoginModal({
         </div>
 
         <input
-          placeholder="Staff number"
+          placeholder="Username"
           value={username}
           onChange={(e) => setUsername((e.target.value || "").toUpperCase())}
           autoCapitalize="characters"
@@ -179,18 +212,19 @@ export default function LoginModal({
           disabled={busy}
           style={{
             width: "100%",
-            border: "1px solid #e6e9ee",
-            borderRadius: 12,
-            padding: "12px 12px",
+            border: "1px solid #d8dee8",
+            borderRadius: 14,
+            padding: "14px 14px",
             marginBottom: 12,
-			fontSize: 16,
-			lineHeight: "20px",
+            fontSize: 16,
+            lineHeight: "20px",
             background: "#fff",
             boxSizing: "border-box",
+            color: "#111827",
           }}
         />
 
-        <div style={{ position: "relative", marginBottom: 12 }}>
+        <div style={{ position: "relative", marginBottom: 8 }}>
           <input
             placeholder="Password"
             type={showPassword ? "text" : "password"}
@@ -201,13 +235,14 @@ export default function LoginModal({
             disabled={busy}
             style={{
               width: "100%",
-              border: "1px solid #e6e9ee",
-              borderRadius: 12,
-              fontSize: 16,	
-			  lineHeight: "20px",
-              padding: "12px 44px 12px 12px",
+              border: "1px solid #d8dee8",
+              borderRadius: 14,
+              fontSize: 16,
+              lineHeight: "20px",
+              padding: "14px 48px 14px 14px",
               background: "#fff",
               boxSizing: "border-box",
+              color: "#111827",
             }}
           />
 
@@ -219,12 +254,16 @@ export default function LoginModal({
             style={{
               position: "absolute",
               right: 14,
-              top: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
               border: "none",
               background: "transparent",
               cursor: "pointer",
               padding: 2,
               color: "#111827",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <EyeIcon open={showPassword} />
@@ -234,9 +273,36 @@ export default function LoginModal({
         <div
           style={{
             display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 14,
+          }}
+        >
+          <button
+            type="button"
+            disabled={busy}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              margin: 0,
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 700,
+              textDecoration: "underline",
+              cursor: busy ? "default" : "pointer",
+            }}
+          >
+            Forgotten password
+          </button>
+        </div>
+
+        <label
+          style={{
+            display: "flex",
             alignItems: "center",
             gap: 10,
-            marginBottom: 8,
+            marginBottom: 16,
+            cursor: busy ? "default" : "pointer",
           }}
         >
           <input
@@ -244,11 +310,24 @@ export default function LoginModal({
             checked={rememberDevice}
             onChange={(e) => setRememberDevice(e.target.checked)}
             disabled={busy}
+            style={{
+              width: 18,
+              height: 18,
+              margin: 0,
+              flex: "0 0 auto",
+            }}
           />
-          <div style={{ fontWeight: 800, color: "#111827" }}>
+          <span
+            style={{
+              fontWeight: 600,
+              fontSize: 14,
+              lineHeight: "20px",
+              color: "#374151",
+            }}
+          >
             Remember device
-          </div>
-        </div>
+          </span>
+        </label>
 
         <button
           type="button"
@@ -256,16 +335,17 @@ export default function LoginModal({
           disabled={!canSubmit}
           style={{
             width: "100%",
-            marginTop: 10,
-            padding: "14px 14px",
+            marginTop: 0,
+            padding: "15px 16px",
             borderRadius: 999,
-            border: "1px solid #d6e3ff",
-            background: "#e9f1ff",
-            fontWeight: 900,
-            fontSize: 16,
-            color: "#111827",
+            border: "1px solid #1d4ed8",
+            background: canSubmit ? "#2563eb" : "#dbe7ff",
+            fontWeight: 800,
+            fontSize: 17,
+            lineHeight: "22px",
+            color: canSubmit ? "#ffffff" : "#6b7280",
             cursor: canSubmit ? "pointer" : "not-allowed",
-            opacity: canSubmit ? 1 : 0.55,
+            opacity: 1,
           }}
         >
           {busy ? "…" : "Sign in"}
@@ -274,10 +354,12 @@ export default function LoginModal({
         {authError && (
           <div
             style={{
-              marginTop: 10,
+              marginTop: 12,
               padding: 12,
               border: "1px solid #f0b",
+              borderRadius: 12,
               fontWeight: 800,
+              color: "#111827",
             }}
           >
             <strong>Auth error:</strong> {authError}
@@ -287,54 +369,59 @@ export default function LoginModal({
         {postLoginError && (
           <div
             style={{
-              marginTop: 10,
+              marginTop: 12,
               padding: 12,
               border: "1px solid #fa0",
+              borderRadius: 12,
               fontWeight: 800,
+              color: "#111827",
             }}
           >
             <strong>Post-login error:</strong> {postLoginError}
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={handleCancel}
-          disabled={busy}
-          style={{
-            width: "100%",
-            marginTop: 14,
-            padding: "6px 0",
-            border: "none",
-            background: "transparent",
-            fontWeight: 800,
-            fontSize: 16,
-            color: "#111827",
-            cursor: "pointer",
-          }}
-        >
-          Continue as guest
-        </button>
+        <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={handleContinueAsGuest}
+            disabled={busy}
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              borderRadius: 999,
+              border: "1px solid #d1d5db",
+              background: "#f9fafb",
+              fontWeight: 700,
+              fontSize: 16,
+              lineHeight: "20px",
+              color: "#111827",
+              cursor: busy ? "default" : "pointer",
+            }}
+          >
+            Continue as guest
+          </button>
 
-        <button
-          type="button"
-          onClick={handleCreateAccount}
-          disabled={busy}
-          style={{
-            width: "100%",
-            marginTop: 6,
-            padding: "6px 0",
-            border: "none",
-            background: "transparent",
-            fontWeight: 800,
-            fontSize: 16,
-            color: "#111827",
-            textDecoration: "underline",
-            cursor: "pointer",
-          }}
-        >
-          Create account
-        </button>
+          <button
+            type="button"
+            onClick={handleCreateAccount}
+            disabled={busy}
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              borderRadius: 999,
+              border: "1px solid #dbeafe",
+              background: "#eff6ff",
+              fontWeight: 700,
+              fontSize: 16,
+              lineHeight: "20px",
+              color: "#1d4ed8",
+              cursor: busy ? "default" : "pointer",
+            }}
+          >
+            Create account
+          </button>
+        </div>
       </div>
     </div>
   );

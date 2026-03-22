@@ -213,6 +213,7 @@
 ================================ */
 
 .flightCard-meta {
+  width: 100%;
   font-size: 13px;
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);

@@ -1,3 +1,38 @@
+// FILE: src/app/routes.tsx
+//
+// =====================================================================================
+// GLOBAL APP ROUTES
+// =====================================================================================
+//
+// RN parity:
+// - AppHeader lives ONCE globally, above the route table.
+// - Guest avatar opens LoginModal.
+// - LoginModal runs the SAME two-phase flow as /login.
+//
+// MESSAGE SUMMARY CONTRACT:
+// - AppRoutes fetches message summary at global layout level.
+// - AppHeader receives:
+//     * unreadMessageCount
+//     * hasAnyMessages
+// - Bell is shown only when unread_count > 0
+// - Badge is shown only when unread_count > 0
+//
+// IMPORTANT:
+// - MEMBER MESSAGE SUMMARY USES psn IN POST BODY
+// - NO JWT / NO BEARER TOKEN FOR THIS ENDPOINT
+//
+// THIS CHANGE ONLY:
+// - Global push-device sync remains at AppRoutes level.
+// - BUT it is now SILENT SYNC ONLY.
+// - AppRoutes must NOT trigger a browser permission prompt.
+// - Silent sync runs only when authenticated member identity becomes available.
+// - This covers BOTH:
+//     * normal login
+//     * auth rehydrate / remembered-device refresh flow
+// - No other behaviour changes.
+// =====================================================================================
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 import AppHeader from "../components/AppHeader";
@@ -6,6 +41,7 @@ import { RequireMember } from "./guards";
 import { useAuth } from "./authStore";
 import { useCrew } from "./crewStore";
 import { AUTH_LOGIN_URL, postJson } from "./api";
+import { syncPushDeviceIfPermitted } from "../api/pushApi";
 
 // Pages
 import Debug from "../pages/Debug";
@@ -68,6 +104,22 @@ type LoginResponse = {
   user?: any;
 };
 
+/**
+ * Global message summary shape for AppHeader bell/badge control.
+ *
+ * Expected backend shape:
+ * {
+ *   ok: true,
+ *   unread_count: number,
+ *   total_count: number
+ * }
+ */
+type MessageSummary = {
+  ok?: boolean;
+  unread_count?: number;
+  total_count?: number;
+};
+
 // RN parity: Week needs airport passed from Home via nav("/week", { state: { airport } })
 // No silent fallback.
 function WeekRoute(props: {
@@ -97,6 +149,7 @@ function WeekRoute(props: {
 
 export default function AppRoutes() {
   const nav = useNavigate();
+  const location = useLocation();
 
   const {
     auth,
@@ -105,11 +158,198 @@ export default function AppRoutes() {
     setOnboardingUsername,
     loginReturnTo,
     resetToGuestState,
+    persistRefreshToken,
+    clearPersistedRefreshToken,
   } = useAuth();
 
   const { loadCrew } = useCrew();
-  
-  const { persistRefreshToken, clearPersistedRefreshToken } = useAuth();
+
+  // Global message summary used by the header bell.
+  // Defaults to "no unread / no messages".
+  const [messageSummary, setMessageSummary] = useState<MessageSummary>({
+    unread_count: 0,
+    total_count: 0,
+  });
+
+  // ADDED FOR THIS REVISION:
+  // Track previous unread count so sound only plays on a true increase,
+  // not on initial load, route change, or count decreases.
+  const prevUnreadRef = useRef<number | null>(null);
+
+  // ADDED FOR THIS REVISION:
+  // Audio is prepared once at app-shell level. If the file is missing or
+  // browser playback is blocked, failures are silent by design.
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.preload = "auto";
+    notificationAudioRef.current = audio;
+
+    return () => {
+      notificationAudioRef.current = null;
+    };
+  }, []);
+
+  // ADDED FOR THIS REVISION:
+  // Keep installed app icon badge aligned with unread count.
+  // If the browser/platform does not support badges, fail silently.
+  const syncAppBadge = useCallback((unreadCount: number) => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      return;
+    }
+
+    const navAny = navigator as any;
+
+    try {
+      if (unreadCount > 0 && typeof navAny.setAppBadge === "function") {
+        void navAny.setAppBadge(unreadCount);
+        return;
+      }
+
+      if (unreadCount <= 0 && typeof navAny.clearAppBadge === "function") {
+        void navAny.clearAppBadge();
+      }
+    } catch {
+      // silent by design
+    }
+  }, []);
+
+  // ADDED FOR THIS REVISION:
+  // Play sound only when unread count increases after the initial summary baseline
+  // has already been established. This avoids sound on first page load.
+  const maybePlayUnreadIncreaseSound = useCallback((unreadCount: number) => {
+    const prevUnread = prevUnreadRef.current;
+
+    if (prevUnread === null) {
+      prevUnreadRef.current = unreadCount;
+      return;
+    }
+
+    if (unreadCount > prevUnread) {
+      try {
+        const audio = notificationAudioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          void audio.play();
+        }
+      } catch {
+        // silent by design
+      }
+    }
+
+    prevUnreadRef.current = unreadCount;
+  }, []);
+
+  // Centralized summary refresh so it can be called from:
+  // - route-change effect
+  // - global event listener ("messages:summary-refresh")
+  const refreshMessageSummary = useCallback(async () => {
+    // ADDED FOR THIS REVISION:
+    // LOCKED CONTRACT: canonical PSN is auth.user.username ONLY.
+    const psn = String(auth?.user?.username || "").trim().toUpperCase();
+
+    if (auth?.mode !== "member" || !psn) {
+      setMessageSummary({
+        unread_count: 0,
+        total_count: 0,
+      });
+
+      syncAppBadge(0);
+      prevUnreadRef.current = 0;
+      return;
+    }
+
+    try {
+      const { MESSAGES_SUMMARY_URL } = await import("./api");
+
+      const resp = await postJson<MessageSummary>(MESSAGES_SUMMARY_URL, { psn });
+
+      const unreadCount = Number(resp?.unread_count || 0);
+      const totalCount = Number(resp?.total_count || 0);
+
+      setMessageSummary({
+        unread_count: unreadCount,
+        total_count: totalCount,
+      });
+
+      // ADDED FOR THIS REVISION:
+      // Sync OS/app-level badge and optionally play sound for newly arrived unread.
+      syncAppBadge(unreadCount);
+      maybePlayUnreadIncreaseSound(unreadCount);
+    } catch {
+      // Fail safe: hide bell/badge rather than showing stale garbage.
+      setMessageSummary({
+        unread_count: 0,
+        total_count: 0,
+      });
+
+      syncAppBadge(0);
+      prevUnreadRef.current = 0;
+    }
+  }, [
+    auth?.mode,
+    auth?.user?.username,
+    maybePlayUnreadIncreaseSound,
+    syncAppBadge,
+  ]);
+
+  // Safe fallback refresh on route change / identity change.
+  useEffect(() => {
+    void refreshMessageSummary();
+  }, [refreshMessageSummary, location.pathname]);
+
+  // Immediate refresh when message-related UI dispatches the global event.
+  // This is what makes the bell/badge update as messages are read/dismissed.
+  useEffect(() => {
+    const handler = () => {
+      void refreshMessageSummary();
+    };
+
+    window.addEventListener("messages:summary-refresh", handler);
+
+    return () => {
+      window.removeEventListener("messages:summary-refresh", handler);
+    };
+  }, [refreshMessageSummary]);
+
+  // THIS CHANGE ONLY:
+  // Global push-device sync at AppRoutes level.
+  //
+  // IMPORTANT:
+  // - This must be SILENT SYNC ONLY.
+  // - It must NOT trigger Notification.requestPermission().
+  // - It should only sync a device when permission is already granted.
+  //
+  // Why here?
+  // - AppRoutes is the global authenticated app shell.
+  // - It sees BOTH:
+  //     * fresh login
+  //     * remembered-device auth rehydrate
+  //
+  // Behaviour:
+  // - If not member, do nothing.
+  // - If member PSN missing, do nothing.
+  // - If permission not granted / token unavailable / backend fails, fail silently.
+  //   Push sync must never break routing or app boot.
+  useEffect(() => {
+    // ADDED FOR THIS REVISION:
+    // LOCKED CONTRACT: canonical PSN is auth.user.username ONLY.
+    const psn = String(auth?.user?.username || "").trim().toUpperCase();
+
+    if (auth?.mode !== "member" || !psn) {
+      return;
+    }
+
+    void syncPushDeviceIfPermitted(psn).catch(() => {
+      // silent by design
+    });
+  }, [
+    auth?.mode,
+    auth?.user?.username,
+  ]);
 
   return (
     <>
@@ -118,6 +358,14 @@ export default function AppRoutes() {
         auth={auth}
         onGoHome={() => nav("/home")}
         onGoProfile={() => nav("/profile")}
+        onGoMessages={() => nav("/messages")}
+        unreadMessageCount={Number(messageSummary.unread_count || 0)}
+
+        // Product rule:
+        // - bell exists only while unread messages exist
+        // - when unread_count hits 0, bell disappears
+        hasAnyMessages={Number(messageSummary.unread_count || 0) > 0}
+
         onLogout={() => {
           // Web: local reset (server logout can be added later if/when you have it)
           resetToGuestState();
@@ -151,10 +399,10 @@ export default function AppRoutes() {
             password,
             rememberDevice: !!rememberDevice,
           });
-		  
-		  //DEBUG ONLY=================================================================
-			console.log("[LOGIN] rememberDevice =", rememberDevice);
-			console.log("[LOGIN] resp.refreshToken =", resp?.refreshToken);
+
+          // DEBUG ONLY =========================================================
+          console.log("[LOGIN] rememberDevice =", rememberDevice);
+          console.log("[LOGIN] resp.refreshToken =", resp?.refreshToken);
 
           setAuth({
             mode: "member",
@@ -167,25 +415,24 @@ export default function AppRoutes() {
             accessToken: resp?.accessToken || null,
             refreshToken: resp?.refreshToken || null,
           });
-		  
-		  
-			//DEBUG ONLY=================================================================
-			console.log("[LOGIN] calling persistRefreshToken...");
-			if (rememberDevice && resp?.refreshToken) {
-			  persistRefreshToken(String(resp.refreshToken));
-			  console.log("[LOGIN] persistRefreshToken DONE");
-			} else {
-			  clearPersistedRefreshToken();
-			  console.log("[LOGIN] cleared stored refresh token");
-			}
-		  
-			// V4 semantics: persist refreshToken ONLY when rememberDevice === true.
-			// If rememberDevice is false, or refreshToken not returned, ensure storage is clear.
-			if (rememberDevice && resp?.refreshToken) {
-			  persistRefreshToken(String(resp.refreshToken));
-			} else {
-			  clearPersistedRefreshToken();
-			}		  
+
+          // DEBUG ONLY =========================================================
+          console.log("[LOGIN] calling persistRefreshToken...");
+          if (rememberDevice && resp?.refreshToken) {
+            persistRefreshToken(String(resp.refreshToken));
+            console.log("[LOGIN] persistRefreshToken DONE");
+          } else {
+            clearPersistedRefreshToken();
+            console.log("[LOGIN] cleared stored refresh token");
+          }
+
+          // V4 semantics: persist refreshToken ONLY when rememberDevice === true.
+          // If rememberDevice is false, or refreshToken not returned, ensure storage is clear.
+          if (rememberDevice && resp?.refreshToken) {
+            persistRefreshToken(String(resp.refreshToken));
+          } else {
+            clearPersistedRefreshToken();
+          }
 
           const token = resp?.accessToken || "";
           if (!token) {
@@ -256,11 +503,11 @@ export default function AppRoutes() {
 
       {/* Route table */}
       <Routes>
-		{/* Guest / entry */}
-		<Route path="/" element={<Navigate to="/home" replace />} />
-		<Route path="/login" element={<Navigate to="/home?login=1" replace />} />
-		{/* /login still exists, but it no longer renders a page. */}
-		<Route path="/debug" element={<Debug />} />
+        {/* Guest / entry */}
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/login" element={<Navigate to="/home?login=1" replace />} />
+        {/* /login still exists, but it no longer renders a page. */}
+        <Route path="/debug" element={<Debug />} />
 
         {/* Registration/onboarding */}
         <Route path="/register" element={<Register />} />
@@ -271,9 +518,9 @@ export default function AppRoutes() {
         {/* App routes */}
         <Route path="/selectairports" element={<SelectAirports />} />
         <Route path="/home" element={<Home />} />
-		<Route path="/faq" element={<Faq />} />
-		<Route path="/donate" element={<Donate />} />
-		<Route path="/donate-return" element={<DonateReturn />} />		
+        <Route path="/faq" element={<Faq />} />
+        <Route path="/donate" element={<Donate />} />
+        <Route path="/donate-return" element={<DonateReturn />} />
 
         <Route
           path="/week"
@@ -291,16 +538,16 @@ export default function AppRoutes() {
             </RequireMember>
           }
         />
-		
-		<Route
-		  path="/crew-lockers"
-		  element={
-			<RequireMember>
-			  <CrewLockers />
-			</RequireMember>
-		  }
-		/>		
-		
+
+        <Route
+          path="/crew-lockers"
+          element={
+            <RequireMember>
+              <CrewLockers />
+            </RequireMember>
+          }
+        />
+
         <Route
           path="/profile"
           element={
@@ -309,7 +556,11 @@ export default function AppRoutes() {
             </RequireMember>
           }
         />
-		<Route path="/messages" element={<Messages />} />
+
+        {/* Messages page currently remains directly routable.
+            If you want this member-only later, wrap it in RequireMember too. */}
+        <Route path="/messages" element={<Messages />} />
+
         <Route
           path="/passport"
           element={
@@ -318,6 +569,7 @@ export default function AppRoutes() {
             </RequireMember>
           }
         />
+
         <Route
           path="/esta"
           element={
