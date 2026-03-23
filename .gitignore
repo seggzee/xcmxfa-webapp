@@ -22,3 +22,29 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# =========================
+# BACKEND SECRETS (PHP)
+# =========================
+
+# Config secrets
+/config/dbConfig.php
+/config/pushConfig.php
+/config/*.local.php
+/config/*.secret.php
+
+# Database connection files
+/database/dbConfig.php
+/database/dbConnect.php
+/database/*.local.php
+/database/*.secret.php
+
+# Service accounts / Firebase
+/config/*service-account*.json
+/config/*fcm*.json
+/config/firebase_secrets.js
+/database/*service-account*.json
+
+# Env files
+.env
+.env.*
