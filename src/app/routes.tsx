@@ -29,11 +29,15 @@
 // - This covers BOTH:
 //     * normal login
 //     * auth rehydrate / remembered-device refresh flow
+// - Add global foreground Firebase push listener
+// - Add global app focus / visibility refresh listeners
+// - Add foreground in-app banner for app-open push receipt
 // - No other behaviour changes.
 // =====================================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { onMessage } from "firebase/messaging";
 
 import AppHeader from "../components/AppHeader";
 
@@ -42,6 +46,7 @@ import { useAuth } from "./authStore";
 import { useCrew } from "./crewStore";
 import { AUTH_LOGIN_URL, postJson } from "./api";
 import { syncPushDeviceIfPermitted } from "../api/pushApi";
+import { messaging } from "./firebase";
 
 // Pages
 import Debug from "../pages/Debug";
@@ -120,6 +125,12 @@ type MessageSummary = {
   total_count?: number;
 };
 
+type ForegroundBanner = {
+  title: string;
+  body: string;
+  url: string;
+} | null;
+
 // RN parity: Week needs airport passed from Home via nav("/week", { state: { airport } })
 // No silent fallback.
 function WeekRoute(props: {
@@ -171,12 +182,14 @@ export default function AppRoutes() {
     total_count: 0,
   });
 
-  // ADDED FOR THIS REVISION:
+  // Foreground in-app banner for app-open push receipt.
+  const [foregroundBanner, setForegroundBanner] = useState<ForegroundBanner>(null);
+  const bannerTimeoutRef = useRef<number | null>(null);
+
   // Track previous unread count so sound only plays on a true increase,
   // not on initial load, route change, or count decreases.
   const prevUnreadRef = useRef<number | null>(null);
 
-  // ADDED FOR THIS REVISION:
   // Audio is prepared once at app-shell level. If the file is missing or
   // browser playback is blocked, failures are silent by design.
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -193,7 +206,31 @@ export default function AppRoutes() {
     };
   }, []);
 
-  // ADDED FOR THIS REVISION:
+  const showForegroundBanner = useCallback((title: string, body: string, url: string) => {
+    setForegroundBanner({
+      title: title || "Notification",
+      body: body || "",
+      url: url || "/messages",
+    });
+
+    if (bannerTimeoutRef.current !== null) {
+      window.clearTimeout(bannerTimeoutRef.current);
+    }
+
+    bannerTimeoutRef.current = window.setTimeout(() => {
+      setForegroundBanner(null);
+      bannerTimeoutRef.current = null;
+    }, 6000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (bannerTimeoutRef.current !== null) {
+        window.clearTimeout(bannerTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Keep installed app icon badge aligned with unread count.
   // If the browser/platform does not support badges, fail silently.
   const syncAppBadge = useCallback((unreadCount: number) => {
@@ -217,7 +254,6 @@ export default function AppRoutes() {
     }
   }, []);
 
-  // ADDED FOR THIS REVISION:
   // Play sound only when unread count increases after the initial summary baseline
   // has already been established. This avoids sound on first page load.
   const maybePlayUnreadIncreaseSound = useCallback((unreadCount: number) => {
@@ -246,8 +282,9 @@ export default function AppRoutes() {
   // Centralized summary refresh so it can be called from:
   // - route-change effect
   // - global event listener ("messages:summary-refresh")
+  // - global foreground push listener
+  // - global app focus / visibility resume listeners
   const refreshMessageSummary = useCallback(async () => {
-    // ADDED FOR THIS REVISION:
     // LOCKED CONTRACT: canonical PSN is auth.user.username ONLY.
     const psn = String(auth?.user?.username || "").trim().toUpperCase();
 
@@ -275,7 +312,6 @@ export default function AppRoutes() {
         total_count: totalCount,
       });
 
-      // ADDED FOR THIS REVISION:
       // Sync OS/app-level badge and optionally play sound for newly arrived unread.
       syncAppBadge(unreadCount);
       maybePlayUnreadIncreaseSound(unreadCount);
@@ -315,7 +351,47 @@ export default function AppRoutes() {
     };
   }, [refreshMessageSummary]);
 
-  // THIS CHANGE ONLY:
+  // Global foreground Firebase push listener.
+  // App open + push arrives => refresh unread summary immediately
+  // and show a visible in-app banner.
+  useEffect(() => {
+    const unsubscribe = onMessage(messaging, (payload) => {
+      void refreshMessageSummary();
+
+      const title = String(payload?.data?.title || payload?.notification?.title || "Notification");
+      const body = String(payload?.data?.body || payload?.notification?.body || "");
+      const url = String(payload?.data?.url || "/messages");
+
+      showForegroundBanner(title, body, url);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [refreshMessageSummary, showForegroundBanner]);
+
+  // Global app resume/focus listeners.
+  // User returns to app/tab => refresh unread summary immediately.
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshMessageSummary();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshMessageSummary();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [refreshMessageSummary]);
+
   // Global push-device sync at AppRoutes level.
   //
   // IMPORTANT:
@@ -335,7 +411,6 @@ export default function AppRoutes() {
   // - If permission not granted / token unavailable / backend fails, fail silently.
   //   Push sync must never break routing or app boot.
   useEffect(() => {
-    // ADDED FOR THIS REVISION:
     // LOCKED CONTRACT: canonical PSN is auth.user.username ONLY.
     const psn = String(auth?.user?.username || "").trim().toUpperCase();
 
@@ -500,6 +575,80 @@ export default function AppRoutes() {
           }
         }}
       />
+
+      {foregroundBanner ? (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            nav(foregroundBanner.url || "/messages");
+            setForegroundBanner(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              nav(foregroundBanner.url || "/messages");
+              setForegroundBanner(null);
+            }
+          }}
+          style={{
+            position: "fixed",
+            top: 84,
+            right: 16,
+            left: 16,
+            zIndex: 2000,
+            maxWidth: 560,
+            margin: "0 auto",
+            background: "#111827",
+            color: "#ffffff",
+            borderRadius: 14,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.24)",
+            padding: "14px 16px",
+            cursor: "pointer",
+          }}
+          aria-label="Open new message"
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                {foregroundBanner.title}
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.35,
+                  opacity: 0.95,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {foregroundBanner.body}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setForegroundBanner(null);
+              }}
+              style={{
+                border: 0,
+                background: "transparent",
+                color: "#ffffff",
+                cursor: "pointer",
+                fontSize: 18,
+                lineHeight: 1,
+                padding: 0,
+              }}
+              aria-label="Dismiss notification banner"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Route table */}
       <Routes>

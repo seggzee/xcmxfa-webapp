@@ -9,6 +9,7 @@
 // - Push switch is wired.
 // - Email and SMS switches are UI-only placeholders for now.
 // - Push toggle initial state is read from DB via current-device status.
+// - Profile page must NOT trigger a permission prompt on load.
 // - No other profile behaviour changes.
 
 import React, { useEffect, useState } from "react";
@@ -97,11 +98,24 @@ export default function Profile() {
   const [pushBusy, setPushBusy] = useState(false);
 
   // Initial switch state must come from DB truth for the current device.
+  // IMPORTANT:
+  // - Do NOT trigger permission prompt on page load.
+  // - If browser permission is not already granted, keep the switch OFF.
   useEffect(() => {
     let alive = true;
 
     (async () => {
       if (!memberPsn) {
+        setPushEnabled(false);
+        return;
+      }
+
+      if (typeof window === "undefined" || !("Notification" in window)) {
+        setPushEnabled(false);
+        return;
+      }
+
+      if (Notification.permission !== "granted") {
         setPushEnabled(false);
         return;
       }

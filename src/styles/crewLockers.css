@@ -1,5 +1,6 @@
 /* src/styles/crewLockers.css */
 
+
 .crewLockers-page {
   min-height: 100dvh;
   background: var(--app-bg, #f6f7f9);
@@ -51,10 +52,11 @@
   padding: 0 14px;
 }
 
-/* Promo card */
+/* old Promo card 
 .crewLockers-orderCard {
   width: 100%;
   margin: 14px 0 18px;
+  margin: 14px auto 18px auto;
   border: 2px solid #3f3f46;
   border-radius: 16px;
   background: #f3f3f3;
@@ -63,6 +65,26 @@
   position: relative;
   overflow: visible;
 }
+*/
+
+/* New Promo card */
+  .crewLockers-orderCard {
+    display: flex;
+    width: 60%;
+    margin: 24px auto 24px auto;
+    border: 2px solid #3f3f46;
+    border-radius: 16px;
+    background: #f3f3f3;
+    padding: 0 0 18px;
+    cursor: pointer;
+    position: relative;
+    overflow: visible;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-content: center;
+    align-items: center;
+}
+
 
 .crewLockers-orderCardBadge {
   display: inline-block;

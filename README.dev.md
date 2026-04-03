@@ -115,6 +115,7 @@ D:
 cd CloudStation\projects\webapp-xcmxfa-src
 npm install
 set VITE_API_BASE_URL=https://apps-backend.34deltax.com
+set VITE_API_BASE_URL=https://apps-backend.xcmxfa.com
 npm run build
 
 

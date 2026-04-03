@@ -51,14 +51,10 @@ import locked from "../../assets/icons/locked.webp";
 import STOP_SIGN from "../../assets/icons/stop.webp";
 import MENU from "../../assets/icons/menu.webp";
 import DONATE from "../../assets/icons/donate.webp";
-
 import avatar from "../../assets/avatar.jpg";
 import calendar from "../../assets/icons/calendar.webp";
-
 import BACK from "../../assets/back_button.webp";
-
 // ? NEW: avatar + calendar are now imported (bundled) so pages/components never use "/assets/..."
-
 
 
 export const APP_IMAGES = { APP_LOGO, SCHIPHOL_IMG, HEADER_LOGO, LOCKERS_QR } as const;

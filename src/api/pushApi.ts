@@ -56,7 +56,7 @@ async function registerDevice(psn: string, token: string) {
       platform: "ios", // web push routed through FCM for current first pass
       device_token: token,
       device_name: "Web Browser",
-	  //device_name: `${navigator.platform} | ${navigator.userAgent.slice(0, 40)}`,
+      //device_name: `${navigator.platform} | ${navigator.userAgent.slice(0, 40)}`,
       app_version: "web",
       os_version: navigator.platform,
     }),
@@ -119,9 +119,17 @@ async function unregisterDevice(psn: string, token: string) {
  * - Reads current-device DB truth for this exact token.
  * - true  => current device row exists and is_active = 1
  * - false => missing row OR inactive row OR error
+ *
+ * IMPORTANT:
+ * - Must NEVER trigger a permission prompt on page load.
+ * - Therefore if permission is not already granted, return false immediately.
  */
 export async function getPushDeviceStatus(psn: string) {
   if (!("Notification" in window)) return false;
+
+  if (Notification.permission !== "granted") {
+    return false;
+  }
 
   try {
     const token = await getToken(messaging, {

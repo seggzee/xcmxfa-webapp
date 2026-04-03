@@ -114,6 +114,33 @@ type NextFlightState =
   | { status: "empty"; flight: null }
   | { status: "error"; flight: null; error: Error };
 
+/* =====================================================================================
+   WEATHER CARD (ADD-ONLY)
+   - Separate short full-width card below hero card
+   - Debug toggle available for UI review
+   - No placeholder / no spinner / no other Home changes
+===================================================================================== */
+
+type HomeWeatherCardData = {
+  title: string;
+  icon_url: string;
+  wind_text: string;
+  condition_text: string;
+  temp_c: number;
+};
+
+/*	This is the control for the weather card */
+const HOME_WEATHER_DEBUG = false; 
+//const HOME_WEATHER_DEBUG = true; // make false for production environment
+
+const HOME_WEATHER_DEBUG_SAMPLE: HomeWeatherCardData = {
+  title: "Amsterdam (AMS)",
+  icon_url: "https://cdn.weatherapi.com/weather/64x64/day/296.png",
+  wind_text: "Moderate NW winds",
+  condition_text: "Light rain",
+  temp_c: 12,
+};
+
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
@@ -123,6 +150,22 @@ function normalizeCode(v: any) {
     .toUpperCase()
     .replace(/[^A-Z]/g, "")
     .slice(0, 3);
+}
+
+function localWeatherIconSrcFromProviderUrl(raw: any) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+
+  const normalized = s.startsWith("//") ? `https:${s}` : s;
+  const marker = "/weather/";
+  const markerPos = normalized.indexOf(marker);
+
+  if (markerPos === -1) {
+    return s;
+  }
+
+  const relativePath = normalized.slice(markerPos + marker.length); // e.g. 64x64/day/116.png
+  return `/assets/weatherIcons/${relativePath}`;
 }
 
 /**
@@ -309,17 +352,70 @@ export default function Home() {
       setNextFlightState({ status: "loading", flight: null });
 
       try {
+        
         const rows = await getMyFlights({ staffNo });
-        const first = rows?.[0] ?? null;
 
         if (ac.signal.aborted) return;
 
-        if (!first) {
+    
+// =====================================================================================
+// HOME RULE:
+// - "My next flight" must show the NEXT UPCOMING flight only.
+// - my_flights feed may include recent past flights for My Flights screen purposes.
+// - Therefore Home must explicitly select the earliest future flight by std_utc.
+// =====================================================================================
+
+// 1) Build one representative row per flight_instance_id
+const flightMap = new Map<string, any>();
+
+for (const r of Array.isArray(rows) ? rows : []) {
+  const fid = String(r?.flight_instance_id || "").trim();
+  if (!fid) continue;
+  if (!flightMap.has(fid)) flightMap.set(fid, r);
+}
+
+const uniqueFlights = Array.from(flightMap.values());
+
+// 2) Keep only valid future flights
+const nowMs = Date.now();
+
+const upcomingFlights = uniqueFlights
+  .filter((f: any) => {
+    const ms = Date.parse(String(f?.std_utc || ""));
+    return Number.isFinite(ms) && ms > nowMs;
+  })
+  .sort((a: any, b: any) => {
+    const aMs = Date.parse(String(a?.std_utc || ""));
+    const bMs = Date.parse(String(b?.std_utc || ""));
+    return aMs - bMs;
+  });
+
+const firstFlightInstanceId = String(upcomingFlights?.[0]?.flight_instance_id || "").trim();
+
+if (!firstFlightInstanceId) {
+  setNextFlightState({ status: "empty", flight: null });
+  return;
+}
+
+const firstFlightRows = Array.isArray(rows)
+  ? rows.filter((r: any) => String(r?.flight_instance_id || "").trim() === firstFlightInstanceId)
+  : [];	  
+		  
+// ========================================== END HOME RULE:============================
+	  
+
+        const myRow =
+          firstFlightRows.find((r: any) => String(r?.psn || "").trim().toUpperCase() === staffNo) ||
+          firstFlightRows[0] ||
+          null;
+
+        if (!myRow) {
           setNextFlightState({ status: "empty", flight: null });
           return;
         }
 
-        setNextFlightState({ status: "ready", flight: first });
+        setNextFlightState({ status: "ready", flight: myRow });
+				
       } catch (e: any) {
         if (ac.signal.aborted) return;
         const err = e instanceof Error ? e : new Error(String(e));
@@ -357,8 +453,12 @@ export default function Home() {
 
     // Countdown starts at Phase 2 and continues until STD (Phase 3).
     // Phase 4 is post-STD; do not show countdown here yet.
-    //const showCountdown = phase === 2 || phase === 3; //ORIGINAL (RESTORE AFTER REVIEW)
-	const showCountdown = true; //TEMP OVERRIDE FOR UI REVIEW
+	
+	
+/*================================================================================================================*/	
+    const showCountdown = phase === 2 || phase === 3; //ORIGINAL (RESTORE AFTER REVIEW)
+	//const showCountdown = true; //TEMP OVERRIDE FOR UI REVIEW
+/*================================================================================================================*/		
 
     const countdown = showCountdown && msToStd !== null ? formatCountdownHHMM(msToStd) : null;
 
@@ -366,6 +466,98 @@ export default function Home() {
   }, [nextFlightState.status, nextFlightState.flight, nowMs]);
 
   const nextFlightCountdownHHMMSS = nextFlightDerived.countdown;
+
+  /* =====================================================================================
+     WEATHER CARD DATA (ADD-ONLY)
+  ===================================================================================== */
+
+  const [weatherCardData, setWeatherCardData] = useState<HomeWeatherCardData | null>(
+    HOME_WEATHER_DEBUG ? HOME_WEATHER_DEBUG_SAMPLE : null
+  );
+
+  const weatherIconSrc = weatherCardData
+    ? localWeatherIconSrcFromProviderUrl(weatherCardData.icon_url)
+    : "";
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadWeather() {
+      if (HOME_WEATHER_DEBUG) {
+        if (alive) setWeatherCardData(HOME_WEATHER_DEBUG_SAMPLE);
+        return;
+      }
+
+      if (!isMember) {
+        if (alive) setWeatherCardData(null);
+        return;
+      }
+
+      if (nextFlightState.status !== "ready") {
+        if (alive) setWeatherCardData(null);
+        return;
+      }
+
+      const f: any = nextFlightState.flight || {};
+
+      const arr_airport = String(f?.arr_airport || "").trim().toUpperCase();
+      const std_utc = String(f?.std_utc || "").trim();
+      const sta_utc = String(f?.sta_utc || "").trim();
+
+      if (!arr_airport || !std_utc || !sta_utc) {
+        if (alive) setWeatherCardData(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/weather/next_flight_weather.php`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            arr_airport,
+            std_utc,
+            sta_utc,
+          }),
+        });
+
+        const text = await res.text();
+
+        let json: any = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          json = null;
+        }
+
+        if (!alive) return;
+
+        if (!res.ok || !json || json.ok !== true || json.show !== true) {
+          setWeatherCardData(null);
+          return;
+        }
+
+        setWeatherCardData({
+          title: String(json.title || ""),
+          icon_url: String(json.icon_url || ""),
+          wind_text: String(json.wind_text || ""),
+          condition_text: String(json.condition_text || ""),
+          temp_c: Number(json.temp_c),
+        });
+      } catch {
+        if (!alive) return;
+        setWeatherCardData(null);
+      }
+    }
+
+    loadWeather();
+
+    return () => {
+      alive = false;
+    };
+  }, [isMember, nextFlightState.status, nextFlightState.flight]);
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -648,6 +840,69 @@ export default function Home() {
           ) : null}
         </section>
 
+        {/* ===== Weather card (ADD-ONLY) ===== */}
+        {weatherCardData ? (
+          <section
+            className="card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+			   background: "rgba(19,35,51,0.04)",
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                minWidth: 56,
+                borderRadius: 14,
+                background: "transparent",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={weatherIconSrc}
+                alt=""
+                style={{
+                  width: 44,
+                  height: 44,
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            </div>
+
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: 14,
+                  color: "#132333",
+                  lineHeight: 1.2,
+                }}
+              >
+                {weatherCardData.title}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 6,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "rgba(19,35,51,0.72)",
+                  lineHeight: 1.3,
+                }}
+              >
+                {weatherCardData.wind_text} {" \u2022 "} {weatherCardData.condition_text} {" \u2022 "} {weatherCardData.temp_c}{"\u00B0"}C
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         {/* ===== Airports (RN) ===== */}
         <section className="card">
           <div className="sectionTitleRow">
@@ -831,7 +1086,7 @@ export default function Home() {
               <div className="quickGridRow">
                 <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
                   <div className="quickTileTitle">Sign up</div>
-                  <div className="quickTileSub">Unlock crew features</div>
+                  <div className="quickTileSub">New user registration</div>
                 </button>
 
                 <button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
@@ -984,10 +1239,10 @@ export default function Home() {
         <div className="modalOverlay" onClick={() => setSignUpModalVisible(false)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalTitle">Create an account</div>
-            <div className="modalBody">Members can:</div>
-            <div className="modalBody">• Save up to 3 airports</div>
-            <div className="modalBody">• List/unlist on eligible flights</div>
-            <div className="modalBody">• View crew lists and booking status</div>
+            <div className="modalBody">registered users can:</div>
+            <div className="modalBody">{'\u2022'} Save up to 3 airports</div>
+            <div className="modalBody">{'\u2022'} List / unlist on KLM flights</div>
+            <div className="modalBody">{'\u2022'} View commuter lists and booking status</div>
 
             <div className="modalBtnRow">
               <button type="button" className="modalBtn modalBtnGhost" onClick={() => setSignUpModalVisible(false)}>

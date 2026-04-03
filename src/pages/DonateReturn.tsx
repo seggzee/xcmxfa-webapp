@@ -3,17 +3,21 @@
 // =====================================================================================
 // DONATE RETURN PAGE (UI ONLY)
 // -------------------------------------------------------------------------------------
-// This page is the browser landing page after Stripe redirects the user.
-// It is NOT authoritative. The webhook is authoritative.
-//
-// What this page does:
-// 1) Read session_id from URL
-// 2) Ask backend for session status
-// 3) Display friendly success / fallback UI
+// IDIOT GUIDE:
+// - Stripe redirects the USER'S BROWSER here after payment.
+// - This page is NOT the system of record. Webhook is the system of record.
+// - This page does ONE UI job:
+//     1) read session_id from URL
+//     2) ask backend for Stripe session status
+//     3) show friendly success / fallback text
 //
 // IMPORTANT:
-// Always use API_BASE_URL when calling PHP.
-// Never call /stripe_php directly from Vite origin.
+// - Always call backend via API_BASE_URL.
+// - Never call /stripe_php directly from Vite/browser origin.
+// - On some devices, Stripe returns into a browser page instead of the installed webapp.
+//   So the wording must tell the user to close browser and return to the app.
+// - The button should TRY to close the browser/tab.
+// - If browser refuses, fall back to browser back navigation.
 // =====================================================================================
 
 import React, { useEffect, useState } from "react";
@@ -24,7 +28,7 @@ import BackButton from "../components/BackButton";
 import { API_BASE_URL } from "../app/api";
 
 import "../styles/week.css";
-import "../styles/donate.css"; // reuse donate header layout
+import "../styles/donate.css";
 
 export default function DonateReturn() {
   const nav = useNavigate();
@@ -42,6 +46,19 @@ export default function DonateReturn() {
   const [ok, setOk] = useState<boolean | null>(null);
   const [email, setEmail] = useState<string>("");
 
+  function handleCloseBrowser(): void {
+    // Best-effort only:
+    // - window.close() works only in some browser contexts
+    // - if blocked, try browser history back
+    window.close();
+
+    window.setTimeout(() => {
+      if (window.history.length > 1) {
+        window.history.back();
+      }
+    }, 250);
+  }
+
   useEffect(() => {
     let alive = true;
 
@@ -53,7 +70,6 @@ export default function DonateReturn() {
           return;
         }
 
-        // CRITICAL: Always call backend via API_BASE_URL
         const resp = await fetch(
           `${API_BASE_URL}/stripe_php/public/status.php?session_id=${encodeURIComponent(sessionId)}`
         );
@@ -72,8 +88,7 @@ export default function DonateReturn() {
 
         setEmail(customerEmail);
 
-        // Stripe session.status typically = "complete"
-        // Some flows may return payment_status instead
+        // Stripe Checkout Session status typically = "complete"
         setOk(
           status === "complete" ||
           status === "paid" ||
@@ -97,15 +112,14 @@ export default function DonateReturn() {
 
   return (
     <div className="app-screen">
-
       {/* =================================================================================
-          Sticky header — EXACT same structural pattern as Donate.tsx
+          Sticky header — same structural pattern as Donate.tsx
          ================================================================================= */}
       <div className="week-sticky">
         <div className="app-container">
           <section className="week-headerCard">
             <div className="week-headerTopRow donateHeaderRow">
-              <div /> {/* left spacer */}
+              <div />
 
               <div className="donateHeaderCenter">
                 {donateIconSrc ? (
@@ -136,7 +150,6 @@ export default function DonateReturn() {
          ================================================================================= */}
       <div className="app-container week-body">
         <section className="card" style={{ padding: 14 }}>
-
           {loading ? (
             <div style={{ fontWeight: 900, color: "rgba(19,35,51,0.75)" }}>
               Checking payment…
@@ -157,9 +170,15 @@ export default function DonateReturn() {
                 {email ? (
                   <>
                     A confirmation email has been sent to <b>{email}</b>.
+                    <br /><br />
+                    You can now close this browser page and return to the XCMXFA app.
                   </>
                 ) : (
-                  <>Your payment was successful.</>
+                  <>
+                    Your payment was successful.
+                    <br /><br />
+                    You can now close this browser page and return to the XCMXFA app.
+                  </>
                 )}
               </div>
 
@@ -167,15 +186,15 @@ export default function DonateReturn() {
                 type="button"
                 className="btn btn-primary"
                 style={{ marginTop: 14 }}
-                onClick={() => nav("/")}
+                onClick={handleCloseBrowser}
               >
-                Back to Home
+                Close Browser
               </button>
             </>
           ) : (
             <>
               <div style={{ fontWeight: 950, color: "#132333" }}>
-                Oops — something went wrong
+                Donation status unclear
               </div>
 
               <div
@@ -185,8 +204,9 @@ export default function DonateReturn() {
                   color: "rgba(19,35,51,0.70)"
                 }}
               >
-                Your donation did not complete, or we couldn’t confirm it.
-                Please try again.
+                We could not confirm the donation on this page.
+                <br /><br />
+                Please close this browser page and return to the XCMXFA app.
               </div>
 
               <div
@@ -200,22 +220,21 @@ export default function DonateReturn() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => nav("/donate")}
+                  onClick={handleCloseBrowser}
                 >
-                  Try again
+                  Close Browser
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => nav("/")}
+                  onClick={() => nav("/donate")}
                 >
-                  Cancel
+                  Try again
                 </button>
               </div>
             </>
           )}
-
         </section>
       </div>
     </div>

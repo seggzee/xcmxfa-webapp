@@ -204,7 +204,7 @@ export default function LoginModal({
         </div>
 
         <input
-          placeholder="Username"
+          placeholder="Username (e.g. KLM12345)"
           value={username}
           onChange={(e) => setUsername((e.target.value || "").toUpperCase())}
           autoCapitalize="characters"
@@ -325,7 +325,7 @@ export default function LoginModal({
               color: "#374151",
             }}
           >
-            Remember device
+            Remember this device
           </span>
         </label>
 
@@ -419,7 +419,7 @@ export default function LoginModal({
               cursor: busy ? "default" : "pointer",
             }}
           >
-            Create account
+            New user registration
           </button>
         </div>
       </div>

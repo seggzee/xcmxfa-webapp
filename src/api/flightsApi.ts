@@ -470,6 +470,9 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
     listing_status: (r.booking_status as any) ?? "pending",
   }));
 
+  /*
+  
+  
   // ---------------------------------------------------------
   // Deterministic chronological ordering (single source)
   // ---------------------------------------------------------
@@ -501,6 +504,9 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
     // Both past → most recent first
     return bTime - aTime;
   });
+  
+  
+  */
 
   return mapped;
 }

@@ -140,7 +140,7 @@ function FaqRow({
         aria-expanded={open}
         aria-controls={`faq-${item.id}`}
       >
-        <div style={{ fontWeight: 950, color: "#132333", lineHeight: 1.25 }}>{item.q}</div>
+        <div style={{ fontSize: 14, fontWeight: 950, color: "#132333", lineHeight: 1.25 }}>{item.q}</div>
 
         <div
           aria-hidden="true"
@@ -152,6 +152,7 @@ function FaqRow({
             alignItems: "center",
             justifyContent: "center",
             border: "2px solid rgba(19,35,51,0.12)",
+			fontSize: 14,			
             fontWeight: 950,
             color: "rgba(19,35,51,0.65)",
             flex: "0 0 auto",
@@ -169,8 +170,9 @@ function FaqRow({
             paddingTop: 10,
             borderTop: "1px solid rgba(19,35,51,0.10)",
             color: "rgba(19,35,51,0.86)",
+			fontSize: 14,
             fontWeight: 750,
-            lineHeight: 1.35,
+            lineHeight: 1.25,
           }}
         >
           {item.a}
@@ -192,11 +194,11 @@ export default function Faq() {
         q: "Is this an official KLM app?",
         a: (
           <>
-            No. This is a privately developed app used by kind agreement of some airports/teams to help
+            No. This is a privately developed app used by kind agreement of some outstations to help
             them plan for XCM/XFA travel and reduce day-of-travel friction.
             <br />
             <br />
-            There is no direct link from this app to airline booking systems or KLM IT infrastructure.
+            There is NO direct link from this app to airline booking systems or KLM IT infrastructure.
           </>
         ),
         keywords: ["official", "klm", "unofficial", "private", "independent"],
@@ -207,11 +209,11 @@ export default function Faq() {
         q: "Do I have to use the app for XCM/XFA flights?",
         a: (
           <>
-            No — use is voluntary.
+            No — use of this app is totally voluntary.
             <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>All previous methods (e.g. telephone listing) remain available in parallel.</li>
-              <li>Using the app may involve storing/transmitting personal info (depending on what you choose to provide).</li>
-              <li>If you have privacy concerns, use the traditional methods.</li>
+              <li>All previous listing methods (e.g. telephone listing) remain available in parallel.</li>
+              <li>Using the app may involve storing / transmitting personal info (depending on what you choose to provide).</li>
+              <li>If you have privacy concerns, please use the traditional methods.</li>
             </ul>
           </>
         ),
@@ -228,7 +230,7 @@ export default function Faq() {
             You can browse general flight information without being a verified member.
             <br />
             <br />
-            For security reasons, member-only features (e.g. seeing crew lists / requesting listings / personal features)
+            For security reasons, member-only features (e.g. seeing flight commuter lists / requesting listings / personal features)
             require sign-in and verification.
           </>
         ),
@@ -242,13 +244,13 @@ export default function Faq() {
         q: "Notifications: email, push, SMS — what’s the situation?",
         a: (
           <>
-            Best-effort summary (edit as reality evolves):
+            We use a variety of notification methods:
             <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>SMS should be reserved for urgent messaging.</li>
-              <li>Push notifications may be platform-dependent.</li>
+              <li>SMS will only be used for urgent private messaging.</li>
+              <li>Push notifications and in-app messages are preferred.</li>
               <li>In-app messages remain the “always available” channel.</li>
             </ul>
-            Tip: if you rely on notifications, ensure your chosen notification method is enabled in the app.
+            Tip: if you rely on notifications, please ensure your chosen notification method is enabled in the app.
           </>
         ),
         keywords: ["push", "sms", "email", "notifications", "ios", "android"],
@@ -295,11 +297,12 @@ export default function Faq() {
         q: "Is there a cut-off time for requesting a listing?",
         a: (
           <>
-            Legacy policy (confirm current rules before relying on it):
+            Yes.There are different cutoff times for flights from Amsterdam and Outstations:
             <ul style={{ margin: "8px 0 0 18px" }}>
               <li>Flights ex AMS: cut-off ~ 18:00 NL time day before departure.</li>
-              <li>Outstations: cut-off ~ 22:00 NL time day before flight date.</li>
-              <li>Requests after cut-off may still display in-app but may not be transmitted.</li>
+              <li>Outstations (Europe and Far East): cut-off ~ 18:30 NL time day before flight date.</li>
+              <li>Outstations (USA, Canada and South America): cut-off ~ 22:00 NL time day before flight date.</li>			  
+              <li>Warning: Requests after cut-off may still display in-app but will not be transmitted.</li>
             </ul>
           </>
         ),
@@ -313,9 +316,9 @@ export default function Faq() {
           <>
             Legacy model:
             <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>Schiphol teams may create the listing and (where applicable) progress check-in.</li>
-              <li>You typically receive confirmation via in-app message and/or your configured notification channel.</li>
-              <li>If you do not receive confirmation close to departure, use the official telephone option (below).</li>
+              <li>KLM Backoffice will create the listing and (where possible) also complete check-in.</li>
+              <li>You will typically receive confirmation via in-app message and / or your configured notification channel.</li>
+              <li>If you do not receive confirmation close to departure, use the official telephone option (see below).</li>
             </ul>
           </>
         ),
@@ -327,13 +330,13 @@ export default function Faq() {
         q: "KLM Listing line (AMS) — what number do I call?",
         a: (
           <>
-            Legacy number:
+            KLM XCM/XFA listing number:
             <br />
             <br />
             <strong>+31 (0)20 649 4090</strong>
             <br />
             <br />
-            Legacy note: Option #2 (Boarding) was the correct option for XCM/XFA matters. (Confirm current options.)
+            Note: Option #2 (Boarding) is the correct option for XCM/XFA matters.
           </>
         ),
         keywords: ["telephone", "listing line", "number", "4090"],
@@ -384,8 +387,8 @@ export default function Faq() {
             Legacy rules (confirm current behaviour):
             <ul style={{ margin: "8px 0 0 18px" }}>
               <li>Outstations may not require stored passport details (passport swipe at airport still needed).</li>
-              <li>For AMS, passport details historically were required for the app-based listing/check-in path.</li>
-              <li>Passport data should be encrypted at rest and only transmitted when needed.</li>
+              <li>For AMS, passport details are required for the app-based listing / check-in path.</li>
+              <li>Passport data is encrypted at rest and only transmitted when needed.</li>
             </ul>
           </>
         ),
@@ -435,10 +438,9 @@ export default function Faq() {
         q: "Why is the countdown missing sometimes?",
         a: (
           <>
-            Countdown uses canonical UTC truth:
+            Countdown uses UTC time and is phase dependent:
             <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>If STD UTC data is missing/invalid → we do no guessing → countdown stays hidden.</li>
-              <li>Countdown only shows closer to departure (phases near STD).</li>
+              <li>Countdown only shows closer to departure (3 hours before STD).</li>
             </ul>
           </>
         ),
@@ -475,7 +477,7 @@ export default function Faq() {
             Primary: <strong>admin@xcmxfa.com</strong>
             <br />
             <br />
-            Legacy secondary contact existed historically — keep or remove based on your current preference.
+            Secondary: olu.ayoola@klm.com
           </>
         ),
         keywords: ["contact", "admin"],
@@ -668,14 +670,14 @@ export default function Faq() {
               ))}
             </div>
 
-            <div style={{ marginTop: 14, fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)" }}>
+            <div style={{ marginTop: 14, fontWeight: 800, fontSize: 14, color: "rgba(19,35,51,0.55)" }}>
               Note: Some content is “best-effort” and may lag policy changes. For time-critical items, validate via official channels.
             </div>
           </div>
         </section>
 
         {/* Support CTA */}
-        <section className="card" style={{ padding: 14, marginTop: 12 }}>
+        <section className="card" style={{ padding: 14, marginTop: 12, fontSize:14 }}>
           <div style={{ fontWeight: 950, color: "#132333" }}>Need help?</div>
           <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.65)" }}>
             Email <strong>admin@xcmxfa.com</strong> with a short description and screenshots.

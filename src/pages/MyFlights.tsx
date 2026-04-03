@@ -39,7 +39,7 @@ function fmtRequestedOn(utcLike: unknown) {
   if (!utcLike) return "";
   const d = new Date(String(utcLike));
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 /**
@@ -61,6 +61,18 @@ function listingIconSrcFromStatus(s: "" | "pending" | "sent" | "booked") {
   if (s === "sent") return LISTING_STATUS_ICONS.sent;
   if (s === "booked") return LISTING_STATUS_ICONS.booked;
   return null;
+}
+
+function shouldShowUnlistButton(flight: CardVM) {
+  const raw = flight?.row0?.std_utc;
+  if (!raw) return false;
+
+  const d = new Date(String(raw));
+  if (Number.isNaN(d.getTime())) return false;
+
+  const msToDeparture = d.getTime() - Date.now();
+
+  return msToDeparture > 60 * 60 * 1000;
 }
 
 /* ----------------------------- types ----------------------------- */
@@ -376,8 +388,35 @@ export default function MyFlights() {
         .map((id) => toCardVMFromMyFlightsRows(grouped[id], String(staffNo)))
         .filter(Boolean) as CardVM[];
 
-      setApiFlights(cards);
-      return cards;
+      const sortedCards = cards.slice().sort((a, b) => {
+        const aMs = Date.parse(String(a?.row0?.std_utc || ""));
+        const bMs = Date.parse(String(b?.row0?.std_utc || ""));
+
+        const aValid = Number.isFinite(aMs);
+        const bValid = Number.isFinite(bMs);
+
+        // invalid UTC goes to bottom
+        if (!aValid && !bValid) return 0;
+        if (!aValid) return 1;
+        if (!bValid) return -1;
+
+        const nowMs = Date.now();
+        const aFuture = aMs >= nowMs;
+        const bFuture = bMs >= nowMs;
+
+        // upcoming first, past after
+        if (aFuture && !bFuture) return -1;
+        if (!aFuture && bFuture) return 1;
+
+        // both upcoming -> soonest first
+        if (aFuture && bFuture) return aMs - bMs;
+
+        // both past -> most recent first
+        return bMs - aMs;
+      });
+
+      setApiFlights(sortedCards);
+      return sortedCards;
     } catch (e: any) {
       setErrorText(e?.message || "Failed to load your flights");
       setApiFlights([]);
@@ -409,6 +448,7 @@ export default function MyFlights() {
 
   const onPressListToggle = async (flight: CardVM) => {
     const flightId = String(flight?.flightInstanceId || "").trim();
+    if (!shouldShowUnlistButton(flight)) return;
     if (!flightId) {
       setErrorText("Missing flight instance id. Please refresh.");
       return;
@@ -524,18 +564,10 @@ export default function MyFlights() {
 
             const footerRight = (() => {
               const posRaw =
-                flight.row0?.listPos !== undefined && flight.row0?.listPos !== null
-                  ? String(flight.row0.listPos).trim()
-                  : flight.row0?.list_position !== undefined && flight.row0?.list_position !== null
-                  ? String(flight.row0.list_position).trim()
-                  : "";
+                flight.listPos !== undefined && flight.listPos !== null ? String(flight.listPos).trim() : "";
 
               const totalRaw =
-                flight.row0?.listTotal !== undefined && flight.row0?.listTotal !== null
-                  ? String(flight.row0.listTotal).trim()
-                  : flight.row0?.list_total !== undefined && flight.row0?.list_total !== null
-                  ? String(flight.row0.list_total).trim()
-                  : "";
+                flight.listTotal !== undefined && flight.listTotal !== null ? String(flight.listTotal).trim() : "";
 
               let listPosDisplay = "";
               if (posRaw) {
@@ -564,7 +596,7 @@ export default function MyFlights() {
               <div key={flight.id} className="myFlights-card">
                 <FlightCard3x3
                   flight={flight.row0}
-                  headerLeftLabel={flight.isFuture ? "Upcoming" : "Past"}
+                  headerLeftLabel={flight.isFuture ? "Upcoming:" : "Past:"}
                   headerDate={flight.depDate}
                   showHeader={true}
                   footerRightContent={footerRight}
@@ -668,20 +700,25 @@ export default function MyFlights() {
                     - Must remain visible when collapsed and expanded
                     - No changes to action logic
                    ================================================================================= */}
-                <div className="myFlights-zoneDivider" />
 
-                <div className="myFlights-actionWrap">
-                  <button
-                    type="button"
-                    onClick={() => onPressListToggle(flight)}
-                    disabled={isActionDisabled(flight)}
-                    className={`myFlights-actionBtn variant-${actionVariantFor(flight)} ${
-                      isActionDisabled(flight) ? "is-disabled" : ""
-                    }`}
-                  >
-                    {actionLabelFor(flight)}
-                  </button>
-                </div>
+                {shouldShowUnlistButton(flight) && (
+                  <>
+                    <div className="myFlights-zoneDivider" />
+
+                    <div className="myFlights-actionWrap">
+                      <button
+                        type="button"
+                        onClick={() => onPressListToggle(flight)}
+                        disabled={isActionDisabled(flight)}
+                        className={`myFlights-actionBtn variant-${actionVariantFor(flight)} ${
+                          isActionDisabled(flight) ? "is-disabled" : ""
+                        }`}
+                      >
+                        {actionLabelFor(flight)}
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 {/* =================================================================================
                     COLLAPSIBLE ZONES CONTINUED (below action button)

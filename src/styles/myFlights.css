@@ -74,21 +74,21 @@
 
 .myFlights-menuIcon {
   display: block;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
 }
 
 .myFlights-card {
   background: #fff;
   border-radius: 16px;
-  padding: 16px;
-  margin: 14px 0;
+  padding: 14px;
+  margin: 12px 0;
   border: 2px solid #d9e2ee;
 }
 
 .myFlights-zoneDivider {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 2px solid #eef2f7;
 }
 
@@ -167,7 +167,7 @@
 }
 
 .myFlights-actionWrap {
-  padding-top: 2px;
+  padding-top: 0px;
   display: flex;
   justify-content: center;
 }
@@ -175,7 +175,7 @@
 .myFlights-actionBtn {
   width: 60%;
   border-radius: 14px;
-  padding: 12px 0;
+  padding: 10px 0;
   text-align: center;
   font-weight: 900;
   font-size: 14px;
@@ -234,7 +234,7 @@
 .myFlights-footerRightRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-around;
   width: 100%;
   gap: 10px;
 }

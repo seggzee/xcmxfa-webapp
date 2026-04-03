@@ -229,8 +229,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: space-around;
+  gap: 10px;
 }
 
 .homeNextFlightListPos {
@@ -290,6 +290,7 @@
   flex: 1;
   border-radius: 14px;
   padding: 12px;
+  font-size: 14px;
   font-weight: 900;
   cursor: pointer;
   border: 1px solid #d9e2ee;
@@ -299,7 +300,7 @@
 
 .modalBtnGhost {
   background: #ffffff;
-}
+ }
 
 .modalBtnPrimary {
   background: #e8f0ff;

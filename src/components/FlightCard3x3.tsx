@@ -41,6 +41,35 @@ function extractTimeHHMM(v: any) {
   return m ? m[0] : "";
 }
 
+
+/**
+ * - helper to determine if arrival day is next day
+ */
+function isArrivalNextDay(stdLocal: any, staLocal: any) {
+  const dep = toNonEmptyString(stdLocal);
+  const arr = toNonEmptyString(staLocal);
+
+  if (!dep || !arr) return false;
+
+  const depDate = new Date(dep);
+  const arrDate = new Date(arr);
+
+  if (Number.isNaN(depDate.getTime()) || Number.isNaN(arrDate.getTime())) return false;
+
+  const depY = depDate.getFullYear();
+  const depM = depDate.getMonth();
+  const depD = depDate.getDate();
+
+  const arrY = arrDate.getFullYear();
+  const arrM = arrDate.getMonth();
+  const arrD = arrDate.getDate();
+
+  return (
+    arrDate.getTime() > depDate.getTime() &&
+    (arrY !== depY || arrM !== depM || arrD !== depD)
+  );
+}
+
 function buildDisplayFlightNo(airline_iata: any, flight_number: any) {
   const a = toNonEmptyString(airline_iata).toUpperCase();
   const n = toNonEmptyString(flight_number);
@@ -209,6 +238,8 @@ export default function FlightCard3x3({
   // RN parity: display TIME ONLY
   const depTimeHHMM = extractTimeHHMM(f.std_local);
   const arrTimeHHMM = extractTimeHHMM(f.sta_local);
+  // check if arrival is next day 
+  const arrIsNextDay = isArrivalNextDay(f.std_local, f.sta_local);
 
   // If we cannot extract any time at all, that’s a real data issue.
   const depTimeDisplay =
@@ -310,7 +341,8 @@ export default function FlightCard3x3({
               <div className="flightCard-arrow" style={{ backgroundColor: statusTextColor }} aria-hidden="true">
                 ↘
               </div>
-              <div className={`flightCard-time ${isCancelled ? "flightCard-timeCancelled" : ""}`}>{String(arrTimeDisplay)} LT</div>
+              <div className={`flightCard-time ${isCancelled ? "flightCard-timeCancelled" : ""}`}>{String(arrTimeDisplay)} LT{arrIsNextDay ? <sup className="flightCard-nextDay">+1</sup> : null}
+			  </div>
             </div>
           </div>
 

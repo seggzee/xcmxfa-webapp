@@ -28,8 +28,8 @@ const SAVE_MEMBER_GENERAL_URL = `${API_BASE_URL}/api/members/member_general.php`
 
 // Keep the list short-but-useful; you can extend later.
 const PHONE_CODES = [
-  { code: "+31", label: "Netherlands (+31)" },
-  { code: "+44", label: "United Kingdom (+44)" },
+  { code: "+31", label: "NL (+31)" },
+  { code: "+44", label: "UK (+44)" },
   { code: "+1", label: "USA/Canada (+1)" },
   { code: "+33", label: "France (+33)" },
   { code: "+49", label: "Germany (+49)" },
@@ -522,8 +522,9 @@ export default function ProfileWizard() {
         <div className="card">
           <div className="profile-section-title">Passport &amp; Travel documents</div>
           <div className="wizard-note">
-            Passport and ESTA details are stored separately. ESTA/residence details are only required
-            for United States and Canada. Please complete passport details from profile page.
+            <p>Passport and ESTA details are stored separately.</p> 
+			<p>ESTA/residence details are required for UK (non British passport holders), USA and Canada.</p>
+			<p>Please complete passport details from profile page.</p>
           </div>
         </div>
 

@@ -440,7 +440,7 @@ export default function Day() {
 
         setBookingsByFlight(by);
       } catch (e: any) {
-        setErrorText(e?.message || "Failed to load crew list");
+        setErrorText(e?.message || "Failed to load commuter list");
         setBookingsByFlight({});
       }
 
@@ -936,7 +936,7 @@ export default function Day() {
 
                   {/* Listing information block removed (per confirmed scope) */}
 
-                  {crew.length > 0 ? (
+                  {userListed && crew.length > 0 ? (
                     <>
                       <div className="day-zoneDivider" />
 
@@ -1215,8 +1215,8 @@ export default function Day() {
 
             <div style={{ marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" }}>
               {confirmMode === "list"
-                ? "You will be added to the crew list. Your position may change."
-                : "You will lose your position in the list."}
+                ? "You will be added to the commuter list in order of priority. Your position may change as other xcm/xfa list on the flight."
+                : "You will lose your place and position in the commuter list."}
             </div>
 
             {confirmErrorText ? <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>{confirmErrorText}</div> : null}
