@@ -1,5 +1,14 @@
-/* src/styles/crewLockers.css */
+/* FILE: src/styles/crewLockers.css */
 
+/*
+  PURPOSE
+  - Crew Lockers page styles
+
+  THIS CHANGE ONLY
+  - Tighten the top chip card while keeping Home-like centered width
+  - Restructure locker cards into action zone + metadata zone
+  - Keep only the classes used by the current JSX
+*/
 
 .crewLockers-page {
   min-height: 100dvh;
@@ -7,6 +16,8 @@
 }
 
 .crewLockers-scroll {
+  max-width: 520px;
+  margin: 0 auto;
   padding: var(--space-4, 16px);
   padding-bottom: 40px;
   padding-top: calc(var(--appheader-height, 0px) + var(--space-2, 8px));
@@ -39,80 +50,74 @@
   color: rgba(19, 35, 51, 0.55);
 }
 
-.crewLockers-backBtn {
-  height: 36px;
-  min-width: 84px;
-  border-radius: 999px;
-  border: 1px solid #d9e2ee;
+/* Top chip card */
+.crewLockers-topCard {
   background: #fff;
-  font-weight: 900;
-  color: var(--ink-900, #132333);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 14px;
-}
-
-/* old Promo card 
-.crewLockers-orderCard {
-  width: 100%;
-  margin: 14px 0 18px;
-  margin: 14px auto 18px auto;
-  border: 2px solid #3f3f46;
   border-radius: 16px;
-  background: #f3f3f3;
-  padding: 0 0 18px;
-  cursor: pointer;
-  position: relative;
-  overflow: visible;
-}
-*/
-
-/* New Promo card */
-  .crewLockers-orderCard {
-    display: flex;
-    width: 60%;
-    margin: 24px auto 24px auto;
-    border: 2px solid #3f3f46;
-    border-radius: 16px;
-    background: #f3f3f3;
-    padding: 0 0 18px;
-    cursor: pointer;
-    position: relative;
-    overflow: visible;
-    flex-wrap: wrap;
-    flex-direction: column;
-    align-content: center;
-    align-items: center;
+  padding: 14px;
+  border: 2px solid #d9e2ee;
+  margin: 12px 0 16px;
 }
 
-
-.crewLockers-orderCardBadge {
-  display: inline-block;
-  position: relative;
-  top: -14px;
-  background: #3f3f46;
-  color: #fff;
-  font-weight: 500;
+.crewLockers-topTitle {
+  font-weight: 900;
   font-size: 16px;
-  line-height: 1;
-  padding: 12px 18px;
-  border-radius: 0;
+  color: #132333;
+  margin-bottom: 10px;
 }
 
-.crewLockers-orderCardBody {
+.crewLockers-topGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.crewLockers-topChip {
+  width: 100%;
+  border-radius: 18px;
+  border: 2px solid #d9e2ee;
+  background: #ffffff;
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.crewLockers-topChipMedia {
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-top: 1px;
+  box-sizing: border-box;
+}
+
+.crewLockers-topChipImg {
+  width: 100%;
+  height: 80%;
+  object-fit: contain;
+  display: block;
+}
+
+.crewLockers-topChipLabel {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 2px;
+  padding-right: 2px;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 18px 4px;
-  margin-top: -2px;
-}
-
-.crewLockers-orderQr {
-  width: min(120px, 48vw);
-  max-width: 220px;
-  height: auto;
-  display: block;
-  background: #fff;
+  min-height: 32px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0;
+  color: rgba(19, 35, 51, 0.75);
+  text-align: center;
+  line-height: 16px;
 }
 
 /* Empty state */
@@ -137,8 +142,8 @@
   max-width: 520px;
 }
 
-/* Cards */
-.crewLockers-card {
+/* Locker card */
+.crewLockers-cardHorizontal {
   background: #fff;
   border-radius: 16px;
   padding: 16px;
@@ -146,108 +151,123 @@
   border: 2px solid #d9e2ee;
 }
 
-.crewLockers-cardTopRow {
+.crewLockers-cardTopZone {
   display: flex;
-  align-items: baseline;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.crewLockers-cardIconWrap {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crewLockers-cardIcon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.crewLockers-cardActionBlock {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.crewLockers-cardActionRow {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 6px;
 }
 
 .crewLockers-cardTitle {
   font-weight: 900;
   font-size: 16px;
+  line-height: 28px;
   color: var(--ink-900, #132333);
 }
 
-.crewLockers-cardMeta {
-  font-weight: 800;
-  font-size: 12px;
-  color: rgba(19, 35, 51, 0.55);
+.crewLockers-openBtn {
+  border-radius: 999px;
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--ink-900, #132333);
+  cursor: pointer;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.14);
   white-space: nowrap;
 }
 
-/* Detail lines */
-.crewLockers-detailLine {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 6px 0;
-  gap: 12px;
+.crewLockers-openBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
-.crewLockers-detailLabel {
-  font-weight: 700;
-  color: rgba(19, 35, 51, 0.55);
-  font-size: 12px;
+.crewLockers-cardEndRow {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 28px;
+  color: rgba(19, 35, 51, 0.72);
 }
 
-.crewLockers-detailValue {
-  font-weight: 900;
-  color: rgba(19, 35, 51, 0.8);
-  font-size: 12px;
-  text-align: right;
-  flex-shrink: 1;
-}
-
-/* Dividers + actions */
 .crewLockers-zoneDivider {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 2px solid #eef2f7;
 }
 
-.crewLockers-actionWrap {
-  padding-top: 2px;
+.crewLockers-cardMetaLine {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
-.crewLockers-actionBtn {
-  width: 60%;
-  border-radius: 14px;
-  padding: 12px 0;
-  text-align: center;
-  font-weight: 900;
-  font-size: 14px;
-  color: var(--ink-900, #132333);
-  cursor: pointer;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  background: rgba(34, 197, 94, 0.14);
-}
-
-.crewLockers-actionBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.crewLockers-removeBtn {
-  width: 60%;
-  border-radius: 14px;
-  padding: 12px 0;
-  text-align: center;
-  font-weight: 900;
-  font-size: 14px;
-  color: #7f1d1d;
-  cursor: pointer;
-  border: 1px solid rgba(220, 38, 38, 0.22);
-  background: rgba(220, 38, 38, 0.08);
-}
-
-.crewLockers-removeBtn--primary {
-  color: #7f1d1d;
-  border-color: rgba(220, 38, 38, 0.25);
-  background: rgba(220, 38, 38, 0.08);
-}
-
-/* Footer note */
-.crewLockers-updated {
-  margin-top: 10px;
-  font-weight: 800;
+.crewLockers-cardMetaItem {
+  font-weight: 700;
   font-size: 12px;
+  line-height: 16px;
+  color: rgba(19, 35, 51, 0.72);
+}
+
+.crewLockers-cardMetaBullet {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 16px;
   color: rgba(19, 35, 51, 0.55);
+}
+
+.crewLockers-updated {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 15px;
+  color: rgba(19, 35, 51, 0.50);
+}
+
+.crewLockers-removeLink {
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 16px;
+  color: #7f1d1d;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
 }
 
 /* Confirm modal */

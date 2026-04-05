@@ -8,7 +8,7 @@
   border: var(--border-2) solid var(--border-card);
   background: var(--bg-card);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
+  font-weight: 700;
   color: var(--text-primary);
   outline: none;
 }

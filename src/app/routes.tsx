@@ -68,6 +68,10 @@ import CrewLockers from "../pages/CrewLockers";
 import Faq from "../pages/Faq";
 import Donate from "../pages/Donate";
 import DonateReturn from "../pages/DonateReturn";
+import ForgotPassword from "../pages/ForgotPassword";
+import ResetPassword from "../pages/ResetPassword";
+import Legal from "../pages/Legal";
+import Contact from "../pages/Contact";
 
 /**
  * Idiot-guide:
@@ -441,18 +445,25 @@ export default function AppRoutes() {
         // - when unread_count hits 0, bell disappears
         hasAnyMessages={Number(messageSummary.unread_count || 0) > 0}
 
+		onForgotPassword={() => {
+          nav("/forgot-password");
+        }}		
+		
         onLogout={() => {
           // Web: local reset (server logout can be added later if/when you have it)
           resetToGuestState();
           nav("/home", { replace: true });
         }}
+		
         onCancelLogin={() => {
           // RN parity: return to loginReturnTo (or /home)
           nav(loginReturnTo || "/home", { replace: true });
         }}
+		
         onCreateAccount={() => {
           nav("/register");
         }}
+		
         onLoginSubmit={async ({ username, password, rememberDevice }) => {
           // === COPIED LOGIC FROM pages/Login.tsx onSubmit() (phase 1 + phase 2) ===
 
@@ -655,6 +666,8 @@ export default function AppRoutes() {
         {/* Guest / entry */}
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/login" element={<Navigate to="/home?login=1" replace />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />		
         {/* /login still exists, but it no longer renders a page. */}
         <Route path="/debug" element={<Debug />} />
 
@@ -670,6 +683,8 @@ export default function AppRoutes() {
         <Route path="/faq" element={<Faq />} />
         <Route path="/donate" element={<Donate />} />
         <Route path="/donate-return" element={<DonateReturn />} />
+		<Route path="/legal" element={<Legal />} />
+        <Route path="/contact" element={<Contact />} />
 
         <Route
           path="/week"

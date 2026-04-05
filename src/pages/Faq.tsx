@@ -1,7 +1,7 @@
-// src/pages/Faq.tsx
+// FILE: src/pages/Faq.tsx
 //
 // =====================================================================================
-// FAQ / Info — legacy content modernised (best effort, editable)
+// FAQ / Info — grouped card navigation + accordion content
 // Week-style sticky header junction (bleed-safe)
 // =====================================================================================
 //
@@ -9,36 +9,45 @@
 // - This page is intentionally "dumb": no API calls, no auth requirements.
 // - Uses the SAME sticky header junction pattern as Week (week-sticky + app-container + header card).
 // - Back control uses the standard BackButton component.
+// - Search sits at the top.
+// - Group navigation uses a fixed 2 x 5 mini-card grid.
+// - Accordion defaults to "All" and narrows when a group card is selected.
 //
-// Notes:
+// NOTES:
 // - DIY scans come from assets: DIY_LISTING_SCANS.xcmxfa1..xcmxfa5
-// - Search only matches question text + keywords + topic label (we don't stringify ReactNode bodies).
+// - Search only matches question text + keywords + group label.
 // =====================================================================================
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { DIY_LISTING_SCANS } from "../assets";
+import { DIY_LISTING_SCANS, UI_ICONS } from "../assets";
 import BackButton from "../components/BackButton";
 
-type Topic =
-  | "intro"
+type Group =
+  | "all"
   | "flights"
-  | "listing"
-  | "passport"
-  | "outstations"
-  | "notifications"
   | "lockers"
+  | "listing"
   | "account"
-  | "legal"
-  | "troubleshooting";
+  | "passport"
+  | "notifications"
+  | "privacy"
+  | "amsterdam"
+  | "outstations";
 
 type FaqItem = {
   id: string;
-  topic: Topic;
+  group: Exclude<Group, "all">;
   q: string;
   a: React.ReactNode;
   keywords?: string[];
+};
+
+type GroupCardDef = {
+  key: Group;
+  label: string;
+  iconSrc: string;
 };
 
 function normalizeText(v: any) {
@@ -48,58 +57,130 @@ function normalizeText(v: any) {
     .trim();
 }
 
-function topicLabel(t: Topic) {
-  switch (t) {
-    case "intro":
-      return "Intro";
+function groupLabel(g: Group) {
+  switch (g) {
+    case "all":
+      return "All";
     case "flights":
       return "Flights";
-    case "listing":
-      return "Listing & acceptance";
-    case "passport":
-      return "Passport";
-    case "outstations":
-      return "Outstations";
-    case "notifications":
-      return "Notifications";
     case "lockers":
       return "Lockers";
+    case "listing":
+      return "Listing";
     case "account":
       return "Account";
-    case "legal":
-      return "Legal";
-    case "troubleshooting":
-      return "Troubleshooting";
+    case "passport":
+      return "Passport";
+    case "notifications":
+      return "Notifications";
+    case "privacy":
+      return "Privacy";
+    case "amsterdam":
+      return "Amsterdam";
+    case "outstations":
+      return "Outstations";
     default:
-      return String(t);
+      return String(g);
   }
 }
 
-function Pill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
+function FaqAnswer({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        color: "rgba(19,35,51,0.72)",
+        fontSize: 14,
+        fontWeight: 500,
+        lineHeight: 1.45,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function GroupCard(props: {
+  iconSrc: string;
+  title: string;
+  count: number;
   active: boolean;
   onClick: () => void;
 }) {
+  const { iconSrc, title, count, active, onClick } = props;
+
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
-        padding: "8px 12px",
-        borderRadius: 999,
-        fontWeight: 900,
-        border: active ? "2px solid rgba(19,35,51,0.22)" : "2px solid rgba(19,35,51,0.10)",
-        background: active ? "rgba(19,35,51,0.06)" : "#fff",
-        color: "#132333",
+        width: "100%",
+        minHeight: 76,
+        padding: 12,
+        borderRadius: 14,
+        border: active ? "1px solid rgba(19,35,51,0.18)" : "1px solid rgba(19,35,51,0.10)",
+        background: active ? "rgba(19,35,51,0.04)" : "#fff",
+        textAlign: "left",
         cursor: "pointer",
-        whiteSpace: "nowrap",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+		boxSizing: "border-box",
+		minWidth: 0,
       }}
     >
-      {label}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        <img
+          src={iconSrc}
+          alt=""
+          style={{
+            width: 34,
+            height: 34,
+            objectFit: "contain",
+            display: "block",
+            flex: "0 0 auto",
+          }}
+        />
+
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 14,
+            lineHeight: 1.2,
+            color: "#2f80ed",
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
+        </div>
+      </div>
+
+      <div
+        style={{
+          flex: "0 0 auto",
+          fontWeight: 700,
+          fontSize: 13,
+          lineHeight: 1,
+          color: "rgba(19,35,51,0.55)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        ({count})
+      </div>
     </button>
   );
 }
@@ -140,21 +221,23 @@ function FaqRow({
         aria-expanded={open}
         aria-controls={`faq-${item.id}`}
       >
-        <div style={{ fontSize: 14, fontWeight: 950, color: "#132333", lineHeight: 1.25 }}>{item.q}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#2f80ed", lineHeight: 1.3 }}>
+          {item.q}
+        </div>
 
         <div
           aria-hidden="true"
           style={{
-            width: 30,
-            height: 30,
+            width: 26,
+            height: 26,
             borderRadius: 999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: "2px solid rgba(19,35,51,0.12)",
-			fontSize: 14,			
-            fontWeight: 950,
-            color: "rgba(19,35,51,0.65)",
+            border: "1px solid rgba(19,35,51,0.12)",
+            fontSize: 14,
+            fontWeight: 700,
+            color: "rgba(19,35,51,0.55)",
             flex: "0 0 auto",
           }}
         >
@@ -169,10 +252,6 @@ function FaqRow({
             marginTop: 10,
             paddingTop: 10,
             borderTop: "1px solid rgba(19,35,51,0.10)",
-            color: "rgba(19,35,51,0.86)",
-			fontSize: 14,
-            fontWeight: 750,
-            lineHeight: 1.25,
           }}
         >
           {item.a}
@@ -184,227 +263,212 @@ function FaqRow({
 
 export default function Faq() {
   const nav = useNavigate();
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const items: FaqItem[] = useMemo(
     () => [
-      // INTRO
       {
         id: "unofficial",
-        topic: "intro",
+        group: "privacy",
         q: "Is this an official KLM app?",
         a: (
-          <>
-            No. This is a privately developed app used by kind agreement of some outstations to help
-            them plan for XCM/XFA travel and reduce day-of-travel friction.
-            <br />
-            <br />
-            There is NO direct link from this app to airline booking systems or KLM IT infrastructure.
-          </>
+          <FaqAnswer>
+            <p>
+              No. This is a privately developed app used by kind agreement of some outstations
+              to help them plan for XCM/XFA travel and reduce day-of-travel friction.
+            </p>
+            <p>
+              There is no direct link from this app to airline booking systems or KLM IT
+              infrastructure.
+            </p>
+          </FaqAnswer>
         ),
         keywords: ["official", "klm", "unofficial", "private", "independent"],
       },
       {
         id: "voluntary",
-        topic: "intro",
+        group: "privacy",
         q: "Do I have to use the app for XCM/XFA flights?",
         a: (
-          <>
-            No — use of this app is totally voluntary.
-            <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>All previous listing methods (e.g. telephone listing) remain available in parallel.</li>
-              <li>Using the app may involve storing / transmitting personal info (depending on what you choose to provide).</li>
-              <li>If you have privacy concerns, please use the traditional methods.</li>
+          <FaqAnswer>
+            <p>No. Use of this app is totally voluntary.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>All previous listing methods, including telephone listing, remain available in parallel.</li>
+              <li>
+                Using the app may involve storing or transmitting personal information, depending on what you
+                choose to provide.
+              </li>
+              <li>If you have privacy concerns, use the traditional methods instead.</li>
             </ul>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["voluntary", "optional", "do i have to"],
       },
-
-      // ACCOUNT
       {
         id: "register",
-        topic: "account",
+        group: "account",
         q: "Do I need to register to use the app?",
         a: (
-          <>
-            You can browse general flight information without being a verified member.
-            <br />
-            <br />
-            For security reasons, member-only features (e.g. seeing flight commuter lists / requesting listings / personal features)
-            require sign-in and verification.
-          </>
+          <FaqAnswer>
+            <p>You can browse general flight information without being a verified member.</p>
+            <p>
+              For security reasons, member-only features such as seeing commuter lists, requesting listings,
+              and using personal features require sign-in and verification.
+            </p>
+          </FaqAnswer>
         ),
         keywords: ["register", "sign in", "member", "guest"],
       },
-
-      // NOTIFICATIONS
       {
         id: "notifications",
-        topic: "notifications",
-        q: "Notifications: email, push, SMS — what’s the situation?",
+        group: "notifications",
+        q: "Notifications: email and push — what’s the situation?",
         a: (
-          <>
-            We use a variety of notification methods:
-            <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>SMS will only be used for urgent private messaging.</li>
-              <li>Push notifications and in-app messages are preferred.</li>
-              <li>In-app messages remain the “always available” channel.</li>
+          <FaqAnswer>
+            <p>We use more than one notification method, but in-app messages remain the most reliable channel.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Push notifications are preferred when enabled on your device.</li>
+              <li>Email may be used where appropriate.</li>
+              <li>In-app messages remain the always-available fallback.</li>
             </ul>
-            Tip: if you rely on notifications, please ensure your chosen notification method is enabled in the app.
-          </>
+            <p>
+              If you rely on notifications, make sure your chosen method is enabled in the app and in your
+              browser or device settings.
+            </p>
+          </FaqAnswer>
         ),
-        keywords: ["push", "sms", "email", "notifications", "ios", "android"],
+        keywords: ["push", "email", "notifications", "ios", "android"],
       },
-
-      // LOCKERS
       {
         id: "locker-setup",
-        topic: "lockers",
+        group: "lockers",
         q: "Crew Lockers — how do I link my locker?",
         a: (
-          <>
-            Legacy flow (best-effort; update to your new “auto-link” flow when ready):
-            <ol style={{ margin: "8px 0 0 18px" }}>
-              <li>Home → My Crew Locker → Locker settings: ensure your email is correct (or submit it).</li>
-              <li>Find your locker email (Keynius) or a locker-sharing email from a colleague and follow the linking instructions.</li>
-              <li>If the app offers “find my locker”, use it after linking to display your locker(s).</li>
+          <FaqAnswer>
+            <p>Legacy flow, best effort:</p>
+            <ol style={{ margin: "0 0 0 18px" }}>
+              <li>Home → My Crew Locker → Locker settings. Check that your email is correct, or submit it if needed.</li>
+              <li>
+                Find your locker email from Keynius, or use a locker-sharing email from a colleague, then follow
+                the linking instructions.
+              </li>
+              <li>If the app offers “find my locker”, use it after linking to display your locker or lockers.</li>
               <li>Use the keys icon to open the locker management screen.</li>
             </ol>
-            If something looks stuck, capture screenshots and contact admin (see “Contact / Support”).
-          </>
+            <p>If something looks stuck, capture screenshots and contact admin.</p>
+          </FaqAnswer>
         ),
         keywords: ["locker", "crew locker", "keynius", "link", "share"],
       },
-
-      // FLIGHTS
       {
         id: "search-flights",
-        topic: "flights",
+        group: "flights",
         q: "How do I search for flights?",
         a: (
-          <>
-            From Home, pick an airport (favourite). You’ll see a week-style overview showing arrivals and departures.
-            Select a date and direction to open the flight list for that day.
-          </>
+          <FaqAnswer>
+            <p>From Home, pick an airport favourite. You’ll then see a week-style overview showing arrivals and departures.</p>
+            <p>Select a date and direction to open the flight list for that day.</p>
+          </FaqAnswer>
         ),
         keywords: ["search", "week", "airport", "arrivals", "departures"],
       },
-
-      // LISTING
       {
         id: "cutoff",
-        topic: "listing",
+        group: "listing",
         q: "Is there a cut-off time for requesting a listing?",
         a: (
-          <>
-            Yes.There are different cutoff times for flights from Amsterdam and Outstations:
-            <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>Flights ex AMS: cut-off ~ 18:00 NL time day before departure.</li>
-              <li>Outstations (Europe and Far East): cut-off ~ 18:30 NL time day before flight date.</li>
-              <li>Outstations (USA, Canada and South America): cut-off ~ 22:00 NL time day before flight date.</li>			  
-              <li>Warning: Requests after cut-off may still display in-app but will not be transmitted.</li>
+          <FaqAnswer>
+            <p>Yes. Different departure regions have different cut-off times.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Flights ex AMS: around 18:00 NL time on the day before departure.</li>
+              <li>Outstations in Europe and Far East: around 18:30 NL time on the day before the flight date.</li>
+              <li>Outstations in USA, Canada and South America: around 22:00 NL time on the day before the flight date.</li>
+              <li>Requests after cut-off may still appear in the app but will not be transmitted.</li>
             </ul>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["cutoff", "deadline", "18:00", "22:00", "6pm", "10pm"],
       },
       {
         id: "ams-process",
-        topic: "listing",
+        group: "amsterdam",
         q: "Departing Amsterdam: what happens when I list via the app?",
         a: (
-          <>
-            Legacy model:
-            <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>KLM Backoffice will create the listing and (where possible) also complete check-in.</li>
-              <li>You will typically receive confirmation via in-app message and / or your configured notification channel.</li>
-              <li>If you do not receive confirmation close to departure, use the official telephone option (see below).</li>
+          <FaqAnswer>
+            <p>Legacy model:</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>KLM Backoffice creates the listing and, where possible, also completes check-in.</li>
+              <li>You will usually receive confirmation by in-app message and or your configured notification channel.</li>
+              <li>If you do not receive confirmation close to departure, use the official telephone option.</li>
             </ul>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["ams", "schiphol", "back office", "process"],
       },
       {
         id: "listing-line",
-        topic: "listing",
+        group: "amsterdam",
         q: "KLM Listing line (AMS) — what number do I call?",
         a: (
-          <>
-            KLM XCM/XFA listing number:
-            <br />
-            <br />
-            <strong>+31 (0)20 649 4090</strong>
-            <br />
-            <br />
-            Note: Option #2 (Boarding) is the correct option for XCM/XFA matters.
-          </>
+          <FaqAnswer>
+            <p>KLM XCM/XFA listing number:</p>
+            <p>+31 (0)20 649 4090</p>
+            <p>Option 2, Boarding, is the correct option for XCM/XFA matters.</p>
+          </FaqAnswer>
         ),
         keywords: ["telephone", "listing line", "number", "4090"],
       },
-
-      // OUTSTATIONS
       {
         id: "outstations",
-        topic: "outstations",
+        group: "outstations",
         q: "Does the app work for all outstations?",
         a: (
-          <>
-            No. Coverage is variable.
-            <br />
-            <br />
-            Legacy explanation: some outstations act on the daily request and some do not, because the app is not an
-            “official” KLM system. Treat it as helpful — not guaranteed — outside AMS.
-          </>
+          <FaqAnswer>
+            <p>No. Coverage is variable.</p>
+            <p>
+              Some outstations act on the daily request and some do not, because the app is not an official KLM
+              system. Treat it as helpful, not guaranteed, outside AMS.
+            </p>
+          </FaqAnswer>
         ),
         keywords: ["outstations", "coverage", "works everywhere", "not all airports"],
       },
       {
         id: "outstations-desk",
-        topic: "outstations",
+        group: "outstations",
         q: "Departing outstations: what should I do at the check-in desk?",
         a: (
-          <>
-            First ask the agent to check if a listing exists. If they can’t find you, it usually means a listing/check-in
-            must be created.
-            <br />
-            <br />
-            If the agent is unfamiliar, use the “DIY Listing” guidance (below) to help them create it quickly.
-          </>
+          <FaqAnswer>
+            <p>First ask the agent to check whether a listing already exists.</p>
+            <p>If they can’t find you, it usually means a listing or check-in must still be created.</p>
+            <p>If the agent is unfamiliar, use the DIY Listing guidance below to help them create it quickly.</p>
+          </FaqAnswer>
         ),
         keywords: ["check in agent", "cant find", "outstation"],
       },
-
-      // PASSPORT
       {
         id: "passport-needed",
-        topic: "passport",
+        group: "passport",
         q: "Do I have to store passport details in the app?",
         a: (
-          <>
-            It’s voluntary and at your own risk.
-            <br />
-            <br />
-            Legacy rules (confirm current behaviour):
-            <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>Outstations may not require stored passport details (passport swipe at airport still needed).</li>
-              <li>For AMS, passport details are required for the app-based listing / check-in path.</li>
+          <FaqAnswer>
+            <p>It is voluntary and at your own risk.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Outstations may not require stored passport details, although passport swipe at the airport may still be needed.</li>
+              <li>For AMS, passport details are required for the app-based listing and check-in path.</li>
               <li>Passport data is encrypted at rest and only transmitted when needed.</li>
             </ul>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["passport", "personal data", "required", "ams"],
       },
-
-      // DIY
       {
         id: "diy",
-        topic: "troubleshooting",
+        group: "listing",
         q: "DIY XCM/XFA listing — agent doesn’t know the process",
         a: (
-          <>
-            If a check-in agent is new/unsure, the quickest solution is to show them the step cards below.
-            <br />
-            <br />
+          <FaqAnswer>
+            <p>If a check-in agent is new or unsure, the quickest solution is to show them the step cards below.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 DIY_LISTING_SCANS.xcmxfa1,
@@ -426,87 +490,78 @@ export default function Faq() {
                 />
               ))}
             </div>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["diy", "agent", "steps", "instructions", "english", "french"],
       },
-
-      // TROUBLESHOOTING
       {
         id: "no-countdown",
-        topic: "troubleshooting",
+        group: "flights",
         q: "Why is the countdown missing sometimes?",
         a: (
-          <>
-            Countdown uses UTC time and is phase dependent:
-            <ul style={{ margin: "8px 0 0 18px" }}>
-              <li>Countdown only shows closer to departure (3 hours before STD).</li>
+          <FaqAnswer>
+            <p>Countdown uses UTC time and is phase dependent.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Countdown only shows closer to departure, generally within three hours before STD.</li>
             </ul>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["countdown", "missing", "timer", "std_utc"],
       },
-
-      // CONTACT
       {
         id: "bug-report",
-        topic: "troubleshooting",
+        group: "account",
         q: "Give feedback / report a bug",
         a: (
-          <>
-            Send an email to <strong>admin@xcmxfa.com</strong>.
-            <br />
-            <br />
-            Please include:
-            <ul style={{ margin: "8px 0 0 18px" }}>
+          <FaqAnswer>
+            <p>Send an email to admin@xcmxfa.com.</p>
+            <p>Please include:</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
               <li>What you tried to do</li>
               <li>What you expected</li>
               <li>What happened instead</li>
-              <li>Screenshots (very helpful)</li>
+              <li>Screenshots, which are very helpful</li>
             </ul>
-          </>
+          </FaqAnswer>
         ),
         keywords: ["bug", "feedback", "admin", "support"],
       },
       {
         id: "contact-admin",
-        topic: "account",
+        group: "account",
         q: "Contact app admin",
         a: (
-          <>
-            Primary: <strong>admin@xcmxfa.com</strong>
-            <br />
-            <br />
-            Secondary: olu.ayoola@klm.com
-          </>
+          <FaqAnswer>
+            <p>Primary: admin@xcmxfa.com</p>
+            <p>Secondary: olu.ayoola@klm.com</p>
+          </FaqAnswer>
         ),
         keywords: ["contact", "admin"],
       },
-
-      // LEGAL
       {
         id: "privacy",
-        topic: "legal",
+        group: "privacy",
         q: "Privacy / cookies / GDPR",
         a: (
-          <>
-            Privacy and cookie information exists to explain what data is stored, why, and how it’s protected.
-            <br />
-            <br />
-            Next improvement (future): add direct in-app links to your Privacy and Cookie pages/PDF.
-          </>
+          <FaqAnswer>
+            <p>Privacy and cookie information explains what data is stored, why it is stored, and how it is protected.</p>
+            <p>A later improvement can add direct in-app links to your Privacy and Cookie pages or PDF.</p>
+          </FaqAnswer>
         ),
         keywords: ["privacy", "cookie", "gdpr"],
       },
       {
         id: "disclaimer",
-        topic: "legal",
+        group: "privacy",
         q: "Disclaimer",
         a: (
-          <>
-            Information is provided in good faith for general purposes. Operational reality can vary by airport,
-            staff, and systems. Use at your own risk and validate time-critical information via official channels.
-          </>
+          <FaqAnswer>
+            <p>Information is provided in good faith for general purposes.</p>
+            <p>
+              Operational reality can vary by airport, staff and systems. Use at your own risk and validate
+              time-critical information via official channels.
+            </p>
+          </FaqAnswer>
         ),
         keywords: ["disclaimer", "liability"],
       },
@@ -514,60 +569,90 @@ export default function Faq() {
     []
   );
 
-  const topics: Topic[] = useMemo(
+  const groupCards: GroupCardDef[] = useMemo(
     () => [
-      "intro",
-      "account",
-      "flights",
-      "listing",
-      "outstations",
-      "passport",
-      "notifications",
-      "lockers",
-      "troubleshooting",
-      "legal",
+      { key: "all", label: "All", iconSrc: UI_ICONS.faq },
+      { key: "flights", label: "Flights", iconSrc: UI_ICONS.departures },
+      { key: "lockers", label: "Lockers", iconSrc: UI_ICONS.locker },
+      { key: "listing", label: "Listing", iconSrc: UI_ICONS.calendar },
+      { key: "account", label: "Account", iconSrc: UI_ICONS.avatar },
+      { key: "passport", label: "Passport", iconSrc: UI_ICONS.locked },
+      { key: "notifications", label: "Notifications", iconSrc: UI_ICONS.message },
+      { key: "privacy", label: "Privacy", iconSrc: UI_ICONS.locked },
+      { key: "amsterdam", label: "Amsterdam", iconSrc: UI_ICONS.arrivals },
+      { key: "outstations", label: "Outstations", iconSrc: UI_ICONS.departures },
     ],
     []
   );
 
   const [query, setQuery] = useState("");
-  const [activeTopic, setActiveTopic] = useState<Topic | "all">("all");
+  const [activeGroup, setActiveGroup] = useState<Group>("all");
   const [openId, setOpenId] = useState<string | null>(null);
+
+  const counts = useMemo(() => {
+    const out: Record<Group, number> = {
+      all: items.length,
+      flights: 0,
+      lockers: 0,
+      listing: 0,
+      account: 0,
+      passport: 0,
+      notifications: 0,
+      privacy: 0,
+      amsterdam: 0,
+      outstations: 0,
+    };
+
+    items.forEach((it) => {
+      out[it.group] += 1;
+    });
+
+    return out;
+  }, [items]);
 
   const filtered = useMemo(() => {
     const q = normalizeText(query);
 
     return items.filter((it) => {
-      if (activeTopic !== "all" && it.topic !== activeTopic) return false;
+      if (activeGroup !== "all" && it.group !== activeGroup) return false;
       if (!q) return true;
 
-      const hay = [it.q, ...(it.keywords || []), topicLabel(it.topic)]
+      const hay = [it.q, ...(it.keywords || []), groupLabel(it.group)]
         .map(normalizeText)
         .join(" | ");
 
       return hay.includes(q);
     });
-  }, [items, query, activeTopic]);
+  }, [items, query, activeGroup]);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeGroup]);
+
+  useEffect(() => {
+    if (!openId) return;
+    const stillVisible = filtered.some((it) => it.id === openId);
+    if (!stillVisible) setOpenId(null);
+  }, [filtered, openId]);
+
+ 
 
   return (
     <div className="app-screen">
-      {/* ✅ Week-style sticky junction wrapper */}
       <div className="week-sticky">
         <div className="app-container">
-          {/* ✅ Reuse the exact Week header card class so we inherit the same bleed fix */}
           <section className="week-headerCard">
-            {/* Match Week top row layout */}
             <div className="week-headerTopRow">
               <div className="week-headerLeft">
-                {/* FAQ has no airport logo; keep spacing identical */}
-                <div
-                  aria-hidden="true"
+                <img
+                  src={UI_ICONS.faq}
+                  alt="FAQ"
                   style={{
                     width: 52,
                     height: 52,
+                    objectFit: "contain",
                     borderRadius: 14,
-                    background: "rgba(19,35,51,0.06)",
-                    border: "1px solid rgba(19,35,51,0.08)",
                   }}
                 />
               </div>
@@ -575,23 +660,16 @@ export default function Faq() {
               <div className="week-headerCode">FAQ</div>
 
               <div className="week-headerRight">
-                <BackButton
-                  onClick={() => nav(-1)}
-                  ariaLabel="Back"
-                  size={38}
-                />
+                <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
               </div>
             </div>
 
-            {/* Use Week's secondary line slot for a short subtitle */}
             <div className="week-range">Info, rules, and troubleshooting</div>
           </section>
         </div>
       </div>
 
-      {/* Body uses Week’s body container so spacing matches */}
       <div className="app-container week-body" style={{ paddingBottom: 20 }}>
-        {/* Search + topic pills */}
         <section className="card" style={{ padding: 14 }}>
           <input
             value={query}
@@ -599,67 +677,44 @@ export default function Faq() {
             placeholder="Search FAQ… (e.g. passport, cutoff, locker, outstation)"
             style={{
               width: "100%",
-              padding: "12px 12px",
+              padding: "10px 10px",
               borderRadius: 14,
               border: "2px solid rgba(19,35,51,0.10)",
               outline: "none",
-              fontWeight: 800,
+              fontWeight: 600,
+              fontSize: 16,
               color: "#132333",
             }}
           />
+        </section>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Pill label="All" active={activeTopic === "all"} onClick={() => setActiveTopic("all")} />
-            {topics.map((t) => (
-              <Pill
-                key={t}
-                label={topicLabel(t)}
-                active={activeTopic === t}
-                onClick={() => setActiveTopic(t)}
+        <section className="card" style={{ padding: 14, marginTop: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+			  alignItems: "stretch",
+            }}
+          >
+            {groupCards.map((card) => (
+              <GroupCard
+                key={card.key}
+                iconSrc={card.iconSrc}
+                title={card.label}
+                count={counts[card.key]}
+                active={activeGroup === card.key}
+                onClick={() => {
+                  setActiveGroup((prev) => (prev === card.key ? "all" : card.key));
+                }}
               />
             ))}
           </div>
-
-          <div style={{ marginTop: 10, fontWeight: 800, color: "rgba(19,35,51,0.60)" }}>
-            {filtered.length} item{filtered.length === 1 ? "" : "s"}
-          </div>
         </section>
 
-        {/* Quick filters */}
-        <section className="card" style={{ padding: 14, marginTop: 12 }}>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {[
-              { t: "troubleshooting" as const, title: "Troubleshooting", sub: "Common fixes" },
-              { t: "listing" as const, title: "Listing & cutoffs", sub: "AMS vs outstations" },
-              { t: "lockers" as const, title: "Crew Lockers", sub: "Link / share" },
-            ].map((x) => (
-              <button
-                key={x.t}
-                type="button"
-                onClick={() => setActiveTopic(x.t)}
-                style={{
-                  flex: "1 1 160px",
-                  padding: 12,
-                  borderRadius: 14,
-                  border: "1px solid rgba(19,35,51,0.10)",
-                  background: "#fff",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontWeight: 950 }}>{x.title}</div>
-                <div style={{ fontWeight: 800, fontSize: 12, color: "rgba(19,35,51,0.55)", marginTop: 2 }}>
-                  {x.sub}
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* FAQ list */}
-        <section className="card" style={{ marginTop: 12 }}>
+        <section ref={listRef} className="card" style={{ marginTop: 12 }}>
           <div style={{ padding: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filtered.map((it) => (
                 <FaqRow
                   key={it.id}
@@ -669,18 +724,6 @@ export default function Faq() {
                 />
               ))}
             </div>
-
-            <div style={{ marginTop: 14, fontWeight: 800, fontSize: 14, color: "rgba(19,35,51,0.55)" }}>
-              Note: Some content is “best-effort” and may lag policy changes. For time-critical items, validate via official channels.
-            </div>
-          </div>
-        </section>
-
-        {/* Support CTA */}
-        <section className="card" style={{ padding: 14, marginTop: 12, fontSize:14 }}>
-          <div style={{ fontWeight: 950, color: "#132333" }}>Need help?</div>
-          <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.65)" }}>
-            Email <strong>admin@xcmxfa.com</strong> with a short description and screenshots.
           </div>
         </section>
       </div>

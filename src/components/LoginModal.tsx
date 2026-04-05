@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 type Props = {
   open: boolean;
   onClose: () => void;
+  
+  onForgotPassword(): void;
 
   // RN parity handlers
   onSubmit(args: {
@@ -53,6 +55,7 @@ export default function LoginModal({
   open,
   onClose,
   onSubmit,
+  onForgotPassword,
   onCancel,
   onCreateAccount,
 }: Props) {
@@ -79,6 +82,11 @@ export default function LoginModal({
     normalizedUsername.length > 0 && password.trim().length > 0 && !busy;
 
   if (!open) return null;
+  
+  const handleForgotPassword = () => {
+    onClose();
+    onForgotPassword();
+  };
 
   const handleSubmit = async () => {
     setAuthError(null);
@@ -277,8 +285,9 @@ export default function LoginModal({
             marginBottom: 14,
           }}
         >
-          <button
+		  <button
             type="button"
+            onClick={handleForgotPassword}
             disabled={busy}
             style={{
               border: "none",

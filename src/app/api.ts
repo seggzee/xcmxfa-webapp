@@ -34,6 +34,8 @@ export const MEMBERS_STATUS_URL = `${API_BASE_URL}/api/members/status.php`;
 export const AUTH_LOGIN_URL = `${API_BASE_URL}/auth/login/login.php`;
 export const AUTH_REFRESH_URL = `${API_BASE_URL}/auth/login/refresh.php`;
 export const AUTH_LOGOUT_URL = `${API_BASE_URL}/auth/login/logout.php`;
+export const AUTH_PASSWORD_REQUEST_RESET_URL = `${API_BASE_URL}/auth/password/request-reset.php`;
+export const AUTH_PASSWORD_CONFIRM_RESET_URL = `${API_BASE_URL}/auth/password/confirm-reset.php`;
 
 // ===============================
 // Crew Lockers (managed) — V2

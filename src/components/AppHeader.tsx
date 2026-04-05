@@ -1,3 +1,4 @@
+//
 // src/components/AppHeader.tsx
 //
 // =====================================================================================
@@ -21,6 +22,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { APP_IMAGES, UI_ICONS } from "../assets";
 import LoginModal from "./LoginModal";
+import AccountMenuModal from "./AccountMenuModal";
 
 type Props = {
   auth: any;
@@ -45,6 +47,9 @@ type Props = {
 
   onCancelLogin?: () => void;
   onCreateAccount?: () => void;
+
+  // ADDED
+  onForgotPassword?: () => void;
 };
 
 function BellIcon() {
@@ -82,12 +87,10 @@ export default function AppHeader({
   onLoginSubmit,
   onCancelLogin,
   onCreateAccount,
+  onForgotPassword,
 }: Props) {
   const isLoggedIn = auth?.mode === "member";
 
-  // Bell visibility rules:
-  // - bell only when member has at least one current message
-  // - badge only when unread count is > 0
   const showMessageBell = isLoggedIn && hasAnyMessages;
   const showUnreadBadge = isLoggedIn && unreadMessageCount > 0;
 
@@ -99,7 +102,6 @@ export default function AppHeader({
 
   const headerRef = useRef<HTMLElement | null>(null);
 
-  // Keep CSS var --appheader-height synced with rendered header height.
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
@@ -118,9 +120,7 @@ export default function AppHeader({
     try {
       ro = new ResizeObserver(() => apply());
       ro.observe(el);
-    } catch {
-      // silent fallback: window resize listener still handles it
-    }
+    } catch {}
 
     window.addEventListener("resize", apply);
 
@@ -141,9 +141,10 @@ export default function AppHeader({
     setAccountOpen(true);
   };
 
-  const loginHandlersOk = Boolean(onLoginSubmit && onCancelLogin && onCreateAccount);
+  const loginHandlersOk = Boolean(
+    onLoginSubmit && onCancelLogin && onCreateAccount && onForgotPassword
+  );
 
-  // Support /home?login=1 deep-linking to open LoginModal.
   useEffect(() => {
     const params = new URLSearchParams(location.search || "");
     const wantsLogin = params.get("login") === "1";
@@ -152,7 +153,6 @@ export default function AppHeader({
 
     if (!isLoggedIn) setLoginOpen(true);
 
-    // Remove login=1 from URL after consuming it.
     params.delete("login");
     const nextSearch = params.toString();
 
@@ -165,7 +165,6 @@ export default function AppHeader({
   return (
     <>
       <header ref={headerRef} className="appHeader">
-        {/* Left: rectangular logo */}
         <button
           type="button"
           className="appHeader-brand"
@@ -179,11 +178,7 @@ export default function AppHeader({
           />
         </button>
 
-        {/* Right side controls */}
         <div className="appHeader-actions">
-          {/* Message bell slot
-              - hidden entirely when no current messages exist
-              - badge shown only when unread > 0 */}
           <div className="appHeader-msgSlot">
             {showMessageBell && (
               <button
@@ -212,7 +207,6 @@ export default function AppHeader({
             )}
           </div>
 
-          {/* Avatar */}
           <button
             type="button"
             className="appHeader-avatarBtn"
@@ -234,7 +228,6 @@ export default function AppHeader({
         </div>
       </header>
 
-      {/* LOGIN MODAL */}
       {loginOpen && !isLoggedIn && (
         <>
           {!loginHandlersOk ? (
@@ -288,7 +281,8 @@ export default function AppHeader({
                   }}
                 >
                   AppHeader requires <code>onLoginSubmit</code>,{" "}
-                  <code>onCancelLogin</code>, and <code>onCreateAccount</code>.
+                  <code>onCancelLogin</code>, <code>onCreateAccount</code>, and{" "}
+                  <code>onForgotPassword</code>.
                 </div>
 
                 <button
@@ -319,45 +313,29 @@ export default function AppHeader({
               onSubmit={onLoginSubmit!}
               onCancel={onCancelLogin!}
               onCreateAccount={onCreateAccount!}
+              onForgotPassword={onForgotPassword!}
             />
           )}
         </>
       )}
 
-      {/* ACCOUNT SHEET */}
       {accountOpen && isLoggedIn && (
-        <div className="appHeader-overlay" onClick={() => setAccountOpen(false)}>
-          <div className="appHeader-sheet" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="appHeader-sheetBtn"
-              onClick={() => {
-                setAccountOpen(false);
-                onGoProfile?.();
-              }}
-            >
-              <div className="title">My profile</div>
-              <div className="sub">Personal details</div>
-            </button>
-
-            <button
-              className="appHeader-sheetBtn danger"
-              onClick={() => {
-                setAccountOpen(false);
-                onLogout?.();
-              }}
-            >
-              <div className="title">Log out</div>
-              <div className="sub">Switch to guest mode</div>
-            </button>
-
-            <button
-              className="appHeader-sheetCancel"
-              onClick={() => setAccountOpen(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <AccountMenuModal
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          onProfile={() => {
+            if (onGoProfile) onGoProfile();
+          }}
+          onLegal={() => {
+            navigate("/legal");
+          }}
+          onContact={() => {
+            navigate("/contact");
+          }}
+          onLogout={() => {
+            onLogout?.();
+          }}
+        />
       )}
     </>
   );

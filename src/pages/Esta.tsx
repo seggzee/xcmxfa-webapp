@@ -61,6 +61,7 @@ export default function Esta() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [successVisible, setSuccessVisible] = useState(false);
 
   // ✅ RN parity: prefill does NOT depend on unlocked (lock only gates rendering)
   useEffect(() => {
@@ -122,6 +123,7 @@ export default function Esta() {
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
       await postJson(SAVE_MEMBER_ESTA_URL, payload, headers);
+      setSuccessVisible(true);
     } catch (e: any) {
       setError(e?.message || "Save failed.");
     } finally {
@@ -289,6 +291,39 @@ export default function Esta() {
             </button>
           </div>
         )}
+
+        {successVisible ? (
+          <div
+            className="wizard-modalOverlay"
+            onClick={() => {
+              setSuccessVisible(false);
+              nav("/profile");
+            }}
+          >
+            <div className="wizard-modalCard" onClick={(e) => e.stopPropagation()}>
+              <div className="wizard-modalHeader">
+                <div className="wizard-modalTitle">Residence information saved</div>
+              </div>
+
+              <div className="wizard-modalBody">
+                <div className="wizard-empty">Your ESTA / residence details have been updated.</div>
+              </div>
+
+              <div className="wizard-modalFooter">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setSuccessVisible(false);
+                    nav("/profile");
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

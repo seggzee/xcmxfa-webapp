@@ -761,7 +761,7 @@ const firstFlightRows = Array.isArray(rows)
           {isMember ? (
             <div className="card-body">
               {nextFlightState.status === "loading" ? (
-                <div className="mutedLine">Loading next flight…</div>
+                <div className="mutedLineSpecial">Loading next flight…</div>
               ) : nextFlightState.status === "ready" ? (
 			  
 				<div
@@ -834,7 +834,14 @@ const firstFlightRows = Array.isArray(rows)
               ) : nextFlightState.status === "error" ? (
                 <div className="errorLine">My next flight unavailable: {nextFlightState.error.message}</div>
               ) : (
-                <div className="mutedLine">No upcoming flights.</div>
+				<>
+                <div className="mutedLineSpecial">No upcoming flights.</div>
+				
+				<div className="promoSpacer">
+					<GuestPromoCard apiBaseUrl={API_BASE_URL} />
+				</div>
+				</>
+				
               )}
             </div>
           ) : null}
@@ -1080,37 +1087,45 @@ const firstFlightRows = Array.isArray(rows)
         <section className="quickWrap">
 		
          {/*   <div className="quickTitle">Quick actions</div>   */}
+		 
+		 
+	
 
-          {!isMember ? (
-            <>
-              <div className="quickGridRow">
-                <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
-                  <div className="quickTileTitle">Sign up</div>
-                  <div className="quickTileSub">New user registration</div>
-                </button>
+	
+{!isMember ? (
+  <>
+    <div className="quickGridRow">
+      <button type="button" className="quickTile" onClick={() => nav("/legal")}>
+        <div className="quickTileTitle">Legal</div>
+        <div className="quickTileSub">Privacy & terms</div>
+      </button>
 
-                <button type="button" className="quickTile" onClick={() => nav("/crew-lockers")}>
-                  <div className="quickTileTitle">Crew Lockers</div>
-                  <div className="quickTileSub">Sign in required</div>
-                </button>
-              </div>
+      <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
+        <div className="quickTileTitle">Sign up</div>
+        <div className="quickTileSub">New user registration</div>
+      </button>
+    </div>
 
-              <div className="quickGridRow">
-                <button type="button" className="quickTile" onClick={() => nav("/faq")}>
-                  <div className="quickTileTitle">FAQ</div>
-                  <div className="quickTileSub">Help & info</div>
-                </button>
+    <div className="quickGridRow">
+      <button type="button" className="quickTile" onClick={() => nav("/faq")}>
+        <div className="quickTileTitle">FAQ</div>
+        <div className="quickTileSub">Help & info</div>
+      </button>
 
-                <button type="button" className="quickTile" onClick={() => nav("/donate")}>
-                  <div className="quickTileTitle">Donate</div>
-                  <div className="quickTileSub">Keep the app running</div>
-                </button>
-              </div>
+      <button type="button" className="quickTile" onClick={() => nav("/donate")}>
+        <div className="quickTileTitle">Donate</div>
+        <div className="quickTileSub">Keep the app running</div>
+      </button>
+    </div>
 
-              <div className="promoSpacer">
-                <GuestPromoCard apiBaseUrl={API_BASE_URL} />
-              </div>
-            </>
+    <div className="promoSpacer">
+      <GuestPromoCard apiBaseUrl={API_BASE_URL} />
+    </div>
+  </>
+			
+			
+			
+			
           ) : (
             <>
               <div className="quickGridRow">

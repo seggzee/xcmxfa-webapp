@@ -1,6 +1,6 @@
 {
   "name": "XCMXFA App",
-  "short_name": "XCM-XFA",
+  "short_name": "TEST-APP",
   "description": "XCMXFA crew webapp",
   "start_url": "/",
   "scope": "/",

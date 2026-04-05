@@ -30,6 +30,7 @@ import APP_LOGO from "../../assets/xcmxfa-logo.png";
 import SCHIPHOL_IMG from "../../assets/schiphol.webp";
 import HEADER_LOGO from "../../assets/logos/xcmxfa-header-logo.png";
 import LOCKERS_QR from "../../assets/lockers_qr_code.webp";
+import LOCKER from "../../assets/locker_brochure.webp";
 
 
 // Airline logos
@@ -54,10 +55,26 @@ import DONATE from "../../assets/icons/donate.webp";
 import avatar from "../../assets/avatar.jpg";
 import calendar from "../../assets/icons/calendar.webp";
 import BACK from "../../assets/back_button.webp";
+import cancel from "../../assets/icons/cancel.webp";
+import change_password from "../../assets/icons/change_password.webp";
+
+import contact_us from "../../assets/icons/contact_us.webp";
+import legal from "../../assets/icons/legal.webp";
+import privacy from "../../assets/icons/privacy.webp";
+import faq from "../../assets/icons/faq.webp";
+
+import profile from "../../assets/icons/profile.webp";
+import passport from "../../assets/icons/passport.webp";
+import locker from "../../assets/icons/locker.webp";
+import esta from "../../assets/icons/esta.webp";
+import logout from "../../assets/icons/logout.webp";
+import message from "../../assets/icons/message.webp";
+
+
 // ? NEW: avatar + calendar are now imported (bundled) so pages/components never use "/assets/..."
 
 
-export const APP_IMAGES = { APP_LOGO, SCHIPHOL_IMG, HEADER_LOGO, LOCKERS_QR } as const;
+export const APP_IMAGES = { APP_LOGO, SCHIPHOL_IMG, HEADER_LOGO, LOCKERS_QR, LOCKER } as const;
 
 export const AIRLINE_LOGOS = {
   KLM,
@@ -81,6 +98,14 @@ export const UI_ICONS = {
   avatar,
   calendar,
   BACK,
+  
+  cancel,
+  change_password,
+  contact_us,
+  legal,
+  privacy,
+  faq,
+  profile, esta, passport, locker, logout, message,
   
 } as const;
 
