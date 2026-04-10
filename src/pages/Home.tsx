@@ -1,22 +1,22 @@
 // src/pages/Home.tsx
 //
 // =====================================================================================
-// ?? BOOTSTRAP: Unify Asset Loading (Airports / Airlines / Icons) — Home.tsx (Airports)
+// ?? BOOTSTRAP: Unify Asset Loading (Airports / Airlines / Icons) Â— Home.tsx (Airports)
 // =====================================================================================
 //
 // IDIOT GUIDE (read this once, then forget it):
 //
 // ? What broke?
-// - In DEV, Vite serves your /public/assets/... folder “magically” at /assets/...,
+// - In DEV, Vite serves your /public/assets/... folder Â“magicallyÂ” at /assets/...,
 //   so this worked:
 //
 //      <img src="/assets/airports/AMS.webp" />
 //
 // - In PROD build, your app is bundled and deployed under whatever path Synology serves.
-//   If the build output doesn’t contain /assets/airports/AMS.webp at that exact absolute URL,
+//   If the build output doesnÂ’t contain /assets/airports/AMS.webp at that exact absolute URL,
 //   you get 404s.
 //
-// ? What’s the fix?
+// ? WhatÂ’s the fix?
 // - NEVER build image URLs by string like "/assets/..."
 // - ALWAYS resolve image URLs via imports, because the bundler then:
 //
@@ -44,7 +44,7 @@
 // =====================================================================================
 //
 // =====================================================================================
-// ?? BOOTSTRAP: Countdown Time Truth + Phase Engine — Home “My next flight” (ADD-ONLY)
+// ?? BOOTSTRAP: Countdown Time Truth + Phase Engine Â— Home Â“My next flightÂ” (ADD-ONLY)
 // =====================================================================================
 //
 // IDIOT GUIDE:
@@ -67,7 +67,7 @@
 // =====================================================================================
 //
 // =====================================================================================
-// ?? BOOTSTRAP: FlightCard3x3 Row Visibility (Phase 0 hides Row 3 on Home “My next flight”)
+// ?? BOOTSTRAP: FlightCard3x3 Row Visibility (Phase 0 hides Row 3 on Home Â“My next flightÂ”)
 // =====================================================================================
 //
 // IDIOT GUIDE:
@@ -95,6 +95,7 @@ import {
 
 import FlightCard3x3 from "../components/FlightCard3x3";
 import GuestPromoCard from "../components/GuestPromoCard";
+import AirportInfoModal from "../components/AirportInfoModal";
 
 import { getCrewLockerNotifications } from "../api/crewLockersApi";
 
@@ -129,8 +130,10 @@ type HomeWeatherCardData = {
   temp_c: number;
 };
 
+
+
 /*	This is the control for the weather card */
-const HOME_WEATHER_DEBUG = false; 
+const HOME_WEATHER_DEBUG = false;
 //const HOME_WEATHER_DEBUG = true; // make false for production environment
 
 const HOME_WEATHER_DEBUG_SAMPLE: HomeWeatherCardData = {
@@ -184,6 +187,8 @@ function listingIconSrcFromStatus(raw: any) {
   return null;
 }
 
+
+
 export default function Home() {
   const nav = useNavigate();
   const { auth } = useAuth();
@@ -191,6 +196,10 @@ export default function Home() {
   const location = useLocation();
 
   const isMember = auth.mode === "member";
+  
+  useEffect(() => {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}, []);
 
   // ===== identity display only (no inference) =====
   const staffNo = String(auth?.user?.username || "").trim().toUpperCase();
@@ -275,6 +284,9 @@ export default function Home() {
   const [removeConfirmVisible, setRemoveConfirmVisible] = useState(false);
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
 
+  const [airportInfoOpen, setAirportInfoOpen] = useState(false);
+  const [airportInfoCode, setAirportInfoCode] = useState<string | null>(null);
+
   const removeFavouriteAt = (idx: number) => {
     const next = favs.slice(0);
     if (idx < 0 || idx >= next.length) return;
@@ -283,8 +295,23 @@ export default function Home() {
     saveFavouritesFromHome(next, "remove");
   };
 
+
+
+    function openAirportInfo(codeLike: string | null | undefined) {
+    const code = normalizeCode(codeLike);
+    if (!code) return;
+
+    setAirportInfoCode(code);
+    setAirportInfoOpen(true);
+  }
+
+  function closeAirportInfo() {
+    setAirportInfoOpen(false);
+    setAirportInfoCode(null);
+  }
+
   // =============================================================================
-  // Messages banner (member-only) — unread count (locker notifications for now)
+  // Messages banner (member-only) Â— unread count (locker notifications for now)
   // =============================================================================
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
 
@@ -352,12 +379,10 @@ export default function Home() {
       setNextFlightState({ status: "loading", flight: null });
 
       try {
-        
         const rows = await getMyFlights({ staffNo });
 
         if (ac.signal.aborted) return;
 
-    
 // =====================================================================================
 // HOME RULE:
 // - "My next flight" must show the NEXT UPCOMING flight only.
@@ -399,10 +424,9 @@ if (!firstFlightInstanceId) {
 
 const firstFlightRows = Array.isArray(rows)
   ? rows.filter((r: any) => String(r?.flight_instance_id || "").trim() === firstFlightInstanceId)
-  : [];	  
-		  
+  : [];
+
 // ========================================== END HOME RULE:============================
-	  
 
         const myRow =
           firstFlightRows.find((r: any) => String(r?.psn || "").trim().toUpperCase() === staffNo) ||
@@ -415,7 +439,6 @@ const firstFlightRows = Array.isArray(rows)
         }
 
         setNextFlightState({ status: "ready", flight: myRow });
-				
       } catch (e: any) {
         if (ac.signal.aborted) return;
         const err = e instanceof Error ? e : new Error(String(e));
@@ -453,12 +476,11 @@ const firstFlightRows = Array.isArray(rows)
 
     // Countdown starts at Phase 2 and continues until STD (Phase 3).
     // Phase 4 is post-STD; do not show countdown here yet.
-	
-	
-/*================================================================================================================*/	
+
+/*================================================================================================================*/
     const showCountdown = phase === 2 || phase === 3; //ORIGINAL (RESTORE AFTER REVIEW)
 	//const showCountdown = true; //TEMP OVERRIDE FOR UI REVIEW
-/*================================================================================================================*/		
+/*================================================================================================================*/
 
     const countdown = showCountdown && msToStd !== null ? formatCountdownHHMM(msToStd) : null;
 
@@ -562,7 +584,7 @@ const firstFlightRows = Array.isArray(rows)
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
   // =============================================================================
-  // Airports carousel sizing — callback-ref so we measure as soon as it mounts
+  // Airports carousel sizing Â— callback-ref so we measure as soon as it mounts
   // (prevents "wide chips until refresh" after login) + observe width changes
   // =============================================================================
   const carouselElRef = useRef<HTMLDivElement | null>(null);
@@ -646,7 +668,7 @@ const firstFlightRows = Array.isArray(rows)
   }
 
   // =============================================================================
-  // AirportChip — RN Home design + behaviour
+  // AirportChip Â— RN Home design + behaviour
   // =============================================================================
   function AirportChip({
     code,
@@ -654,6 +676,7 @@ const firstFlightRows = Array.isArray(rows)
     label,
     showPlus,
     onPress,
+    onInfoPress,
     showRemove = false,
     onRemove,
   }: {
@@ -662,6 +685,7 @@ const firstFlightRows = Array.isArray(rows)
     label?: string;
     showPlus?: boolean;
     onPress?: () => void;
+    onInfoPress?: () => void;
     showRemove?: boolean;
     onRemove?: () => void;
   }) {
@@ -683,7 +707,7 @@ const firstFlightRows = Array.isArray(rows)
     // NEW (GOOD):
     // - getAirportLogo() returns the *real* final URL from src/assets/index.ts
     // - bundler includes the file in build output (hashed) and returns correct link
-    // - works on Synology static hosting because it’s just a normal built URL
+    // - works on Synology static hosting because itÂ’s just a normal built URL
     //
     // Contract:
     // - Home never cares where airport images live.
@@ -712,7 +736,22 @@ const firstFlightRows = Array.isArray(rows)
             title="Remove"
             style={removePressed ? { opacity: 0.88 } : undefined}
           >
-		  {"\u00D7"}
+            {"\u00D7"}
+          </button>
+        ) : null}
+
+        {!isAdd ? (
+          <button
+            type="button"
+            className="airportChipInfo"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInfoPress?.();
+            }}
+            aria-label="Airport info"
+            title="Airport info"
+          >
+            i
           </button>
         ) : null}
 
@@ -761,87 +800,82 @@ const firstFlightRows = Array.isArray(rows)
           {isMember ? (
             <div className="card-body">
               {nextFlightState.status === "loading" ? (
-                <div className="mutedLineSpecial">Loading next flight…</div>
+                <div className="mutedLineSpecial">Loading next flightÂ…</div>
               ) : nextFlightState.status === "ready" ? (
-			  
-				<div
-					role="button"
-					tabIndex={0}
-					onClick={() => nav("/myflights")}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" || e.key === " ") nav("/myflights");
-					}}
-					style={{ cursor: "pointer", transition: "opacity 0.15s" }}
-					onMouseDown={(e) => (e.currentTarget.style.opacity = "0.92")}
-					onMouseUp={(e) => (e.currentTarget.style.opacity = "1")}
-					onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-					onTouchStart={(e) => (e.currentTarget.style.opacity = "0.92")}
-					onTouchEnd={(e) => (e.currentTarget.style.opacity = "1")}
-				>
-								
-					<FlightCard3x3
-					  showHeader
-					  headerLeftLabel="My next flight:"
-					  headerDate={formatHeaderDateFromStdLocal((nextFlightState.flight as any)?.std_local)}
-					  headerRightContent={
-						nextFlightCountdownHHMMSS ? (
-						  <span className="homeNextFlightCountdown" aria-label={`Countdown ${nextFlightCountdownHHMMSS}`}>
-							{nextFlightCountdownHHMMSS}
-						  </span>
-						) : null
-					  }
-					  flight={nextFlightState.flight}
-					  /**
-					   * IMPORTANT (2026-02-20):
-					   * - FlightCard3x3 cell 2:3 is now the screen slot (P1/3, X-staff, etc).
-					   * - Gate now lives in cell 3:3 (inside the card itself).
-					   */
-					  footerRightContent={(() => {
-						const f: any = nextFlightState.flight || {};
-						const pos = f?.list_position ?? f?.listPos ?? null;
-						const total = f?.list_total ?? f?.listTotal ?? null;
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => nav("/myflights")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") nav("/myflights");
+                  }}
+                  style={{ cursor: "pointer", transition: "opacity 0.15s" }}
+                  onMouseDown={(e) => (e.currentTarget.style.opacity = "0.92")}
+                  onMouseUp={(e) => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                  onTouchStart={(e) => (e.currentTarget.style.opacity = "0.92")}
+                  onTouchEnd={(e) => (e.currentTarget.style.opacity = "1")}
+                >
+                  <FlightCard3x3
+                    showHeader
+                    headerLeftLabel="My next flight:"
+                    headerDate={formatHeaderDateFromStdLocal((nextFlightState.flight as any)?.std_local)}
+                    headerRightContent={
+                      nextFlightCountdownHHMMSS ? (
+                        <span className="homeNextFlightCountdown" aria-label={`Countdown ${nextFlightCountdownHHMMSS}`}>
+                          {nextFlightCountdownHHMMSS}
+                        </span>
+                      ) : null
+                    }
+                    flight={nextFlightState.flight}
+                    /**
+                     * IMPORTANT (2026-02-20):
+                     * - FlightCard3x3 cell 2:3 is now the screen slot (P1/3, X-staff, etc).
+                     * - Gate now lives in cell 3:3 (inside the card itself).
+                     */
+                    footerRightContent={(() => {
+                      const f: any = nextFlightState.flight || {};
+                      const pos = f?.list_position ?? f?.listPos ?? null;
+                      const total = f?.list_total ?? f?.listTotal ?? null;
 
-						if (!pos || !total) return null;
+                      if (!pos || !total) return null;
 
-						const iconSrc = listingIconSrcFromStatus(f?.listing_status ?? f?.booking_status ?? null);
+                      const iconSrc = listingIconSrcFromStatus(f?.listing_status ?? f?.booking_status ?? null);
 
-						return (
-						  <span className="homeNextFlightListMeta">
-							<span className="homeNextFlightListPos">P{String(pos)}/{String(total)}</span>
+                      return (
+                        <span className="homeNextFlightListMeta">
+                          <span className="homeNextFlightListPos">P{String(pos)}/{String(total)}</span>
 
-							{iconSrc ? (
-							  <img
-								src={iconSrc}
-								alt={String(f?.listing_status ?? f?.booking_status ?? "")}
-								className="homeNextFlightListIcon"
-							  />
-							) : null}
-						  </span>
-						);
-					  })()}
-					  /**
-					   * Phase 0 (>24h) hides Row 3 (Type/Reg/Gate) on Home "My next flight" ONLY.
-					   * - Default behaviour for FlightCard3x3 remains 3 rows everywhere else.
-					   * - If std_utc missing/invalid => msToStd null => phase defaults to 0 => show 2 rows (no guessing).
-					   */
+                          {iconSrc ? (
+                            <img
+                              src={iconSrc}
+                              alt={String(f?.listing_status ?? f?.booking_status ?? "")}
+                              className="homeNextFlightListIcon"
+                            />
+                          ) : null}
+                        </span>
+                      );
+                    })()}
+                    /**
+                     * Phase 0 (>24h) hides Row 3 (Type/Reg/Gate) on Home "My next flight" ONLY.
+                     * - Default behaviour for FlightCard3x3 remains 3 rows everywhere else.
+                     * - If std_utc missing/invalid => msToStd null => phase defaults to 0 => show 2 rows (no guessing).
+                     */
 
-					  /* phase 0 includes msToStd null; we deliberately hide row 3 when std_utc is missing */
-					  visibleRows={nextFlightDerived.phase === 0 ? 2 : 3}
-					/>
-				
-				</div>
-					
+                    /* phase 0 includes msToStd null; we deliberately hide row 3 when std_utc is missing */
+                    visibleRows={nextFlightDerived.phase === 0 ? 2 : 3}
+                  />
+                </div>
               ) : nextFlightState.status === "error" ? (
                 <div className="errorLine">My next flight unavailable: {nextFlightState.error.message}</div>
               ) : (
-				<>
-                <div className="mutedLineSpecial">No upcoming flights.</div>
-				
-				<div className="promoSpacer">
-					<GuestPromoCard apiBaseUrl={API_BASE_URL} />
-				</div>
-				</>
-				
+                <>
+                  <div className="mutedLineSpecial">No upcoming flights.</div>
+
+                  <div className="promoSpacer">
+                    <GuestPromoCard apiBaseUrl={API_BASE_URL} />
+                  </div>
+                </>
               )}
             </div>
           ) : null}
@@ -854,7 +888,7 @@ const firstFlightRows = Array.isArray(rows)
             style={{
               display: "flex",
               alignItems: "center",
-			   background: "rgba(19,35,51,0.04)",
+              background: "rgba(19,35,51,0.04)",
               gap: 14,
             }}
           >
@@ -958,6 +992,7 @@ const firstFlightRows = Array.isArray(rows)
                         showPlus={false}
                         label={isAdd ? ADD_SLOT_LABELS[idx] : String(code)}
                         showRemove={!isAdd}
+                        onInfoPress={!isAdd ? () => openAirportInfo(code || null) : undefined}
                         onRemove={() => {
                           if (favs.length <= 1) {
                             removeFavouriteAt(idx);
@@ -993,6 +1028,7 @@ const firstFlightRows = Array.isArray(rows)
                   <AirportChip
                     code={favs[0]}
                     showRemove
+                    onInfoPress={() => openAirportInfo(favs[0])}
                     onRemove={() => {
                       setPendingRemoveIndex(0);
                       setRemoveConfirmVisible(true);
@@ -1085,47 +1121,38 @@ const firstFlightRows = Array.isArray(rows)
 
         {/* ===== Quick actions (RN) ===== */}
         <section className="quickWrap">
-		
-         {/*   <div className="quickTitle">Quick actions</div>   */}
-		 
-		 
-	
+          {/*   <div className="quickTitle">Quick actions</div>   */}
 
-	
-{!isMember ? (
-  <>
-    <div className="quickGridRow">
-      <button type="button" className="quickTile" onClick={() => nav("/legal")}>
-        <div className="quickTileTitle">Legal</div>
-        <div className="quickTileSub">Privacy & terms</div>
-      </button>
+          {!isMember ? (
+            <>
+              <div className="quickGridRow">
+                <button type="button" className="quickTile" onClick={() => nav("/legal")}>
+                  <div className="quickTileTitle">Legal</div>
+                  <div className="quickTileSub">Privacy & terms</div>
+                </button>
 
-      <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
-        <div className="quickTileTitle">Sign up</div>
-        <div className="quickTileSub">New user registration</div>
-      </button>
-    </div>
+                <button type="button" className="quickTile" onClick={() => setSignUpModalVisible(true)}>
+                  <div className="quickTileTitle">Sign up</div>
+                  <div className="quickTileSub">New user registration</div>
+                </button>
+              </div>
 
-    <div className="quickGridRow">
-      <button type="button" className="quickTile" onClick={() => nav("/faq")}>
-        <div className="quickTileTitle">FAQ</div>
-        <div className="quickTileSub">Help & info</div>
-      </button>
+              <div className="quickGridRow">
+                <button type="button" className="quickTile" onClick={() => nav("/faq")}>
+                  <div className="quickTileTitle">FAQ</div>
+                  <div className="quickTileSub">Help & info</div>
+                </button>
 
-      <button type="button" className="quickTile" onClick={() => nav("/donate")}>
-        <div className="quickTileTitle">Donate</div>
-        <div className="quickTileSub">Keep the app running</div>
-      </button>
-    </div>
+                <button type="button" className="quickTile" onClick={() => nav("/donate")}>
+                  <div className="quickTileTitle">Donate</div>
+                  <div className="quickTileSub">Keep the app running</div>
+                </button>
+              </div>
 
-    <div className="promoSpacer">
-      <GuestPromoCard apiBaseUrl={API_BASE_URL} />
-    </div>
-  </>
-			
-			
-			
-			
+              <div className="promoSpacer">
+                <GuestPromoCard apiBaseUrl={API_BASE_URL} />
+              </div>
+            </>
           ) : (
             <>
               <div className="quickGridRow">
@@ -1190,16 +1217,34 @@ const firstFlightRows = Array.isArray(rows)
         </div>
         ==================================*/}
       </div>
+	  
+	  
+	  
+	  
+    {/* ==========Airports info modal (RN)=============*/}
+	{airportInfoOpen ? (
+	  <AirportInfoModal
+		isOpen={airportInfoOpen}
+		airportCode={airportInfoCode}
+		onClose={closeAirportInfo}
+	  />
+	) : null}
+		  
+	  
+    {/* ==================================*/}	  
+	  
+	   
 
       {/* ===== Airports help modal (RN) ===== */}
       {showAirportsHelp ? (
         <div className="modalOverlay" onClick={() => setShowAirportsHelp(false)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalTitle">My airports</div>
-						
+
             <div className="modalBody">Tap an airport to open its weekly schedule.</div>
-						<div className="modalBody">Tap{"\u00D7"} to remove an airport.</div>
-						<div className="modalBody">Tap Add airport to choose another.</div>
+            <div className="modalBody">Tap i to view airport info and listing cutoff.</div>
+            <div className="modalBody">Tap{"\u00D7"} to remove an airport.</div>
+            <div className="modalBody">Tap Add airport to choose another.</div>
 
             <button type="button" className="modalBtn modalBtnPrimary" onClick={() => setShowAirportsHelp(false)}>
               Close
@@ -1255,9 +1300,9 @@ const firstFlightRows = Array.isArray(rows)
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalTitle">Create an account</div>
             <div className="modalBody">registered users can:</div>
-            <div className="modalBody">{'\u2022'} Save up to 3 airports</div>
-            <div className="modalBody">{'\u2022'} List / unlist on KLM flights</div>
-            <div className="modalBody">{'\u2022'} View commuter lists and booking status</div>
+            <div className="modalBody">{"\u2022"} Save up to 3 airports</div>
+            <div className="modalBody">{"\u2022"} List / unlist on KLM flights</div>
+            <div className="modalBody">{"\u2022"} View commuter lists and booking status</div>
 
             <div className="modalBtnRow">
               <button type="button" className="modalBtn modalBtnGhost" onClick={() => setSignUpModalVisible(false)}>

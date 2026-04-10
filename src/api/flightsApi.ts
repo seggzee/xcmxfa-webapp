@@ -388,6 +388,10 @@ export type MyFlightRow = {
   // Schiphol Ultra overlay (ADD-ONLY)
   schiphol: SchipholOverlay | null;
 
+  // ADD-ONLY unlist capability flags
+  can_unlist?: boolean;
+  unlist_mode?: "type1" | "type2" | "none" | string;
+
   flight_no: string;
   op_status: string;
   listing_status: string;
@@ -463,6 +467,10 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
     // ✅ Schiphol overlay pass-through (ADD-ONLY)
     schiphol: ((r as any).schiphol as any) ?? null,
 
+    // ✅ Unlist capability pass-through (ADD-ONLY)
+    can_unlist: (r as any).can_unlist === true,
+    unlist_mode: ((r as any).unlist_mode as any) ?? "none",
+
     flight_no: (r.flight_number as any) ?? "",
 
     op_status: (r.flight_status_text as any) ?? "On time",
@@ -516,17 +524,21 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
 /**
  * getBookingsForDay()
  * - Reads the crew list (bookings) for a specific airport/date.
- * - No mapping required here (Day groups/sorts on the screen).
+ * - ADD-ONLY: now also sends psn so backend can compute unlist capability
+ *   for the current member's own booking row.
  */
 export async function getBookingsForDay(args: {
   airportCode: string;
   dateKey: string;
+  staffNo: unknown;
 }): Promise<ApiJson> {
-  const { airportCode, dateKey } = args;
+  const { airportCode, dateKey, staffNo } = args;
+  const psn = requirePsnStrict(staffNo, "getBookingsForDay");
 
   const q = new URLSearchParams({
     airport: airportCode,
     date: dateKey,
+    psn,
   }).toString();
 
   return requestJson(`/api/bookings/day.php?${q}`);

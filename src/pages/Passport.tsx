@@ -89,12 +89,13 @@ export default function Passport() {
     setPassportNumber(safeStr(p.passport_number));
 
     const dobRaw = safeStr(p.d_o_b);
-    setDob(dobRaw ? toYMD(new Date(dobRaw)) : "");
+    setDob(isYMD(dobRaw) ? dobRaw : "");
 
-    setNationality(safeStr(p.nationality));
+    setNationality(safeStr(p.nationality));	
 
     const expRaw = safeStr(p.passport_expiry);
-    setPassportExpiry(expRaw ? toYMD(new Date(expRaw)) : "");
+    setPassportExpiry(isYMD(expRaw) ? expRaw : "");
+	
   }, [crew, isMember]);
 
   function validate(): string {

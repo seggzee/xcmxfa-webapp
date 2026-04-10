@@ -31,12 +31,15 @@ import { APP_IMAGES, UI_ICONS, getAirportLogo } from "../assets";
 
 // ? Common back button (image-based)
 import BackButton from "../components/BackButton";
+import AirportInfoModal from "../components/AirportInfoModal";
 
 // ? Week adopts global primitives + Week-only fixes
 import "../styles/week.css";
 
 const WINDOW_DAYS = 9;
 const SCHEDULE_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+const WEEK_MODE_STORAGE_KEY = "xcmxfa:week:mode"; // to remember user choice of compact or classic
 
 type WeeklyMode = "classic" | "compact";
 
@@ -79,7 +82,15 @@ export default function Week(props: {
   const airportCode = String(props.airportCode || "").toUpperCase();
   if (!airportCode) throw new Error("Week: airportCode is required");
 
-  const [mode, setMode] = React.useState<WeeklyMode>("classic");
+  const [mode, setMode] = React.useState<WeeklyMode>(() => {
+    try {
+      const raw = localStorage.getItem(WEEK_MODE_STORAGE_KEY);
+      return raw === "compact" ? "compact" : "classic";
+    } catch {
+      return "classic";
+    }
+  });
+
   const [loading, setLoading] = React.useState(true);
   const [errorText, setErrorText] = React.useState("");
   const [windowMeta, setWindowMeta] = React.useState<{ schedule_last_updated_utc: string | null }>({
@@ -87,6 +98,9 @@ export default function Week(props: {
   });
   const [refreshedAtMs, setRefreshedAtMs] = React.useState<number | null>(null);
   const [days, setDays] = React.useState<WeeklyDayItem[]>([]);
+
+  const [airportInfoOpen, setAirportInfoOpen] = React.useState(false);
+  const [airportInfoCode, setAirportInfoCode] = React.useState<string | null>(null);
 
   const startLocalDate = React.useMemo(() => dateToLocalDateKey(new Date()), []);
 
@@ -103,6 +117,22 @@ export default function Week(props: {
     },
     [props]
   );
+
+  const openAirportInfo = React.useCallback((codeLike: string | null | undefined) => {
+    const code = String(codeLike || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z]/g, "")
+      .slice(0, 3);
+    if (!code) return;
+    setAirportInfoCode(code);
+    setAirportInfoOpen(true);
+  }, []);
+
+  const closeAirportInfo = React.useCallback(() => {
+    setAirportInfoOpen(false);
+    setAirportInfoCode(null);
+  }, []);
 
   React.useEffect(() => {
     let alive = true;
@@ -199,6 +229,14 @@ export default function Week(props: {
     });
   }, [windowMeta.schedule_last_updated_utc]);
 
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(WEEK_MODE_STORAGE_KEY, mode);
+    } catch {
+      // best-effort only
+    }
+  }, [mode]);
+
   const airportLogoSrc = getAirportLogo(airportCode) || APP_IMAGES.APP_LOGO;
 
   // Icons (RN: UI_ICONS.arrivals/departures, with arrow fallback if missing)
@@ -213,25 +251,31 @@ export default function Week(props: {
       <div className="week-sticky">
         <div className="app-container">
           <section className="week-headerCard">
-		  
             <div className="week-headerTopRow">
-			  <div className="week-headerLeft">
-				<img src={airportLogoSrc} alt={`${airportCode} logo`} className="week-headerLogo" />
-			  </div>
+              <div className="week-headerLeft">
+                <button
+                  type="button"
+                  className="week-headerLogoBtn"
+                  onClick={() => openAirportInfo(airportCode)}
+                  aria-label={`Open airport info for ${airportCode}`}
+                  title="Airport info"
+                >
+                  <img src={airportLogoSrc} alt={`${airportCode} logo`} className="week-headerLogo" />
+                </button>
+              </div>
 
-			  <div className="week-headerCode">{airportCode}</div>
+              <div className="week-headerCode">{airportCode}</div>
 
-			  <div className="week-headerRight">
-				<BackButton
-				  onClick={() => {
-					if (typeof props.onBack === "function") props.onBack();
-				  }}
-				  ariaLabel="Back"
-				  size={38}
-				/>
-			  </div>
-			</div>
-
+              <div className="week-headerRight">
+                <BackButton
+                  onClick={() => {
+                    if (typeof props.onBack === "function") props.onBack();
+                  }}
+                  ariaLabel="Back"
+                  size={38}
+                />
+              </div>
+            </div>
 
             <div className="week-range">{rangeLabel}</div>
 
@@ -351,6 +395,12 @@ export default function Week(props: {
           </div>
         )}
       </div>
+
+      <AirportInfoModal
+        isOpen={airportInfoOpen}
+        airportCode={airportInfoCode}
+        onClose={closeAirportInfo}
+      />
     </div>
   );
 }
@@ -378,7 +428,7 @@ function buildDaysFromFlights(args: {
   startLocalDate: string;
   windowDays: number;
   flights: WindowFlight[];
-}): WeeklyDayItem[] {
+}) {
   const byDay = groupWindowByDayExactRNFallback(args.flights, args.airportCode);
 
   return Array.from({ length: args.windowDays }).map((_, i) => {

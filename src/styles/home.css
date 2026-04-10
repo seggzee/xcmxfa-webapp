@@ -10,7 +10,7 @@
 .homeInner {
   max-width: 520px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 8px 16px 16px;
 }
 
 /* Hero image inside the flush card */
@@ -168,6 +168,238 @@
   color: rgba(19, 35, 51, 0.55);
   text-align: center;
 }
+
+.airportChipInfo {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid rgba(19, 35, 51, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  color: rgba(19, 35, 51, 0.68);
+  font-weight: 900;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+
+.airportInfoModalCard {
+  width: min(560px, 100%);
+}
+
+.airportInfoModalHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px;
+  gap: 14px;
+  align-items: start;
+}
+
+.airportInfoModalCode {
+  font-weight: 900;
+  font-size: 26px;
+  line-height: 1;
+  color: #132333;
+  letter-spacing: 1px;
+}
+
+.airportInfoModalAirportName {
+  margin-top: 6px;
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1.25;
+  color: #132333;
+}
+
+.airportInfoModalMeta {
+  margin-top: 8px;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(19, 35, 51, 0.58);
+}
+
+.airportInfoModalHeaderRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.airportInfoModalCloseBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2px solid rgba(19, 35, 51, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  color: rgba(19, 35, 51, 0.72);
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.airportInfoModalHeaderLogoWrap {
+  width: 100%;
+  max-width: 108px;
+  height: 56px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.airportInfoModalLogo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.airportInfoModalDivider {
+  margin-top: 12px;
+  height: 1px;
+  background: #d9e2ee;
+}
+
+
+.airportInfoModalBody {
+  margin-top: 12px;
+}
+
+.airportInfoModalInfoGrid {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 128px;
+  gap: 12px 14px;
+  align-items: start;
+}
+
+.airportInfoModalGridLabel {
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 18px;
+  color: #132333;
+}
+
+.airportInfoModalGridValue {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(19, 35, 51, 0.78);
+}
+
+.airportInfoModalGridValue > div + div {
+  margin-top: 2px;
+}
+
+.airportInfoModalStatus {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 0;
+}
+
+.airportInfoModalCountdownBox {
+  width: 128px;
+  min-height: 108px;
+  padding: 12px 10px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(16, 185, 129, 0.6);
+  background: #132333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.airportInfoModalCountdownBox--closed {
+  border-color: rgba(185, 28, 28, 0.20);
+  background: rgba(185, 28, 28, 0.05);
+}
+
+.airportInfoModalCountdownMain {
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: 0.8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #34d399;
+}
+
+.airportInfoModalCountdownBox--closed .airportInfoModalCountdownMain {
+  color: #991b1b;
+}
+
+.airportInfoModalCountdownSub {
+  margin-top: 8px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 15px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.airportInfoModalCountdownBox--closed .airportInfoModalCountdownSub {
+  color: rgba(153, 27, 27, 0.82);
+}
+
+
+
+@media (max-width: 480px) {
+  .airportInfoModalHeader {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 12px;
+  }
+
+  .airportInfoModalHeaderLogoWrap {
+    max-width: 92px;
+    height: 48px;
+  }
+
+.airportInfoModalInfoGrid {
+  grid-template-columns: 96px minmax(0, 1fr) 112px;
+  gap: 12px 10px;
+}
+
+.airportInfoModalCountdownBox {
+  width: 112px;
+  min-height: 96px;
+}
+
+.airportInfoModalCountdownMain {
+  font-size: 16px;
+}
+
+  .airportInfoModalCode {
+    font-size: 22px;
+  }
+}
+
+
+
+
+
+
+
+
+
 
 /* Quick actions (2-column grid) */
 .quickWrap {

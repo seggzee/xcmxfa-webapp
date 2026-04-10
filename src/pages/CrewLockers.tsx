@@ -12,6 +12,16 @@
 // - Keep page logic/API behaviour unchanged
 // - Restore remove-locker confirm modal
 // - FIX metadata rendering (robust, no metaParts, no index shifting)
+// - FIX end_dt handling so DATE values are not shifted by timezone
+// - ALSO support end_dt when backend returns local datetime strings like YYYY-MM-DD HH:MM:SS
+// - Add dedicated Days left pill on the right side of the metadata zone
+// - Use same pill family for Days left and Open / manage
+// - Days pill variants:
+//     * green  > 14 days
+//     * amber  1-14 days
+//     * red    expired
+//     * grey   unknown
+// - Status text on left remains simple ("Active" / "Expired" / "--")
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -24,27 +34,67 @@ import BackButton from "../components/BackButton";
 import "../styles/crewLockers.css";
 
 const ORDER_LOCKER_URL =
-  "https://myklm.klm.com/web/inflight-services/opslagfaciliteit";
+  "https://online.keynius.app/home/a0b72ec9-35cb-4e3b-a661-3bf4890a9493";
 
 const LOCKER_HANDBOOK_URL =
-  "https://online.keynius.app/home/a0b72ec9-35cb-4e3b-a661-3bf4890a9493";
+  "https://myklm.klm.com/web/inflight-services/opslagfaciliteit";
 
 function safeUpper(v: unknown) {
   return String(v || "").trim().toUpperCase();
 }
 
+function parseLocalDateLike(v: unknown) {
+  const raw = String(v || "").trim();
+  if (!raw) return null;
+
+  // Supports:
+  // - YYYY-MM-DD
+  // - YYYY-MM-DD HH:MM
+  // - YYYY-MM-DD HH:MM:SS
+  // - YYYY-MM-DDTHH:MM
+  // - YYYY-MM-DDTHH:MM:SS
+  const m = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+
+  if (m) {
+    const yyyy = Number(m[1]);
+    const mm = Number(m[2]);
+    const dd = Number(m[3]);
+
+    const hh = m[4] !== undefined ? Number(m[4]) : 12;
+    const mi = m[5] !== undefined ? Number(m[5]) : 0;
+    const ss = m[6] !== undefined ? Number(m[6]) : 0;
+
+    const d = new Date(yyyy, mm - 1, dd, hh, mi, ss, 0);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function fmtEnd(endDtLike: unknown) {
-  if (!endDtLike) return "--";
-  const d = new Date(String(endDtLike));
-  if (Number.isNaN(d.getTime())) return String(endDtLike);
-  return d.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  const raw = String(endDtLike || "").trim();
+  if (!raw) return "--";
+
+  const ymdMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymdMatch) {
+    const dd = ymdMatch[3];
+    const mm = Number(ymdMatch[2]) - 1;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${dd} ${months[mm] || ""}`.trim();
+  }
+
+  const dtMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T]\d{2}:\d{2}(?::\d{2})?$/);
+  if (dtMatch) {
+    const dd = dtMatch[3];
+    const mm = Number(dtMatch[2]) - 1;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${dd} ${months[mm] || ""}`.trim();
+  }
+
+  return "--";
 }
 
 function fmtUpdated(updatedLike: unknown) {
@@ -62,9 +112,9 @@ function fmtUpdated(updatedLike: unknown) {
 }
 
 function daysRemaining(endDtLike: unknown) {
-  if (!endDtLike) return null;
-  const d = new Date(String(endDtLike));
-  if (Number.isNaN(d.getTime())) return null;
+  const d = parseLocalDateLike(endDtLike);
+  if (!d) return null;
+
   const diff = d.getTime() - Date.now();
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
@@ -72,6 +122,24 @@ function daysRemaining(endDtLike: unknown) {
 function isExpiredLocker(endDtLike: unknown) {
   const days = daysRemaining(endDtLike);
   return typeof days === "number" ? days <= 0 : false;
+}
+
+function endDtSortValue(v: unknown) {
+  const d = parseLocalDateLike(v);
+  return d ? d.getTime() : Number.POSITIVE_INFINITY;
+}
+
+function daysPillVariant(days: number | null): "green" | "amber" | "red" | "grey" {
+  if (typeof days !== "number") return "grey";
+  if (days <= 0) return "red";
+  if (days <= 14) return "amber";
+  return "green";
+}
+
+function daysPillText(days: number | null) {
+  if (typeof days !== "number") return "— —";
+  if (days <= 0) return "Expired";
+  return String(days);
 }
 
 export default function CrewLockers() {
@@ -134,8 +202,8 @@ export default function CrewLockers() {
       const bExpired = isExpiredLocker(b?.end_dt) ? 1 : 0;
       if (aExpired !== bExpired) return aExpired - bExpired;
 
-      const aTime = a?.end_dt ? new Date(String(a.end_dt)).getTime() : Infinity;
-      const bTime = b?.end_dt ? new Date(String(b.end_dt)).getTime() : Infinity;
+      const aTime = a?.end_dt ? endDtSortValue(a.end_dt) : Number.POSITIVE_INFINITY;
+      const bTime = b?.end_dt ? endDtSortValue(b.end_dt) : Number.POSITIVE_INFINITY;
       return aTime - bTime;
     });
 
@@ -237,12 +305,13 @@ export default function CrewLockers() {
             typeof days === "number"
               ? days <= 0
                 ? "Expired"
-                : days <= 14
-                ? `Ending soon (${days}d)`
-                : `Active (${days}d)`
+                : "Active"
               : l.active
               ? "Active"
               : "--";
+
+          const daysVariant = daysPillVariant(days);
+          const daysText = daysPillText(days);
 
           const lockerTypeText = l.locker_size ? String(l.locker_size) : "";
           const locationText = l.locker_wall ? String(l.locker_wall) : "";
@@ -265,7 +334,7 @@ export default function CrewLockers() {
                     {!expired ? (
                       <button
                         type="button"
-                        className="crewLockers-openBtn"
+                        className="crewLockers-pill crewLockers-pill--green"
                         disabled={!lockerUrl}
                         onClick={() => {
                           if (!lockerUrl) return;
@@ -277,43 +346,55 @@ export default function CrewLockers() {
                     ) : null}
                   </div>
 
-                  <div className="crewLockers-cardEndRow">End: {endText}</div>
+                  <div className="crewLockers-cardEndRow">Ends: {endText}</div>
                 </div>
               </div>
 
               <div className="crewLockers-zoneDivider" />
 
-              {/* Line 1 */}
-              <div className="crewLockers-cardMetaLine">
-                {lockerTypeText && (
-                  <span className="crewLockers-cardMetaItem">{lockerTypeText}</span>
-                )}
+              <div className="crewLockers-metaRow">
+                <div className="crewLockers-metaLeft">
+                  <div className="crewLockers-cardMetaLine">
+                    {lockerTypeText && (
+                      <span className="crewLockers-cardMetaItem">{lockerTypeText}</span>
+                    )}
 
-                {lockerTypeText && statusText && (
-                  <span className="crewLockers-cardMetaBullet">•</span>
-                )}
+                    {lockerTypeText && statusText && (
+                      <span className="crewLockers-cardMetaBullet">•</span>
+                    )}
 
-                {statusText && (
-                  <span className="crewLockers-cardMetaItem">{statusText}</span>
-                )}
-              </div>
+                    {statusText && (
+                      <span className="crewLockers-cardMetaItem">{statusText}</span>
+                    )}
+                  </div>
 
-              {/* Line 2 */}
-              {locationText && (
-                <div className="crewLockers-cardMetaLine">
-                  <span className="crewLockers-cardMetaItem">{locationText}</span>
+                  {locationText && (
+                    <div className="crewLockers-cardMetaLine">
+                      <span className="crewLockers-cardMetaItem">{locationText}</span>
+                    </div>
+                  )}
+
+                  <div className="crewLockers-updated">Last refreshed: {updatedText}</div>
+
+                  <button
+                    type="button"
+                    className="crewLockers-removeLink"
+                    onClick={() => askRemoveLocker(l)}
+                  >
+                    Remove locker
+                  </button>
                 </div>
-              )}
 
-              <div className="crewLockers-updated">Last refreshed: {updatedText}</div>
+                <div className="crewLockers-daysBlock">
+                  <div className={`crewLockers-daysLabel crewLockers-daysLabel--${daysVariant}`}>
+                    Days left
+                  </div>
 
-              <button
-                type="button"
-                className="crewLockers-removeLink"
-                onClick={() => askRemoveLocker(l)}
-              >
-                Remove locker
-              </button>
+                  <div className={`crewLockers-pill crewLockers-pill--${daysVariant}`}>
+                    {daysText}
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })}

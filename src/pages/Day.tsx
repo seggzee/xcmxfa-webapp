@@ -2,8 +2,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../app/authStore";
+
+
 import FlightCard3x3 from "../components/FlightCard3x3";
 import BackButton from "../components/BackButton";
+import AirportInfoModal from "../components/AirportInfoModal";
 import { getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
 import "../styles/day.css";
 
@@ -36,18 +39,6 @@ function isBefore(a: string, b: string) {
 }
 function isAfter(a: string, b: string) {
   return String(a) > String(b);
-}
-
-function extractHHMM(localDateTimeString: any) {
-  const s = String(localDateTimeString || "");
-  if (!s) return "";
-  const m = s.match(/T(\d{2}:\d{2})/);
-  if (m) return m[1];
-  const m2 = s.match(/\s(\d{2}:\d{2})/);
-  if (m2) return m2[1];
-  const m3 = s.match(/^(\d{2}:\d{2})/);
-  if (m3) return m3[1];
-  return "";
 }
 
 function safeUpper(v: unknown) {
@@ -422,7 +413,7 @@ export default function Day() {
 
       // 3) bookings (ALWAYS load)
       try {
-        const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey });
+        const bookingsResp: any = await getBookingsForDay({ airportCode, dateKey, staffNo: psn });
 
         const by = bookingsResp?.by_flight_instance_id;
 
@@ -470,7 +461,7 @@ export default function Day() {
       if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airportCode, dateKey]);
+  }, [airportCode, dateKey, psn]);
 
   type FlightItem = {
     flightInstanceId: string;
@@ -587,6 +578,25 @@ export default function Day() {
     return rows.some((b) => String(b?.psn || "").trim() === String(psn || "").trim());
   }
 
+  function getMyBookingRow(flightInstanceId: string): BookingRow | null {
+    if (!resolvedIsLoggedIn) return null;
+    const rows = bookingsByFlight?.[flightInstanceId] || [];
+    return rows.find((b) => String(b?.psn || "").trim() === String(psn || "").trim()) || null;
+  }
+
+  function canShowUnlistButton(flightInstanceId: string): boolean {
+    const myRow = getMyBookingRow(flightInstanceId);
+    return myRow?.can_unlist === true;
+  }
+
+  function getUnlistModeForFlight(flightInstanceId: string): "type1" | "type2" | "none" {
+    const myRow = getMyBookingRow(flightInstanceId);
+    const mode = String(myRow?.unlist_mode || "").trim().toLowerCase();
+    if (mode === "type1") return "type1";
+    if (mode === "type2") return "type2";
+    return "none";
+  }
+
   // ---- confirm modal ----
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmMode, setConfirmMode] = useState<"list" | "unlist">("list");
@@ -620,6 +630,9 @@ export default function Day() {
   const [infoVisible, setInfoVisible] = useState(false);
   const [infoMeta, setInfoMeta] = useState<InfoMeta | null>(null);
 
+  const [airportInfoOpen, setAirportInfoOpen] = useState(false);
+  const [airportInfoCode, setAirportInfoCode] = useState<string | null>(null);
+
   function openConfirm(mode: "list" | "unlist", args: { flightInstanceId: string; row: ApiFlightRow }) {
     setConfirmMode(mode);
     setConfirmErrorText("");
@@ -635,10 +648,30 @@ export default function Day() {
     setAmsDutyVisible(true);
   }
 
-  function openInfoModal(meta: InfoMeta) {
+	  
+	function openInfoModal(meta: InfoMeta) {
     setInfoMeta(meta);
     setInfoVisible(true);
   }
+
+  function openAirportInfo(codeLike: string | null | undefined) {
+    const code = String(codeLike || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z]/g, "")
+      .slice(0, 3);
+
+    if (!code) return;
+
+    setAirportInfoCode(code);
+    setAirportInfoOpen(true);
+  }
+
+  function closeAirportInfo() {
+    setAirportInfoOpen(false);
+    setAirportInfoCode(null);
+  }
+  
 
   function mapBackendErrorToUserMessage(e: any): string {
     // We expect backend to return { ok:false, code, message } and requestJson throws message
@@ -653,6 +686,9 @@ export default function Day() {
     }
     if (msg.toLowerCase().includes("day of travel")) {
       return "Listing is not allowed on the day of travel.";
+    }
+    if (msg.toLowerCase().includes("00:30 local")) {
+      return "Unlisting is not available after station cutoff until 00:30 local on the day of travel.";
     }
     if (msg.toLowerCase().includes("60 minutes")) {
       return "Unlisting is not allowed within 60 minutes of departure (or after departure).";
@@ -782,8 +818,18 @@ export default function Day() {
                 </div>
               </div>
 
-              <div className="day-logoCenter">
-                {airportLogoSrc ? <img src={airportLogoSrc} alt={`${airportCode} logo`} className="day-airportLogo" /> : null}
+                <div className="day-logoCenter">
+                {airportLogoSrc ? (
+                  <button
+                    type="button"
+                    className="day-airportLogoBtn"
+                    onClick={() => openAirportInfo(airportCode)}
+                    aria-label={`Open airport info for ${airportCode}`}
+                    title="Airport info"
+                  >
+                    <img src={airportLogoSrc} alt={`${airportCode} logo`} className="day-airportLogo" />
+                  </button>
+                ) : null}
               </div>
 
               <div className="day-backRight">
@@ -857,29 +903,22 @@ export default function Day() {
           const busyMode = actionBusyByFlight?.[fid] || null;
           const successState = actionSuccessByFlight?.[fid] || null;
 
+          const myBooking = getMyBookingRow(fid);
+          const canUnlist = canShowUnlistButton(fid);
+          const unlistMode = getUnlistModeForFlight(fid);
+
           const todayKey = dateToLocalDateKey(new Date());
           const isDayOfTravel = dateKey === todayKey;
 
-          // Unlist cutoff display/disable (client-side approximation only; server is authoritative)
-          let tooLateToUnlist = false;
-          try {
-            const hhmm = extractHHMM(row?.std_local || "") || extractHHMM(row?.std_utc || "");
-            if (/^\d{2}:\d{2}$/.test(hhmm) && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-              const stdGuess = new Date(`${dateKey}T${hhmm}:00`);
-              const cutoff = new Date(stdGuess.getTime() - 60 * 60 * 1000);
-              tooLateToUnlist = Date.now() >= cutoff.getTime();
-            }
-          } catch {
-            // ignore
-          }
-
           const opStatusKey = String(row?.op_status || "").trim().toUpperCase();
+
+          const showActionButton =
+            actionCfg.show &&
+            (userListed ? canUnlist : !isDayOfTravel);
 
           const disableActionButton =
             opStatusKey === "CANCELLED" ||
-            busyMode !== null ||
-            (userListed && tooLateToUnlist) ||
-            (!userListed && isDayOfTravel);
+            busyMode !== null;
 
           const actionLabel = (() => {
             if (opStatusKey === "CANCELLED") return "Flight cancelled";
@@ -887,6 +926,12 @@ export default function Day() {
             if (busyMode === "unlist") return "Unlisting…";
             if (successState === "listed") return "Listed me";
             if (successState === "unlisted") return "Unlisted me";
+
+            if (userListed) {
+              if (unlistMode === "type1") return "Unlist from flight";
+              if (unlistMode === "type2") return "Cancel flight listing";
+            }
+
             return actionCfg.label;
           })();
 
@@ -1040,7 +1085,7 @@ export default function Day() {
                     </>
                   ) : null}
 
-                  {actionCfg.show ? (
+                  {showActionButton ? (
                     <>
                       <div className="day-zoneDivider" />
 
@@ -1199,6 +1244,9 @@ export default function Day() {
         </div>
       ) : null}
 
+	  
+	  
+	  
       {/* Confirm modal */}
       {confirmVisible ? (
         <div
@@ -1210,16 +1258,41 @@ export default function Day() {
         >
           <div className="day-modalCard" onClick={(e) => e.stopPropagation()}>
             <div style={{ fontWeight: 900, fontSize: 16, color: "#132333" }}>
-              {confirmMode === "list" ? "Confirm listing" : "Confirm unlisting"}
+              {confirmMode === "list"
+                ? "Confirm listing"
+                : confirmMeta?.row && getUnlistModeForFlight(confirmMeta.flightInstanceId) === "type2"
+                ? "Cancel flight listing"
+                : "Unlist from flight"}
             </div>
 
-            <div style={{ marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px" }}>
+            {/* ============================================================
+               THIS CHANGE ONLY
+               - Branch modal body by unlist type
+               - Type 1 → internal only warning
+               - Type 2 → destructive + airport notification
+               ============================================================ */}
+            <div style={{ marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px", whiteSpace: "pre-line" }}>
               {confirmMode === "list"
                 ? "You will be added to the commuter list in order of priority. Your position may change as other xcm/xfa list on the flight."
-                : "You will lose your place and position in the commuter list."}
+                : (() => {
+                    const mode = confirmMeta?.flightInstanceId
+                      ? getUnlistModeForFlight(confirmMeta.flightInstanceId)
+                      : "none";
+
+                    if (mode === "type2") {
+                      return `\u2022 This will cancel your check-in and flight listing for this flight.\n\n\u2022 The airport will be notified of your cancellation.\n\n\u2022 This action cannot be undone.`;
+                    }
+
+                    // default = type1
+                    return `\u2022 You will be removed from this flight’s commuter list.\n\n\u2022 Your current position will be lost and may change if you re-list later.`;
+                  })()}
             </div>
 
-            {confirmErrorText ? <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>{confirmErrorText}</div> : null}
+            {confirmErrorText ? (
+              <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>
+                {confirmErrorText}
+              </div>
+            ) : null}
 
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button
@@ -1255,11 +1328,17 @@ export default function Day() {
                   fontSize: 14,
                   background: "#132333",
                   color: "#ffffff",
-                  opacity: Boolean(confirmMeta?.flightInstanceId && actionBusyByFlight?.[confirmMeta.flightInstanceId])
+                  opacity: Boolean(
+                    confirmMeta?.flightInstanceId &&
+                      actionBusyByFlight?.[confirmMeta.flightInstanceId]
+                  )
                     ? 0.55
                     : 1,
                 }}
-                disabled={Boolean(confirmMeta?.flightInstanceId && actionBusyByFlight?.[confirmMeta.flightInstanceId])}
+                disabled={Boolean(
+                  confirmMeta?.flightInstanceId &&
+                    actionBusyByFlight?.[confirmMeta.flightInstanceId]
+                )}
                 onClick={() => {
                   const meta = confirmMeta;
                   if (!meta?.flightInstanceId) {
@@ -1267,7 +1346,6 @@ export default function Day() {
                     return;
                   }
 
-                  // If LIST and dep=AMS, pass through captured duty fields
                   const dep = safeUpper(meta.row?.dep_airport);
                   if (confirmMode === "list" && dep === "AMS") {
                     commitConfirm({
@@ -1287,6 +1365,17 @@ export default function Day() {
         </div>
       ) : null}
 
+	  
+
+      {/* Airport info modal */}
+	  <AirportInfoModal
+        isOpen={airportInfoOpen}
+        airportCode={airportInfoCode}
+        onClose={closeAirportInfo}
+      />
+
+	  
+	  
       {/* Info modal (updated per confirmed scope) */}
       {infoVisible ? (
         <div

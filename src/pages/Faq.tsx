@@ -624,11 +624,23 @@ export default function Faq() {
       return hay.includes(q);
     });
   }, [items, query, activeGroup]);
+  
+  
 
-  useEffect(() => {
-    if (!listRef.current) return;
-    listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [activeGroup]);
+  const didMountRef = useRef(false);
+
+useEffect(() => {
+  if (!didMountRef.current) {
+    didMountRef.current = true;
+    return;
+  }
+
+  if (!listRef.current) return;
+  listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+}, [activeGroup]);
+  
+  
+  
 
   useEffect(() => {
     if (!openId) return;
@@ -712,7 +724,7 @@ export default function Faq() {
           </div>
         </section>
 
-        <section ref={listRef} className="card" style={{ marginTop: 12 }}>
+        <section ref={listRef} className="card" style={{ marginTop: 12, scrollMarginTop: "220px" }}>
           <div style={{ padding: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filtered.map((it) => (

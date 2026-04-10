@@ -7,6 +7,10 @@
   THIS CHANGE ONLY
   - Tighten the top chip card while keeping Home-like centered width
   - Restructure locker cards into action zone + metadata zone
+  - Add shared pill styling for:
+      * Open / manage
+      * Days left
+  - Add Days left block on right side of metadata zone
   - Keep only the classes used by the current JSX
 */
 
@@ -195,27 +199,8 @@
   color: var(--ink-900, #132333);
 }
 
-.crewLockers-openBtn {
-  border-radius: 999px;
-  padding: 8px 14px;
-  text-align: center;
-  font-weight: 900;
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--ink-900, #132333);
-  cursor: pointer;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  background: rgba(34, 197, 94, 0.14);
-  white-space: nowrap;
-}
-
-.crewLockers-openBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .crewLockers-cardEndRow {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 13px;
   line-height: 28px;
   color: rgba(19, 35, 51, 0.72);
@@ -227,11 +212,28 @@
   border-top: 2px solid #eef2f7;
 }
 
+/* Metadata zone: left text + right days block */
+.crewLockers-metaRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.crewLockers-metaLeft {
+  flex: 1;
+  min-width: 0;
+}
+
 .crewLockers-cardMetaLine {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+}
+
+.crewLockers-cardMetaLine + .crewLockers-cardMetaLine {
+  margin-top: 4px;
 }
 
 .crewLockers-cardMetaItem {
@@ -268,6 +270,86 @@
   text-decoration: underline;
   cursor: pointer;
   text-align: left;
+}
+
+/* Days block */
+.crewLockers-daysBlock {
+  flex: 0 0 auto;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.crewLockers-daysLabel {
+  font-weight: 900;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.crewLockers-daysLabel--green {
+  color: #166534;
+}
+
+.crewLockers-daysLabel--amber {
+  color: #92400e;
+}
+
+.crewLockers-daysLabel--red {
+  color: #991b1b;
+}
+
+.crewLockers-daysLabel--grey {
+  color: rgba(19, 35, 51, 0.50);
+}
+
+/* Shared pill family */
+.crewLockers-pill {
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 12px; /* less rounded */
+  text-align: center;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 16px;
+  border: 1px solid transparent;
+  background: #fff;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.crewLockers-pill--green {
+  color: var(--ink-900, #132333);
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.crewLockers-pill--amber {
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.crewLockers-pill--red {
+  color: #7f1d1d;
+  border-color: rgba(220, 38, 38, 0.30);
+  background: rgba(220, 38, 38, 0.10);
+}
+
+.crewLockers-pill--grey {
+  color: rgba(19, 35, 51, 0.72);
+  border-color: rgba(19, 35, 51, 0.14);
+  background: rgba(19, 35, 51, 0.05);
+}
+
+.crewLockers-pill:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* Confirm modal */

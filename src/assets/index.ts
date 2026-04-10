@@ -34,9 +34,9 @@ import LOCKER from "../../assets/locker_brochure.webp";
 
 
 // Airline logos
-import KLM from "../../assets/airlines/klm.webp";
-import TRANSAVIA from "../../assets/airlines/transavia.webp";
-import DELTA from "../../assets/airlines/delta.webp";
+import KLM from "../../assets/airlines/klm_transparent.webp";
+import TRANSAVIA from "../../assets/airlines/transavia_transparent.webp";
+import DELTA from "../../assets/airlines/delta_transparent.webp";
 
 // Listing status icons
 import pending from "../../assets/icons/pending.webp";
@@ -44,8 +44,8 @@ import sent from "../../assets/icons/sent.webp";
 import booked from "../../assets/icons/booked.webp";
 
 // UI icons
-import arrivals from "../../assets/icons/arrivals.png";
-import departures from "../../assets/icons/departures.png";
+import arrivals from "../../assets/icons/arrivals.webp";
+import departures from "../../assets/icons/departures.webp";
 import eyes_open from "../../assets/icons/eyes_open.webp";
 import eyes_closed from "../../assets/icons/eyes_closed.webp";
 import locked from "../../assets/icons/locked.webp";

@@ -172,19 +172,10 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
     { XCM: 0, XFA: 0, Other: 0 }
   );
 
-    let isFuture = true;
+  let isFuture = true;
   try {
-    const utcRaw = String(r0.std_utc || "").trim();
-    const localRaw = String(stdLocal || "").trim();
-
-    const utcMs = utcRaw ? Date.parse(utcRaw) : NaN;
-    const localMs = localRaw ? Date.parse(localRaw) : NaN;
-
-    if (Number.isFinite(utcMs)) {
-      isFuture = utcMs >= Date.now();
-    } else if (Number.isFinite(localMs)) {
-      isFuture = localMs >= Date.now();
-    }
+    const d = stdLocal ? new Date(String(stdLocal)) : null;
+    if (d && !Number.isNaN(d.getTime())) isFuture = d.getTime() >= Date.now();
   } catch {
     // ignore (JS parity)
   }
@@ -651,20 +642,7 @@ export default function MyFlights() {
             })();
 
             return (
-             
-			   <div
-               	 key={flight.id}
-              	  className="myFlights-card"
-                	style={
-                 	 flight.isFuture
-                   	 ? undefined
-                  	  : {
-                        background: "#dfe8e4",
-                        borderColor: "#d7dce2",
-                      }
-                }
-              >
-			  
+              <div key={flight.id} className="myFlights-card">
                 <FlightCard3x3
                   flight={flight.row0}
                   headerLeftLabel={flight.isFuture ? "Upcoming:" : "Past:"}
