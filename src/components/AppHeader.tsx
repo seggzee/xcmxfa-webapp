@@ -7,13 +7,17 @@
 //
 // NOTE (V2 HEADER LOGO):
 // - We now use one rectangular header logo that already includes the text.
-// - We keep legacy APP_LOGO for other areas / legacy app usage.
+// - We keep legacy APP_LOGO for other areas / #legacy app usage.
 // - AppHeader uses APP_IMAGES.HEADER_LOGO only.
 //
 // MESSAGE BELL CONTRACT:
 // - Bell is shown ONLY for logged-in members who currently have any messages.
 // - Red badge is shown ONLY when unreadMessageCount > 0.
 // - Bell click routes to /messages (or uses onGoMessages if supplied).
+//
+// PASSKEY PHASE-1 NOTE:
+// - AppHeader accepts optional onPasskeyLogin and passes it through to LoginModal.
+// - Actual passkey sign-in UI lives inside LoginModal.
 //
 // =====================================================================================
 
@@ -45,10 +49,15 @@ type Props = {
     rememberDevice: boolean;
   }) => Promise<void>;
 
+  // PASSKEY PHASE-1
+  onPasskeyLogin?: (args: {
+    usernameHint?: string;
+    rememberDevice?: boolean;
+    deviceId?: string;
+  }) => Promise<void>;
+
   onCancelLogin?: () => void;
   onCreateAccount?: () => void;
-
-  // ADDED
   onForgotPassword?: () => void;
 };
 
@@ -85,6 +94,7 @@ export default function AppHeader({
   unreadMessageCount = 0,
   hasAnyMessages = false,
   onLoginSubmit,
+  onPasskeyLogin,
   onCancelLogin,
   onCreateAccount,
   onForgotPassword,
@@ -311,6 +321,7 @@ export default function AppHeader({
               open={loginOpen}
               onClose={() => setLoginOpen(false)}
               onSubmit={onLoginSubmit!}
+              onPasskeyLogin={onPasskeyLogin}
               onCancel={onCancelLogin!}
               onCreateAccount={onCreateAccount!}
               onForgotPassword={onForgotPassword!}

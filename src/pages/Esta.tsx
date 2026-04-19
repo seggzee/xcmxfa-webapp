@@ -8,8 +8,7 @@ import { useCrew } from "../app/crewStore";
 import { API_BASE_URL, postJson } from "../app/api";
 import { useSecureUnlock } from "../hooks/useSecureUnlock";
 
-// ✅ Standard back icon button (same as Week/MyFlights)
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 
 /**
  * IMPORTANT:
@@ -133,21 +132,28 @@ export default function Esta() {
 
   return (
     <div className="app-screen profile-page">
-      <div className="app-container">
-        <div className="profile-top">
-          <div className="text-title">Residence information</div>
-
-          {/* ✅ Standard icon back button (busy guarded) */}
-          <BackButton
-            onClick={() => {
-              if (busy) return;
-              nav(-1);
+      <StickyPageHeaderCard
+        leftContent={
+          <img
+            src={UI_ICONS.esta}
+            alt="Residence information"
+            style={{
+              width: 52,
+              height: 52,
+              objectFit: "contain",
+              borderRadius: 14,
             }}
-            ariaLabel="Back"
-            size={38}
           />
-        </div>
+        }
+        title="Residence information"
+        onBack={() => {
+          if (busy) return;
+          nav(-1);
+        }}
+        backAriaLabel="Back"
+      />
 
+      <div className="app-container" style={{ paddingTop: 0 }}>
         <div className="passport-sub">
           ESTA / FX details are required for United States and Canada. Please enter the details exactly as shown on your
           residence documents / visa

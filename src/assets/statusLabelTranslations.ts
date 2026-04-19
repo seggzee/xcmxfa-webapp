@@ -8,18 +8,23 @@
 
 const STATUS_LABEL_TRANSLATIONS = {
   SCHEDULED: "Scheduled",
+  Scheduled: "Scheduled",
 
   DELAYED: "Delayed",
-
+  
   CANCELLED: "Cancelled",
 
   ONTIME: "On time",
   ON_TIME: "On time",
+  "On time": "On time",
 
   NEW_EARLY_DEPARTURE_TIME: "Early departure",
   EARLY_DEPARTURE: "Early departure",
 
   DELAYED_DEPARTURE: "Delayed dep",
+
+  
+  
   NEW_DEPARTURE_TIME: "New dep time",
 
   DEPARTED: "Departed",

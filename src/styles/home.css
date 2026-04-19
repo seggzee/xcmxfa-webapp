@@ -44,11 +44,13 @@
   color: #132333;
 }
 
+
+/*
 .infoDot {
   width: 24px;
   height: 24px;
   border-radius: 14px;
-  /*border: 2px solid rgba(19, 35, 51, 0.28);*/
+  border: 2px solid rgba(19, 35, 51, 0.28);
   border: 2px solid green;
   background: #ffffff;
   font-weight: 900;
@@ -60,6 +62,30 @@
   align-items: center;
   justify-content: center;
 }
+*/
+
+.infoButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 40px;
+  height: 40px;
+
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+
+.infoButton img {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+   -webkit-tap-highlight-color: transparent;
+}
+
 
 /* Airports block */
 .airportsBlock {
@@ -97,8 +123,8 @@
   right: 10px;
   width: 25px;
   height: 25px;
-  border-radius: 14px;
-  border: 2px solid rgba(220, 38, 38, 0.3);
+  border-radius: 0px;
+  border: 0px solid rgba(220, 38, 38, 0.3);
   background: rgba(255, 255, 255, 0.98);
   font-weight: 900;
   font-size: 18px;
@@ -109,6 +135,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+   -webkit-tap-highlight-color: transparent;
+}
+
+.airportChipRemove img {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
 }
 
 .airportChipBtn {
@@ -154,7 +187,7 @@
 }
 
 .airportChipLabelRN {
-  font-weight: 700;
+  font-weight: 800;
   font-size: 13px;
   letter-spacing: 1px;
   color: rgba(19, 35, 51, 0.55);
@@ -169,14 +202,16 @@
   text-align: center;
 }
 
+
+
 .airportChipInfo {
   position: absolute;
   left: 10px;
   bottom: 10px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 2px solid rgba(19, 35, 51, 0.14);
+  width: 25px;
+  height: 25px;
+  border-radius: 0px;
+  border: 0px solid rgba(19, 35, 51, 0.14);
   background: rgba(255, 255, 255, 0.96);
   color: rgba(19, 35, 51, 0.68);
   font-weight: 900;
@@ -188,6 +223,12 @@
   cursor: pointer;
   z-index: 2;
   -webkit-tap-highlight-color: transparent;
+}
+
+.airportChipInfo img {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
 }
 
 

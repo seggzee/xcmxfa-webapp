@@ -7,18 +7,23 @@
 
 const STATUS_COLOUR_CODES = {
   SCHEDULED: "#b2b2b2", // grey
+  Scheduled: "#b2b2b2", // grey
 
   DELAYED: "#ff8503", // amber
+
 
   CANCELLED: "#f5554a", // red
 
   ONTIME: "#5ab66f", // green
   ON_TIME: "#5ab66f", // green
+  "On time": "#5ab66f", // green
 
   NEW_EARLY_DEPARTURE_TIME: "#ffd22b", // yellow
   EARLY_DEPARTURE: "#ffd22b", // yellow
 
   DELAYED_DEPARTURE: "#ff8503", // amber
+  
+  
   NEW_DEPARTURE_TIME: "#ff8503", // amber
 
   DEPARTED: "#2986cc", // blue

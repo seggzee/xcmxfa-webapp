@@ -2,16 +2,21 @@
 //
 // =====================================================================================
 // FAQ / Info — grouped card navigation + accordion content
-// Week-style sticky header junction (bleed-safe)
+// Uses reusable StickyPageHeaderCard component
 // =====================================================================================
 //
 // IDIOT GUIDE:
 // - This page is intentionally "dumb": no API calls, no auth requirements.
-// - Uses the SAME sticky header junction pattern as Week (week-sticky + app-container + header card).
-// - Back control uses the standard BackButton component.
+// - Uses the reusable StickyPageHeaderCard component.
+// - Back control uses the standard BackButton via the shared header component.
 // - Search sits at the top.
 // - Group navigation uses a fixed 2 x 5 mini-card grid.
 // - Accordion defaults to "All" and narrows when a group card is selected.
+//
+// THIS CHANGE ONLY:
+// - Remove the activeGroup useEffect-driven auto-scroll because it was causing
+//   unwanted initial page movement.
+// - Scroll to the FAQ list ONLY after the user taps a category card.
 //
 // NOTES:
 // - DIY scans come from assets: DIY_LISTING_SCANS.xcmxfa1..xcmxfa5
@@ -22,7 +27,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { DIY_LISTING_SCANS, UI_ICONS } from "../assets";
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 
 type Group =
   | "all"
@@ -128,8 +133,8 @@ function GroupCard(props: {
         alignItems: "center",
         justifyContent: "space-between",
         gap: 10,
-		boxSizing: "border-box",
-		minWidth: 0,
+        boxSizing: "border-box",
+        minWidth: 0,
       }}
     >
       <div
@@ -624,23 +629,6 @@ export default function Faq() {
       return hay.includes(q);
     });
   }, [items, query, activeGroup]);
-  
-  
-
-  const didMountRef = useRef(false);
-
-useEffect(() => {
-  if (!didMountRef.current) {
-    didMountRef.current = true;
-    return;
-  }
-
-  if (!listRef.current) return;
-  listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-}, [activeGroup]);
-  
-  
-  
 
   useEffect(() => {
     if (!openId) return;
@@ -648,40 +636,36 @@ useEffect(() => {
     if (!stillVisible) setOpenId(null);
   }, [filtered, openId]);
 
- 
+  function scrollToFaqListSoon() {
+    window.setTimeout(() => {
+      listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
 
   return (
     <div className="app-screen">
-      <div className="week-sticky">
-        <div className="app-container">
-          <section className="week-headerCard">
-            <div className="week-headerTopRow">
-              <div className="week-headerLeft">
-                <img
-                  src={UI_ICONS.faq}
-                  alt="FAQ"
-                  style={{
-                    width: 52,
-                    height: 52,
-                    objectFit: "contain",
-                    borderRadius: 14,
-                  }}
-                />
-              </div>
+      <StickyPageHeaderCard
+        leftContent={
+          <img
+            src={UI_ICONS.faq}
+            alt="FAQ"
+            style={{
+              width: 52,
+              height: 52,
+              objectFit: "contain",
+              borderRadius: 14,
+            }}
+          />
+        }
+        title="FAQ"
+        subtitle="Info, rules, and troubleshooting"
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
 
-              <div className="week-headerCode">FAQ</div>
-
-              <div className="week-headerRight">
-                <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-              </div>
-            </div>
-
-            <div className="week-range">Info, rules, and troubleshooting</div>
-          </section>
-        </div>
-      </div>
-
-      <div className="app-container week-body" style={{ paddingBottom: 20 }}>
+      <div className="app-container" style={{ paddingTop: 0, paddingBottom: 20 }}>
+	  
+	  
         <section className="card" style={{ padding: 14 }}>
           <input
             value={query}
@@ -699,14 +683,14 @@ useEffect(() => {
             }}
           />
         </section>
-
+	  
         <section className="card" style={{ padding: 14, marginTop: 12 }}>
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
               gap: 10,
-			  alignItems: "stretch",
+              alignItems: "stretch",
             }}
           >
             {groupCards.map((card) => (
@@ -718,12 +702,13 @@ useEffect(() => {
                 active={activeGroup === card.key}
                 onClick={() => {
                   setActiveGroup((prev) => (prev === card.key ? "all" : card.key));
+                  scrollToFaqListSoon();
                 }}
               />
             ))}
           </div>
         </section>
-
+	  
         <section ref={listRef} className="card" style={{ marginTop: 12, scrollMarginTop: "220px" }}>
           <div style={{ padding: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

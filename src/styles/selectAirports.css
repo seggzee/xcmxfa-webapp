@@ -8,9 +8,7 @@
 .selectAirports-scroll {
   max-width: 520px;
   margin: 0 auto;
-  padding: var(--space-4, 16px);
-  padding-bottom: 120px;
-  padding-top: calc(var(--appheader-height, 0px) + var(--space-2, 8px));
+  padding: 0 16px 120px;
 }
 
 .selectAirports-card {
@@ -19,20 +17,6 @@
   padding: 16px;
   margin-bottom: 12px;
   border: 1px solid #d9e2ee;
-}
-
-.selectAirports-h1 {
-  font-size: 20px;
-  font-weight: 900;
-  margin-bottom: 8px;
-  color: var(--ink-900, #132333);
-}
-
-.selectAirports-muted {
-  margin-top: 6px;
-  color: rgba(19, 35, 51, 0.55);
-  font-weight: 700;
-  white-space: pre-line;
 }
 
 .selectAirports-searchInput {
@@ -50,7 +34,7 @@
 
 /* Selected */
 .selectAirports-selectedWrap {
-  margin-top: 12px;
+  margin-top: 0;
   margin-bottom: 12px;
   border: 1px solid #d9e2ee;
   border-radius: 14px;

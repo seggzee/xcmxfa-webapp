@@ -948,8 +948,38 @@ export default function Day() {
 
           const flightNo = `${String(row?.airline_iata || "").toUpperCase()}${String(row?.flight_number || "").trim()}`.trim();
 
+		  const depCode = safeUpper(row?.dep_airport);
+          const arrCode = safeUpper(row?.arr_airport);
+
+          const isAmsLinked = depCode === "AMS" || arrCode === "AMS";
+
+          const backupAirportCode = !isAmsLinked
+            ? depCode === "RTM" || depCode === "EIN"
+              ? depCode
+              : arrCode === "RTM" || arrCode === "EIN"
+              ? arrCode
+              : null
+            : null;
+
+          const backupCardStyle =
+            backupAirportCode === "RTM"
+              ? {
+                  background: "#eefaf1",
+                  borderColor: "#d6eadb",				  
+                }
+              : backupAirportCode === "EIN"
+              ? {
+                  background: "#eef4ff",
+                  borderColor: "#d7e3f7",
+                }
+              : undefined;
+
           return (
-            <div key={f.uiKey} className="card day-flightCard">
+            <div
+              key={f.uiKey}
+              className="card day-flightCard"
+              style={backupCardStyle}
+            >
               <div className="day-publicSection">
                 <FlightCard3x3
                   flight={cardFlight}

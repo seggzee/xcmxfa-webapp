@@ -6,11 +6,14 @@ import { EUROPE_COUNTRIES, REST_COUNTRIES, COUNTRY_AIRPORTS } from "../data/airp
 
 import { AIRPORT_LOGOS } from "../assets/airportLogos";
 import { COUNTRY_FLAGS } from "../assets/countryFlags";
+import { UI_ICONS } from "../assets";
 
 import { ensureScheduleFresh } from "../api/flightsApi";
 
 import { loadFavourites, saveFavourites, getMaxFavs } from "../app/favourites";
 import { useAuth } from "../app/authStore";
+
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 
 import "../styles/selectAirports.css";
 
@@ -257,13 +260,27 @@ export default function SelectAirports() {
 
   return (
     <div className="selectAirports-page">
+      <StickyPageHeaderCard
+	   leftContent={
+            <img
+              src={UI_ICONS.flight_blue}
+              alt="My profile"
+              style={{
+                width: 52,
+                height: 52,
+                objectFit: "contain",
+                borderRadius: 14,
+              }}
+            />
+          }
+        title="Select airport(s)"
+        subtitle="Members may select up to 3 airports. Guests may only select 1."
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
+
       <div className="selectAirports-scroll">
         <div className="selectAirports-card">
-          <div className="selectAirports-h1">Select airport(s)</div>
-          <div className="selectAirports-muted">
-            Members may select up to 3 airports. {"\n"}Guests may only select 1.
-          </div>
-
           {/* Selected section (always visible) */}
           <div className="selectAirports-selectedWrap">
             <div className="selectAirports-selectedTitleRow">

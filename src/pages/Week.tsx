@@ -37,7 +37,7 @@ import AirportInfoModal from "../components/AirportInfoModal";
 import "../styles/week.css";
 
 const WINDOW_DAYS = 9;
-const SCHEDULE_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
+const SCHEDULE_MAX_AGE_MS = 1 * 60 * 60 * 1000; // 1 hours
 
 const WEEK_MODE_STORAGE_KEY = "xcmxfa:week:mode"; // to remember user choice of compact or classic
 
@@ -460,8 +460,8 @@ function groupWindowByDayExactRNFallback(flights: WindowFlight[], airportCode: s
     const dep = String(f.dep_airport || "");
     const arr = String(f.arr_airport || "");
 
-    const isDeparture = dep === airportCode && arr === "AMS";
-    const isArrival = dep === "AMS" && arr === airportCode;
+    const isDeparture = dep === airportCode;
+    const isArrival = arr === airportCode;
     if (!isDeparture && !isArrival) continue;
 
     const dt = isDeparture ? f.std_local : f.sta_local;

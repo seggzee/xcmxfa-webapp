@@ -1,17 +1,13 @@
 /* src/styles/profile.css */
 
-/* Page sits below sticky header.
-   If your header height differs, change this one value. */
-.profile-page {
-  padding-top: 84px;
-}
+/*
+  PURPOSE
+  - Profile page styles
 
-.profile-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-6);
-}
+  THIS CHANGE ONLY
+  - Remove old manual top offset / local title-row shell
+  - Keep existing card row/tile styling intact
+*/
 
 .profile-section-title {
   font-size: var(--font-size-sm);
@@ -41,9 +37,7 @@
   font-weight: 700;
   color: var(--text-primary);
 
-  /* KEY FIX: buttons default to centered text */
   text-align: left;
-
   overflow: hidden;
 }
 
@@ -57,8 +51,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  /* belt + braces */
   text-align: left;
 }
 

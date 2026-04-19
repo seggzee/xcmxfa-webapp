@@ -32,10 +32,13 @@
 // - Add global foreground Firebase push listener
 // - Add global app focus / visibility refresh listeners
 // - Add foreground in-app banner for app-open push receipt
+// - Add passkey sign-in flow through dedicated passkeys API + backend exchange
+// - Add immediate post-password-login passkey enrollment prompt
+// - Add local per-device prompt suppression for passkey setup
 // - No other behaviour changes.
 // =====================================================================================
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { onMessage } from "firebase/messaging";
 
@@ -46,6 +49,18 @@ import { useAuth } from "./authStore";
 import { useCrew } from "./crewStore";
 import { AUTH_LOGIN_URL, postJson } from "./api";
 import { syncPushDeviceIfPermitted } from "../api/pushApi";
+import {
+  beginPasskeyAuthentication,
+  finishPasskeyAuthentication,
+  exchangeVerifiedPasskeyForAppLogin,
+  beginPasskeyRegistration,
+  finishPasskeyRegistration,
+} from "../api/passkeysApi";
+import {
+  createPasskeyFromOptions,
+  getPasskeyAssertionFromOptions,
+  isPasskeySupported,
+} from "../utils/passkeys";
 import { messaging } from "./firebase";
 
 // Pages
@@ -72,6 +87,8 @@ import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import Legal from "../pages/Legal";
 import Contact from "../pages/Contact";
+import Hotels from "../pages/Hotels";
+import StandbyRooms from "../pages/StandbyRooms";
 
 /**
  * Idiot-guide:
@@ -102,15 +119,90 @@ function extractStaffIdentity(username: string) {
   return { staffIdentity, staffNumber };
 }
 
+function getPasskeyPromptSuppressionKey(username: string) {
+  return `passkey_prompt_suppressed_v1:${String(username || "").trim().toUpperCase()}`;
+}
+
+function isPasskeyPromptSuppressed(username: string): boolean {
+  if (typeof window === "undefined") return false;
+
+  const normalized = String(username || "").trim().toUpperCase();
+  if (!normalized) return false;
+
+  try {
+    return window.localStorage.getItem(getPasskeyPromptSuppressionKey(normalized)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function suppressPasskeyPromptForUser(username: string): void {
+  if (typeof window === "undefined") return;
+
+  const normalized = String(username || "").trim().toUpperCase();
+  if (!normalized) return;
+
+  try {
+    window.localStorage.setItem(getPasskeyPromptSuppressionKey(normalized), "1");
+  } catch {
+    // silent by design
+  }
+}
+
+function normalizePasskeyPromptError(error: unknown): {
+  message: string;
+  treatAsReady: boolean;
+} {
+  const raw = String((error as any)?.message || error || "PASSKEY_REGISTRATION_FAILED");
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes("duplicate_credential") ||
+    lower.includes("already set up") ||
+    lower.includes("already exists") ||
+    lower.includes("already ready") ||
+    lower.includes("invalidstateerror")
+  ) {
+    return {
+      message: "This device is already ready for passkey sign-in.",
+      treatAsReady: true,
+    };
+  }
+
+  if (
+    lower.includes("passkey_creation_cancelled") ||
+    lower.includes("notallowederror") ||
+    lower.includes("cancelled")
+  ) {
+    return {
+      message: "Passkey setup was cancelled.",
+      treatAsReady: false,
+    };
+  }
+
+  return {
+    message: raw,
+    treatAsReady: false,
+  };
+}
+
 /**
  * Idiot-guide: what does auth/login return?
  * -----------------------------------------
- * Copied from pages/Login.tsx (loose shape)
+ * Copied from pages/Login.tsx and expanded for passkey registration token support.
  */
 type LoginResponse = {
+  ok?: boolean;
   accessToken?: string | null;
+  accessTokenExpiresAt?: string | null;
   refreshToken?: string | null;
+  refreshTokenExpiresAt?: string | null;
+  passkeyRegistrationToken?: string | null;
+  passkeyRegistrationExpiresIn?: number | null;
   user?: any;
+  deviceId?: string;
+  error?: string;
+  message?: string;
 };
 
 /**
@@ -133,6 +225,14 @@ type ForegroundBanner = {
   title: string;
   body: string;
   url: string;
+} | null;
+
+type PasskeyEnrollmentPrompt = {
+  username: string;
+  token: string;
+  expiresIn: number;
+  status: "idle" | "working" | "done" | "error";
+  error?: string;
 } | null;
 
 // RN parity: Week needs airport passed from Home via nav("/week", { state: { airport } })
@@ -166,6 +266,10 @@ export default function AppRoutes() {
   const nav = useNavigate();
   const location = useLocation();
 
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
   const {
     auth,
     setAuth,
@@ -188,6 +292,11 @@ export default function AppRoutes() {
 
   // Foreground in-app banner for app-open push receipt.
   const [foregroundBanner, setForegroundBanner] = useState<ForegroundBanner>(null);
+
+  // Immediate post-password-login passkey enrollment prompt.
+  const [passkeyEnrollmentPrompt, setPasskeyEnrollmentPrompt] =
+    useState<PasskeyEnrollmentPrompt>(null);
+
   const bannerTimeoutRef = useRef<number | null>(null);
 
   // Track previous unread count so sound only plays on a true increase,
@@ -425,10 +534,230 @@ export default function AppRoutes() {
     void syncPushDeviceIfPermitted(psn).catch(() => {
       // silent by design
     });
-  }, [
-    auth?.mode,
-    auth?.user?.username,
-  ]);
+  }, [auth?.mode, auth?.user?.username]);
+
+  /**
+   * If normal password login returned a short-lived passkey registration token,
+   * prime the immediate post-login enrollment prompt.
+   *
+   * IMPORTANT
+   * - Prompt is suppressed locally per-device and per-username after:
+   *   * explicit dismiss ("Not now")
+   *   * successful passkey creation
+   *   * graceful already-ready handling
+   */
+  const primePasskeyEnrollmentPrompt = useCallback(
+    (resp: LoginResponse, usernameForSuppression: string) => {
+      const token = String(resp?.passkeyRegistrationToken || "").trim();
+      const expiresIn = Number(resp?.passkeyRegistrationExpiresIn || 0);
+      const normalizedUsername = String(usernameForSuppression || "").trim().toUpperCase();
+
+      if (!isPasskeySupported() || !token || expiresIn <= 0 || !normalizedUsername) {
+        setPasskeyEnrollmentPrompt(null);
+        return;
+      }
+
+      if (isPasskeyPromptSuppressed(normalizedUsername)) {
+        setPasskeyEnrollmentPrompt(null);
+        return;
+      }
+
+      setPasskeyEnrollmentPrompt({
+        username: normalizedUsername,
+        token,
+        expiresIn,
+        status: "idle",
+      });
+    },
+    []
+  );
+
+  /**
+   * Shared member-login completion path.
+   *
+   * WHY THIS EXISTS
+   * - Password login and passkey login must both end in the SAME auth-store shape
+   *   and the SAME post-login routing logic.
+   * - This keeps the password flow as source of truth and avoids a parallel branch.
+   */
+  const completeMemberLogin = useCallback(
+    async (
+      resp: LoginResponse,
+      opts?: {
+        submittedUsername?: string;
+        rememberDevice?: boolean;
+        deviceId?: string;
+      }
+    ) => {
+      const rememberDevice = !!opts?.rememberDevice;
+      const submittedUsername = String(opts?.submittedUsername || "").trim();
+
+      const identitySource =
+        submittedUsername ||
+        String(resp?.user?.username || "").trim().toUpperCase();
+
+      if (!identitySource) {
+        throw new Error("LOGIN_NO_IDENTITY");
+      }
+
+      const { staffIdentity, staffNumber } = extractStaffIdentity(identitySource);
+
+      setAuth({
+        mode: "member",
+        user: {
+          ...(resp?.user || {}),
+          staff_identity: staffIdentity,
+          staff_number: staffNumber,
+          username: staffIdentity,
+        },
+        accessToken: resp?.accessToken || null,
+        refreshToken: resp?.refreshToken || null,
+      });
+
+      if (rememberDevice && resp?.refreshToken) {
+        persistRefreshToken(String(resp.refreshToken));
+      } else {
+        clearPersistedRefreshToken();
+      }
+
+      // After normal password login, this may prime optional passkey enrollment.
+      // After passkey login exchange, these fields will typically be absent.
+      primePasskeyEnrollmentPrompt(resp, staffIdentity);
+
+      const token = resp?.accessToken || "";
+      if (!token) {
+        throw new Error("LOGIN_NO_ACCESS_TOKEN");
+      }
+
+      const bearer: Record<string, string> = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+
+      try {
+        const { CREW_EXISTS_URL, MEMBERS_STATUS_URL } = await import("./api");
+
+        const existsResp = await postJson<any>(
+          CREW_EXISTS_URL,
+          { psn: staffIdentity },
+          bearer
+        );
+
+        const exists = Boolean(existsResp?.exists);
+
+        if (exists) {
+          const statusResp = await postJson<any>(
+            MEMBERS_STATUS_URL,
+            { psn: staffIdentity },
+            bearer
+          );
+
+          const next = String(statusResp?.next_step || "").trim().toLowerCase();
+
+          if (next === "set_password") {
+            await loadCrew(staffIdentity);
+            setOnboardingUsername(staffIdentity);
+            setRouteReason("password_required");
+            nav("/register/set-password", { replace: true });
+            return;
+          }
+
+          if (next === "details") {
+            await loadCrew(staffIdentity);
+            setOnboardingUsername(staffIdentity);
+            setRouteReason("profile_incomplete");
+            nav("/profile", { replace: true });
+            return;
+          }
+
+          await loadCrew(staffIdentity);
+          nav("/home", { replace: true });
+          return;
+        }
+
+        // exists === false -> ProfileWizard
+        await loadCrew(staffIdentity);
+        setOnboardingUsername(staffIdentity);
+        nav("/profile-wizard", { replace: true });
+        return;
+      } catch {
+        throw new Error(
+          "Login succeeded, but the post-login checks failed (network/server). Please try again."
+        );
+      }
+    },
+    [
+      clearPersistedRefreshToken,
+      loadCrew,
+      nav,
+      persistRefreshToken,
+      primePasskeyEnrollmentPrompt,
+      setAuth,
+      setOnboardingUsername,
+      setRouteReason,
+    ]
+  );
+
+  /**
+   * Immediate post-login passkey enrollment flow.
+   *
+   * INPUT
+   * - short-lived passkeyRegistrationToken from normal password login response
+   *
+   * FLOW
+   * - apps-backend login.php issues registration token
+   * - passkeys API register/begin verifies token and returns creation options
+   * - browser creates passkey
+   * - passkeys API register/finish verifies token and stores credential
+   */
+  const handleCreatePasskeyNow = useCallback(async () => {
+    if (!passkeyEnrollmentPrompt?.token || !passkeyEnrollmentPrompt?.username) {
+      return;
+    }
+
+    setPasskeyEnrollmentPrompt((prev) =>
+      prev ? { ...prev, status: "working", error: undefined } : prev
+    );
+
+    try {
+      const beginResp = await beginPasskeyRegistration(passkeyEnrollmentPrompt.token);
+      const credential = await createPasskeyFromOptions(beginResp.options);
+      await finishPasskeyRegistration(passkeyEnrollmentPrompt.token, credential);
+
+      suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
+
+      setPasskeyEnrollmentPrompt((prev) =>
+        prev ? { ...prev, status: "done", error: undefined } : prev
+      );
+    } catch (err) {
+      const normalized = normalizePasskeyPromptError(err);
+
+      if (normalized.treatAsReady) {
+        suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
+
+        setPasskeyEnrollmentPrompt((prev) =>
+          prev ? { ...prev, status: "done", error: undefined } : prev
+        );
+        return;
+      }
+
+      setPasskeyEnrollmentPrompt((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "error",
+              error: normalized.message,
+            }
+          : prev
+      );
+    }
+  }, [passkeyEnrollmentPrompt]);
+
+  const handleDismissPasskeyPrompt = useCallback(() => {
+    if (passkeyEnrollmentPrompt?.username) {
+      suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
+    }
+    setPasskeyEnrollmentPrompt(null);
+  }, [passkeyEnrollmentPrompt]);
 
   return (
     <>
@@ -439,35 +768,37 @@ export default function AppRoutes() {
         onGoProfile={() => nav("/profile")}
         onGoMessages={() => nav("/messages")}
         unreadMessageCount={Number(messageSummary.unread_count || 0)}
+        /* unreadMessageCount={0}  / DEBUG USE ONLY */
 
         // Product rule:
         // - bell exists only while unread messages exist
         // - when unread_count hits 0, bell disappears
         hasAnyMessages={Number(messageSummary.unread_count || 0) > 0}
+        /* hasAnyMessages={false}  / DEBUG USE ONLY */
 
-		onForgotPassword={() => {
+        onForgotPassword={() => {
           nav("/forgot-password");
-        }}		
-		
+        }}
+
         onLogout={() => {
           // Web: local reset (server logout can be added later if/when you have it)
           resetToGuestState();
+          setPasskeyEnrollmentPrompt(null);
           nav("/home", { replace: true });
         }}
-		
+
         onCancelLogin={() => {
           // RN parity: return to loginReturnTo (or /home)
           nav(loginReturnTo || "/home", { replace: true });
         }}
-		
+
         onCreateAccount={() => {
           nav("/register");
         }}
-		
-        onLoginSubmit={async ({ username, password, rememberDevice }) => {
-          // === COPIED LOGIC FROM pages/Login.tsx onSubmit() (phase 1 + phase 2) ===
 
-          // Basic empty checks (RN does similar "required" checks)
+        onLoginSubmit={async ({ username, password, rememberDevice }) => {
+          // === PASSWORD LOGIN -> SHARED COMPLETE LOGIN PATH ===
+
           if (!String(username).trim()) {
             throw new Error("Please enter your username / staff identity.");
           }
@@ -475,10 +806,7 @@ export default function AppRoutes() {
             throw new Error("Please enter your password.");
           }
 
-          // --------------------------------------------
-          // Phase 1: AUTH
-          // --------------------------------------------
-          const { staffIdentity, staffNumber } = extractStaffIdentity(username);
+          const { staffIdentity } = extractStaffIdentity(username);
 
           const resp = await postJson<LoginResponse>(AUTH_LOGIN_URL, {
             username: staffIdentity,
@@ -486,104 +814,43 @@ export default function AppRoutes() {
             rememberDevice: !!rememberDevice,
           });
 
-          // DEBUG ONLY =========================================================
-          console.log("[LOGIN] rememberDevice =", rememberDevice);
-          console.log("[LOGIN] resp.refreshToken =", resp?.refreshToken);
-
-          setAuth({
-            mode: "member",
-            user: {
-              ...(resp?.user || {}),
-              staff_identity: staffIdentity,
-              staff_number: staffNumber,
-              username: staffIdentity,
-            },
-            accessToken: resp?.accessToken || null,
-            refreshToken: resp?.refreshToken || null,
+          await completeMemberLogin(resp, {
+            submittedUsername: staffIdentity,
+            rememberDevice: !!rememberDevice,
           });
+        }}
 
-          // DEBUG ONLY =========================================================
-          console.log("[LOGIN] calling persistRefreshToken...");
-          if (rememberDevice && resp?.refreshToken) {
-            persistRefreshToken(String(resp.refreshToken));
-            console.log("[LOGIN] persistRefreshToken DONE");
-          } else {
-            clearPersistedRefreshToken();
-            console.log("[LOGIN] cleared stored refresh token");
-          }
+        onPasskeyLogin={async ({
+          usernameHint,
+          rememberDevice,
+          deviceId,
+        }: {
+          usernameHint?: string;
+          rememberDevice?: boolean;
+          deviceId?: string;
+        }) => {
+          // === PASSKEY LOGIN FLOW ===
+          // 1. passkeys API begin
+          // 2. browser get()
+          // 3. passkeys API finish -> short-lived exchange token
+          // 4. main backend exchange -> SAME login response shape as password login
+          // 5. shared complete login path
 
-          // V4 semantics: persist refreshToken ONLY when rememberDevice === true.
-          // If rememberDevice is false, or refreshToken not returned, ensure storage is clear.
-          if (rememberDevice && resp?.refreshToken) {
-            persistRefreshToken(String(resp.refreshToken));
-          } else {
-            clearPersistedRefreshToken();
-          }
+          const beginResp = await beginPasskeyAuthentication(usernameHint);
+          const credential = await getPasskeyAssertionFromOptions(beginResp.options);
+          const finishResp = await finishPasskeyAuthentication(credential);
 
-          const token = resp?.accessToken || "";
-          if (!token) {
-            throw new Error("LOGIN_NO_ACCESS_TOKEN");
-          }
+          const exchangeResp = await exchangeVerifiedPasskeyForAppLogin(
+            finishResp.exchange.token,
+            rememberDevice ?? true,
+            deviceId
+          );
 
-          const bearer: Record<string, string> = token
-            ? { Authorization: `Bearer ${token}` }
-            : {};
-
-          // --------------------------------------------
-          // Phase 2: POST-LOGIN checks (copied routing table)
-          // --------------------------------------------
-          try {
-            const { CREW_EXISTS_URL, MEMBERS_STATUS_URL } = await import("./api");
-
-            const existsResp = await postJson<any>(
-              CREW_EXISTS_URL,
-              { psn: staffIdentity },
-              bearer
-            );
-
-            const exists = Boolean(existsResp?.exists);
-
-            if (exists) {
-              const statusResp = await postJson<any>(
-                MEMBERS_STATUS_URL,
-                { psn: staffIdentity },
-                bearer
-              );
-
-              const next = String(statusResp?.next_step || "").trim().toLowerCase();
-
-              if (next === "set_password") {
-                await loadCrew(staffIdentity);
-                setOnboardingUsername(staffIdentity);
-                setRouteReason("password_required");
-                nav("/register/set-password", { replace: true });
-                return;
-              }
-
-              if (next === "details") {
-                await loadCrew(staffIdentity);
-                setOnboardingUsername(staffIdentity);
-                setRouteReason("profile_incomplete");
-                nav("/profile", { replace: true });
-                return;
-              }
-
-              await loadCrew(staffIdentity);
-              nav("/home", { replace: true });
-              return;
-            }
-
-            // exists === false -> ProfileWizard
-            await loadCrew(staffIdentity);
-            setOnboardingUsername(staffIdentity);
-            nav("/profile-wizard", { replace: true });
-            return;
-          } catch {
-            // MARKED post-login failure (RN parity)
-            throw new Error(
-              "Login succeeded, but the post-login checks failed (network/server). Please try again."
-            );
-          }
+          await completeMemberLogin(exchangeResp, {
+            submittedUsername: String(exchangeResp?.user?.username || ""),
+            rememberDevice: rememberDevice ?? true,
+            deviceId,
+          });
         }}
       />
 
@@ -661,13 +928,125 @@ export default function AppRoutes() {
         </div>
       ) : null}
 
+      {passkeyEnrollmentPrompt ? (
+        <div
+          style={{
+            position: "fixed",
+            top: foregroundBanner ? 164 : 84,
+            right: 16,
+            left: 16,
+            zIndex: 1990,
+            maxWidth: 560,
+            margin: "0 auto",
+            background: "#ffffff",
+            color: "#111827",
+            borderRadius: 14,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.16)",
+            padding: "14px 16px",
+            border: "1px solid rgba(17,24,39,0.08)",
+          }}
+        >
+          {passkeyEnrollmentPrompt.status === "done" ? (
+            <>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>
+                Passkey ready
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.35, marginBottom: 12 }}>
+                You can now sign in with a passkey on this device.
+              </div>
+              <button
+                type="button"
+                onClick={() => setPasskeyEnrollmentPrompt(null)}
+                style={{
+                  border: 0,
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                Dismiss
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>
+                Create a passkey on this device
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.35, marginBottom: 12 }}>
+                <br />
+				Use Face ID, Touch ID, Windows Hello, or your device PIN to sign in faster next time.
+				<br /><br />
+				This does not affect your current password.
+				<br />
+              </div>
+
+              {passkeyEnrollmentPrompt.status === "error" &&
+              passkeyEnrollmentPrompt.error ? (
+                <div
+                  style={{
+                    fontSize: 13,
+                    marginBottom: 12,
+                    color: "#b91c1c",
+                    fontWeight: 600,
+                  }}
+                >
+                  {passkeyEnrollmentPrompt.error}
+                </div>
+              ) : null}
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => void handleCreatePasskeyNow()}
+                  disabled={passkeyEnrollmentPrompt.status === "working"}
+                  style={{
+                    border: 0,
+                    borderRadius: 10,
+					marginRight: 50,
+                    padding: "10px 14px",
+                    cursor:
+                      passkeyEnrollmentPrompt.status === "working"
+                        ? "default"
+                        : "pointer",
+                    fontWeight: 700,
+                  }}
+                >
+                  {passkeyEnrollmentPrompt.status === "working"
+                    ? "Creating..."
+                    : "Create passkey"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDismissPasskeyPrompt}
+                  disabled={passkeyEnrollmentPrompt.status === "working"}
+                  style={{
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                    cursor:
+                      passkeyEnrollmentPrompt.status === "working"
+                        ? "default"
+                        : "pointer",
+                    fontWeight: 700,
+                    background: "transparent",
+                  }}
+                >
+                  Not now
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+
       {/* Route table */}
       <Routes>
         {/* Guest / entry */}
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/login" element={<Navigate to="/home?login=1" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />		
+        <Route path="/reset-password" element={<ResetPassword />} />
         {/* /login still exists, but it no longer renders a page. */}
         <Route path="/debug" element={<Debug />} />
 
@@ -683,8 +1062,14 @@ export default function AppRoutes() {
         <Route path="/faq" element={<Faq />} />
         <Route path="/donate" element={<Donate />} />
         <Route path="/donate-return" element={<DonateReturn />} />
-		<Route path="/legal" element={<Legal />} />
+        <Route path="/legal" element={<Legal />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/hotels" element={<Hotels />} />
+		
+		
+        <Route path="/standby-rooms" element={<StandbyRooms />} />	
+		<Route path="/standby-rooms/:roomId" element={<div>Standby room detail page</div>} />
+		<Route path="/standby-rooms/submit" element={<div>Submit standby room advert</div>} />		
 
         <Route
           path="/week"

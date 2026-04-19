@@ -9,8 +9,7 @@ import { COUNTRY_AIRPORTS } from "../data/airports";
 import { API_BASE_URL, postJson } from "../app/api";
 import { useSecureUnlock } from "../hooks/useSecureUnlock";
 
-// ✅ Standard back icon button (same as Week/MyFlights)
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 
 function safeStr(v: any) {
   return (v ?? "") === null ? "" : String(v ?? "");
@@ -91,11 +90,10 @@ export default function Passport() {
     const dobRaw = safeStr(p.d_o_b);
     setDob(isYMD(dobRaw) ? dobRaw : "");
 
-    setNationality(safeStr(p.nationality));	
+    setNationality(safeStr(p.nationality));
 
     const expRaw = safeStr(p.passport_expiry);
     setPassportExpiry(isYMD(expRaw) ? expRaw : "");
-	
   }, [crew, isMember]);
 
   function validate(): string {
@@ -145,21 +143,28 @@ export default function Passport() {
 
   return (
     <div className="app-screen profile-page">
-      <div className="app-container">
-        <div className="profile-top">
-          <div className="text-title">Passport information</div>
-
-          {/* ✅ Standard icon back button (busy guarded) */}
-          <BackButton
-            onClick={() => {
-              if (busy) return;
-              nav(-1);
+      <StickyPageHeaderCard
+        leftContent={
+          <img
+            src={UI_ICONS.passport}
+            alt="Passport information"
+            style={{
+              width: 52,
+              height: 52,
+              objectFit: "contain",
+              borderRadius: 14,
             }}
-            ariaLabel="Back"
-            size={38}
           />
-        </div>
+        }
+        title="Passport information"
+        onBack={() => {
+          if (busy) return;
+          nav(-1);
+        }}
+        backAriaLabel="Back"
+      />
 
+      <div className="app-container" style={{ paddingTop: 0 }}>
         <div className="passport-sub">Enter details exactly as shown in your passport.</div>
 
         {!isMember ? (

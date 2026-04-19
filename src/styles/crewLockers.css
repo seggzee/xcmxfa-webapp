@@ -5,13 +5,9 @@
   - Crew Lockers page styles
 
   THIS CHANGE ONLY
-  - Tighten the top chip card while keeping Home-like centered width
-  - Restructure locker cards into action zone + metadata zone
-  - Add shared pill styling for:
-      * Open / manage
-      * Days left
-  - Add Days left block on right side of metadata zone
-  - Keep only the classes used by the current JSX
+  - Remove old page-title-row shell and use StickyPageHeaderCard instead
+  - Use app-container width/padding for the main page body
+  - Keep existing locker card, chips, pills, and modal styling intact
 */
 
 .crewLockers-page {
@@ -20,38 +16,19 @@
 }
 
 .crewLockers-scroll {
-  max-width: 520px;
-  margin: 0 auto;
-  padding: var(--space-4, 16px);
+  padding-top: 0;
   padding-bottom: 40px;
-  padding-top: calc(var(--appheader-height, 0px) + var(--space-2, 8px));
 }
 
-/* Title row */
-.crewLockers-titleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3, 12px);
-  margin-bottom: var(--space-3, 12px);
-}
-
-.crewLockers-titleCol {
-  flex: 1;
-  min-width: 0;
-}
-
-.crewLockers-title {
-  font-weight: 900;
-  font-size: 20px;
-  color: var(--ink-900, #132333);
-}
-
-.crewLockers-status {
-  margin-top: 4px;
+.crewLockers-inlineStatus {
+  margin-bottom: 12px;
   font-weight: 800;
   font-size: 12px;
   color: rgba(19, 35, 51, 0.55);
+}
+
+.crewLockers-inlineStatus--error {
+  color: #7f1d1d;
 }
 
 /* Top chip card */
@@ -60,7 +37,7 @@
   border-radius: 16px;
   padding: 14px;
   border: 2px solid #d9e2ee;
-  margin: 12px 0 16px;
+  margin: 0 0 16px;
 }
 
 .crewLockers-topTitle {
@@ -122,28 +99,6 @@
   color: rgba(19, 35, 51, 0.75);
   text-align: center;
   line-height: 16px;
-}
-
-/* Empty state */
-.crewLockers-emptyWrap {
-  margin-top: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.crewLockers-emptyTitle {
-  font-weight: 900;
-  font-size: 16px;
-  color: var(--ink-900, #132333);
-}
-
-.crewLockers-emptyBody {
-  margin-top: 6px;
-  font-weight: 700;
-  color: rgba(19, 35, 51, 0.6);
-  text-align: center;
-  max-width: 520px;
 }
 
 /* Locker card */
@@ -309,7 +264,7 @@
 .crewLockers-pill {
   min-height: 38px;
   padding: 8px 14px;
-  border-radius: 12px; /* less rounded */
+  border-radius: 12px;
   text-align: center;
   font-weight: 900;
   font-size: 13px;
@@ -422,9 +377,4 @@
   font-size: 14px;
   color: #7f1d1d;
   cursor: pointer;
-}
-
-/* Guest fallback */
-.crewLockers-page--guest {
-  padding: 24px;
 }

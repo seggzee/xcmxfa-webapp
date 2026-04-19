@@ -6,7 +6,8 @@ import { STORAGE_PENDING_USERNAME } from "../app/storageKeys";
 import { useAuth } from "../app/authStore";
 import { useCrew } from "../app/crewStore";
 import { COUNTRY_AIRPORTS } from "../data/airports";
-
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
+import { UI_ICONS } from "../assets";
 /**
  * ============================================================================
  * ProfileWizard.tsx (Web)
@@ -18,10 +19,10 @@ import { COUNTRY_AIRPORTS } from "../data/airports";
  * - Backend expects FLAT JSON with top-level keys (psn, employer, etc)
  * - Do NOT wrap in { payload: ... }
  *
- * Polishes implemented:
- * 1) Title is a locked select (Mr/Mrs/Ms/Mx)
- * 2) Telephone is split: [countryCode select] + [digits input]
- * 3) Auto-capitalise firstname/lastname on blur
+ * THIS CHANGE ONLY
+ * - Move page onto reusable StickyPageHeaderCard pattern
+ * - Remove old local title-row / back button shell
+ * - Keep all wizard logic, modal flow, and save behaviour unchanged
  */
 
 const SAVE_MEMBER_GENERAL_URL = `${API_BASE_URL}/api/members/member_general.php`;
@@ -283,16 +284,26 @@ export default function ProfileWizard() {
   const isMember = auth?.mode === "member";
 
   return (
-    <div className="app-screen profile-page">
-      <div className="app-container">
-        <div className="profile-top">
-          <div className="text-title">Complete your details</div>
+    <div className="app-screen">
+      <StickyPageHeaderCard
+	    leftContent={
+            <img
+              src={UI_ICONS.profile_blue}
+              alt="My profile"
+              style={{
+                width: 52,
+                height: 52,
+                objectFit: "contain",
+                borderRadius: 14,
+              }}
+            />
+          }
+        title="Your details"
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
 
-          <button className="btn btn-secondary" onClick={() => nav(-1)} disabled={saving}>
-            Back
-          </button>
-        </div>
-
+      <div className="app-container" style={{ paddingTop: 0 }}>
         {!isMember ? (
           <div className="wizard-warning card">
             <div className="wizard-warning-title">Members only</div>
@@ -522,9 +533,9 @@ export default function ProfileWizard() {
         <div className="card">
           <div className="profile-section-title">Passport &amp; Travel documents</div>
           <div className="wizard-note">
-            <p>Passport and ESTA details are stored separately.</p> 
-			<p>ESTA/residence details are required for UK (non British passport holders), USA and Canada.</p>
-			<p>Please complete passport details from profile page.</p>
+            <p>Passport and ESTA details are stored separately.</p>
+            <p>ESTA/residence details are required for UK (non British passport holders), USA and Canada.</p>
+            <p>Please complete passport details from profile page.</p>
           </div>
         </div>
 

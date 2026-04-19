@@ -79,6 +79,22 @@
 // - If std_utc is missing/invalid -> msToStd null -> phase defaults to 0 -> show 2 rows.
 // - This thread changes ONLY Home "My next flight" usage. No other screens touched.
 // =====================================================================================
+//
+// =====================================================================================
+// ?? PHASE 0 OFFLINE HOME BEHAVIOUR (ADD-ONLY)
+// =====================================================================================
+//
+// IDIOT GUIDE:
+// - Phase 0 does NOT provide offline Home data.
+// - The app shell may load offline, but live Home content must remain honest.
+// - Therefore:
+//   - show a compact Home offline notice
+//   - replace "My next flight" with offline-unavailable copy
+//   - hide weather card offline
+//   - hide unread messages banner offline
+//   - keep Airports card visible, but make it read-only offline
+// - Quick actions remain visible; destination pages will handle their own offline state.
+// =====================================================================================
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -104,10 +120,11 @@ import { API_BASE_URL } from "../config/api";
 // ? CHANGE 1/2:
 // We add getAirportLogo here so Home never hardcodes "/assets/airports/..."
 // Everything goes through src/assets/index.ts
-import { APP_IMAGES, getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
+import { APP_IMAGES, getAirportLogo, LISTING_STATUS_ICONS, UI_ICONS } from "../assets";
 
 // ? ADD-ONLY: canonical time truth + phase helpers
 import { getMyFlights, getMsToStd, getFlightPhase, formatCountdownHHMM } from "../api/flightsApi";
+import useOnlineStatus from "../hooks/useOnlineStatus";
 
 type NextFlightState =
   | { status: "idle" | "loading"; flight: null }
@@ -194,6 +211,8 @@ export default function Home() {
   const { auth } = useAuth();
   const { crew } = useCrew();
   const location = useLocation();
+  const isOnline = useOnlineStatus();
+  const isOffline = !isOnline;
 
   const isMember = auth.mode === "member";
   
@@ -331,6 +350,14 @@ export default function Home() {
         return;
       }
 
+      // Phase 0 offline rule:
+      // - Home messages banner is hidden offline
+      // - do not leave stale counts hanging around
+      if (!isOnline) {
+        if (alive) setUnreadMsgCount(0);
+        return;
+      }
+
       try {
         const resp: any = await getCrewLockerNotifications(staffNo);
         const rows = Array.isArray(resp?.messages) ? resp.messages : [];
@@ -349,7 +376,8 @@ export default function Home() {
     return () => {
       alive = false;
     };
-  }, [isMember, staffNo]);
+  }, [isMember, staffNo, isOnline]);
+  
 
   // =============================================================================
   // Next flight (member-only, real data)
@@ -359,7 +387,7 @@ export default function Home() {
     flight: null,
   });
 
-  useEffect(() => {
+ 	  useEffect(() => {
     const ac = new AbortController();
 
     async function load() {
@@ -373,6 +401,15 @@ export default function Home() {
       if (!staffNo) {
         console.error("[Home][NextFlight] Member missing auth.user.username (staffNo)");
         setNextFlightState({ status: "empty", flight: null });
+        return;
+      }
+
+      // Phase 0 offline rule:
+      // - Home renders a dedicated offline-unavailable message for next flight
+      // - do not leave the page stuck in a prior network error while offline
+      // - reconnecting should retrigger this effect automatically via dependency list
+      if (!isOnline) {
+        setNextFlightState({ status: "idle", flight: null });
         return;
       }
 
@@ -449,7 +486,7 @@ const firstFlightRows = Array.isArray(rows)
 
     load();
     return () => ac.abort();
-  }, [isMember, staffNo]);
+  }, [isMember, staffNo, isOnline]);
 
   // ? ADD-ONLY (Step 2): ticking "now" for countdown/phase
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
@@ -679,6 +716,7 @@ const firstFlightRows = Array.isArray(rows)
     onInfoPress,
     showRemove = false,
     onRemove,
+    disabled = false,
   }: {
     code?: string | null;
     isAdd?: boolean;
@@ -688,6 +726,7 @@ const firstFlightRows = Array.isArray(rows)
     onInfoPress?: () => void;
     showRemove?: boolean;
     onRemove?: () => void;
+    disabled?: boolean;
   }) {
     const resolvedCode = normalizeCode(code);
 
@@ -718,25 +757,27 @@ const firstFlightRows = Array.isArray(rows)
     const [removePressed, setRemovePressed] = useState(false);
 
     return (
-      <div className="airportChipWrap">
+      <div className="airportChipWrap" style={disabled ? { opacity: 0.96 } : undefined}>
         {showRemove ? (
           <button
             type="button"
             className="airportChipRemove"
             onClick={(e) => {
               e.stopPropagation();
+              if (disabled) return;
               onRemove?.();
             }}
-            onMouseDown={() => setRemovePressed(true)}
+            onMouseDown={() => !disabled && setRemovePressed(true)}
             onMouseUp={() => setRemovePressed(false)}
             onMouseLeave={() => setRemovePressed(false)}
-            onTouchStart={() => setRemovePressed(true)}
+            onTouchStart={() => !disabled && setRemovePressed(true)}
             onTouchEnd={() => setRemovePressed(false)}
             aria-label="Remove airport"
             title="Remove"
-            style={removePressed ? { opacity: 0.88 } : undefined}
+            style={removePressed ? { opacity: 0.88 } : disabled ? { opacity: 0.5, cursor: "default" } : undefined}
+            disabled={disabled}
           >
-            {"\u00D7"}
+            <img src={UI_ICONS.close} alt ="remove button" />
           </button>
         ) : null}
 
@@ -746,26 +787,40 @@ const firstFlightRows = Array.isArray(rows)
             className="airportChipInfo"
             onClick={(e) => {
               e.stopPropagation();
+              if (disabled) return;
               onInfoPress?.();
             }}
             aria-label="Airport info"
             title="Airport info"
+            style={disabled ? { opacity: 0.5, cursor: "default" } : undefined}
+            disabled={disabled}
           >
-            i
+            <img src={UI_ICONS.info} alt ="info button" />
           </button>
         ) : null}
 
         <button
           type="button"
           className="airportChipBtn"
-          onClick={() => onPress?.()}
-          onMouseDown={() => setPressed(true)}
+          onClick={() => {
+            if (disabled) return;
+            onPress?.();
+          }}
+          onMouseDown={() => !disabled && setPressed(true)}
           onMouseUp={() => setPressed(false)}
           onMouseLeave={() => setPressed(false)}
-          onTouchStart={() => setPressed(true)}
+          onTouchStart={() => !disabled && setPressed(true)}
           onTouchEnd={() => setPressed(false)}
           onTouchCancel={() => setPressed(false)}
-          style={pressed ? { opacity: 0.92 } : undefined}
+          style={
+            pressed
+              ? { opacity: 0.92 }
+              : disabled
+              ? { cursor: "default" }
+              : undefined
+          }
+          disabled={disabled}
+          aria-disabled={disabled}
         >
           <div className="airportChipTopRN">
             {isAdd && shouldShowPlus ? (
@@ -790,6 +845,30 @@ const firstFlightRows = Array.isArray(rows)
   return (
     <div className="homeScreen">
       <div className="homeInner">
+        {!isOnline ? (
+          <section
+            className="card"
+            style={{
+              borderColor: "rgba(154,52,18,0.18)",
+              background: "#fff7ed",
+            }}
+          >
+            <div style={{ fontWeight: 900, color: "#132333" }}>You&apos;re offline</div>
+            <div
+              style={{
+                marginTop: 6,
+                fontWeight: 700,
+                fontSize: 13,
+                color: "rgba(19,35,51,0.72)",
+                lineHeight: 1.35,
+              }}
+            >
+              Some live features on Home are unavailable right now. Reconnect to load flight,
+              weather and message updates.
+            </div>
+          </section>
+        ) : null}
+
         {/* ===== Hero + next flight (RN) ===== */}
         <section className="card card--flush">
           <div className="card-hero">
@@ -799,7 +878,23 @@ const firstFlightRows = Array.isArray(rows)
           {/* Member-only: My next flight */}
           {isMember ? (
             <div className="card-body">
-              {nextFlightState.status === "loading" ? (
+              {!isOnline ? (
+                <>
+                  <div className="mutedLineSpecial">My next flight unavailable offline</div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      textAlign: "center",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: "rgba(19,35,51,0.62)",
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    Reconnect to load your latest flight information.
+                  </div>
+                </>
+              ) : nextFlightState.status === "loading" ? (
                 <div className="mutedLineSpecial">Loading next flight</div>
               ) : nextFlightState.status === "ready" ? (
                 <div
@@ -882,7 +977,7 @@ const firstFlightRows = Array.isArray(rows)
         </section>
 
         {/* ===== Weather card (ADD-ONLY) ===== */}
-        {weatherCardData ? (
+        {isOnline && weatherCardData ? (
           <section
             className="card"
             style={{
@@ -951,14 +1046,29 @@ const firstFlightRows = Array.isArray(rows)
 
             <button
               type="button"
-              className="infoDot"
+              className="infoButton"
               onClick={() => setShowAirportsHelp(true)}
               aria-label="Airports help"
               title="Airports help"
             >
-              i
+              <img src={UI_ICONS.info} alt ="info button" />
             </button>
           </div>
+
+          {!isOnline ? (
+            <div
+              style={{
+                marginTop: 6,
+                marginBottom: 8,
+                fontWeight: 700,
+                fontSize: 13,
+                color: "rgba(19,35,51,0.62)",
+                lineHeight: 1.35,
+              }}
+            >
+              Airport schedules unavailable offline
+            </div>
+          ) : null}
 
           <div className={cx("airportsBlock", maxFavs > 1 && "airportsBlock--scroll")}>
             {maxFavs > 1 ? (
@@ -992,31 +1102,40 @@ const firstFlightRows = Array.isArray(rows)
                         showPlus={false}
                         label={isAdd ? ADD_SLOT_LABELS[idx] : String(code)}
                         showRemove={!isAdd}
-                        onInfoPress={!isAdd ? () => openAirportInfo(code || null) : undefined}
-                        onRemove={() => {
-                          if (favs.length <= 1) {
-                            removeFavouriteAt(idx);
-                            return;
-                          }
-                          setPendingRemoveIndex(idx);
-                          setRemoveConfirmVisible(true);
-                        }}
-                        onPress={() => {
-                          if (!isAdd && code) {
-                            nav("/week", { state: { airport: normalizeCode(code) } });
-                            return;
-                          }
+                        disabled={isOffline}
+                        onInfoPress={!isOffline && !isAdd ? () => openAirportInfo(code || null) : undefined}
+                        onRemove={
+                          !isOffline
+                            ? () => {
+                                if (favs.length <= 1) {
+                                  removeFavouriteAt(idx);
+                                  return;
+                                }
+                                setPendingRemoveIndex(idx);
+                                setRemoveConfirmVisible(true);
+                              }
+                            : undefined
+                        }
+                        onPress={
+                          !isOffline
+                            ? () => {
+                                if (!isAdd && code) {
+                                  nav("/week", { state: { airport: normalizeCode(code) } });
+                                  return;
+                                }
 
-                          nav("/selectairports", {
-                            state: {
-                              mode: "add",
-                              targetSlotIndex: idx,
-                              openPicker: true,
-                              focusSearch: true,
-                              highlightSlot: true,
-                            },
-                          });
-                        }}
+                                nav("/selectairports", {
+                                  state: {
+                                    mode: "add",
+                                    targetSlotIndex: idx,
+                                    openPicker: true,
+                                    focusSearch: true,
+                                    highlightSlot: true,
+                                  },
+                                });
+                              }
+                            : undefined
+                        }
                       />
                     </div>
                   );
@@ -1028,28 +1147,37 @@ const firstFlightRows = Array.isArray(rows)
                   <AirportChip
                     code={favs[0]}
                     showRemove
-                    onInfoPress={() => openAirportInfo(favs[0])}
-                    onRemove={() => {
-                      setPendingRemoveIndex(0);
-                      setRemoveConfirmVisible(true);
-                    }}
-                    onPress={() => nav("/week", { state: { airport: favs[0] } })}
+                    disabled={isOffline}
+                    onInfoPress={!isOffline ? () => openAirportInfo(favs[0]) : undefined}
+                    onRemove={
+                      !isOffline
+                        ? () => {
+                            setPendingRemoveIndex(0);
+                            setRemoveConfirmVisible(true);
+                          }
+                        : undefined
+                    }
+                    onPress={!isOffline ? () => nav("/week", { state: { airport: favs[0] } }) : undefined}
                   />
                 ) : (
                   <AirportChip
                     isAdd
                     label="Add airport"
                     showPlus={true}
-                    onPress={() =>
-                      nav("/selectairports", {
-                        state: {
-                          mode: "add",
-                          targetSlotIndex: 0,
-                          openPicker: true,
-                          focusSearch: true,
-                          highlightSlot: true,
-                        },
-                      })
+                    disabled={isOffline}
+                    onPress={
+                      !isOffline
+                        ? () =>
+                            nav("/selectairports", {
+                              state: {
+                                mode: "add",
+                                targetSlotIndex: 0,
+                                openPicker: true,
+                                focusSearch: true,
+                                highlightSlot: true,
+                              },
+                            })
+                        : undefined
                     }
                   />
                 )}
@@ -1072,7 +1200,7 @@ const firstFlightRows = Array.isArray(rows)
         </section>
 
         {/* ===== Messages banner (member-only) ===== */}
-        {isMember && unreadMsgCount > 0 ? (
+        {isOnline && isMember && unreadMsgCount > 0 ? (
           <section
             className="card"
             role="button"
@@ -1125,6 +1253,19 @@ const firstFlightRows = Array.isArray(rows)
 
           {!isMember ? (
             <>
+			
+              <div className="quickGridRow">
+                <button type="button" className="quickTile" onClick={() => nav("/hotels")}>
+                  <div className="quickTileTitle">Hotels</div>
+                  <div className="quickTileSub">Crew rate hotels</div>
+                </button>
+
+                <button type="button" className="quickTile" onClick={() => nav("/standby-rooms")}>
+                  <div className="quickTileTitle">Standby Rooms</div>
+                  <div className="quickTileSub">Short stay rooms</div>
+                </button>
+              </div>			
+			
               <div className="quickGridRow">
                 <button type="button" className="quickTile" onClick={() => nav("/legal")}>
                   <div className="quickTileTitle">Legal</div>
@@ -1168,6 +1309,18 @@ const firstFlightRows = Array.isArray(rows)
               </div>
 
               <div className="quickGridRow">
+                <button type="button" className="quickTile" onClick={() => nav("/hotels")}>
+                  <div className="quickTileTitle">Hotels</div>
+                  <div className="quickTileSub">Crew rate hotels</div>
+                </button>
+
+                <button type="button" className="quickTile" onClick={() => nav("/standby-rooms")}>
+                  <div className="quickTileTitle">Standby Rooms</div>
+                  <div className="quickTileSub">Short stay rooms</div>
+                </button>
+              </div>
+			  
+              <div className="quickGridRow">
                 <button type="button" className="quickTile" onClick={() => nav("/profile")}>
                   <div className="quickTileTitle">My Profile</div>
                   <div className="quickTileSub">Personal details</div>
@@ -1177,7 +1330,7 @@ const firstFlightRows = Array.isArray(rows)
                   <div className="quickTileTitle">Messages</div>
                   <div className="quickTileSub">View notifications</div>
                 </button>
-              </div>
+              </div>			  
 
               <div className="quickGridRow">
                 <button type="button" className="quickTile" onClick={() => nav("/faq")}>

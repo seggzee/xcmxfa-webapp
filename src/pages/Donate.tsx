@@ -1,13 +1,28 @@
 // src/pages/Donate.tsx
+//
+// =====================================================================================
+// DONATE PAGE
+// =====================================================================================
+//
+// PURPOSE
+// - Host the embedded Stripe donation checkout.
+// - Use the reusable StickyPageHeaderCard component so the back button remains visible.
+//
+// THIS CHANGE ONLY
+// - Keep page-level top clearance under the global AppHeader
+// - Add a page ref for the Donate page scroll container
+// - After Stripe Embedded Checkout mounts, force the page back to top
+//   because Stripe mount/focus can scroll the page downward on first load
+// - Keep all other Stripe logic and page content unchanged
+// =====================================================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { UI_ICONS } from "../assets";
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 import { API_BASE_URL } from "../app/api";
 
-import "../styles/week.css";
 import "../styles/donate.css";
 
 declare global {
@@ -39,10 +54,8 @@ function loadScriptOnce(src: string): Promise<void> {
 }
 
 async function safeReadJson(resp: Response): Promise<any> {
-  // Never call resp.json() directly. Read as text, then parse.
   const raw = await resp.text();
 
-  // If server returned HTML / PHP fatal / nginx page, this prevents "Unexpected token F"
   try {
     return raw ? JSON.parse(raw) : {};
   } catch {
@@ -55,11 +68,35 @@ export default function Donate() {
   const nav = useNavigate();
 
   const donateIconSrc = (UI_ICONS as any)?.DONATE || (UI_ICONS as any)?.donate || null;
-
   const publishableKey = String((import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY || "").trim();
 
   const [loadingText, setLoadingText] = useState<string>("Loading payment form…");
   const [errorText, setErrorText] = useState<string>("");
+
+  // LOCKED:
+  // - One Donate page instance must create at most one Embedded Checkout object.
+  // - Keep a ref so re-renders / remount edge cases do not create duplicates.
+  const checkoutRef = useRef<any>(null);
+  const bootedRef = useRef(false);
+
+  // THIS CHANGE ONLY:
+  // - Track the Donate page scroll container so we can restore top position
+  //   after Stripe mount/focus shifts the page down.
+  const pageRef = useRef<HTMLDivElement | null>(null);
+
+  function resetDonateScrollToTop() {
+    try {
+      pageRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    } catch {
+      // best-effort only
+    }
+
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    } catch {
+      // best-effort only
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -72,6 +109,13 @@ export default function Donate() {
         setErrorText("Missing Stripe publishable key (VITE_STRIPE_PUBLISHABLE_KEY).");
         return;
       }
+
+      // Prevent duplicate initialisation
+      if (bootedRef.current || checkoutRef.current) {
+        return;
+      }
+
+      bootedRef.current = true;
 
       try {
         setLoadingText("Loading payment form…");
@@ -88,7 +132,6 @@ export default function Donate() {
         const resp = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // body optional; keep empty JSON so servers/proxies don't do weird things
           body: JSON.stringify({}),
         });
 
@@ -108,74 +151,108 @@ export default function Donate() {
         const stripe = window.Stripe(publishableKey);
         const checkout = await stripe.initEmbeddedCheckout({ clientSecret });
 
-        if (!alive) return;
+        if (!alive) {
+          try {
+            checkout.destroy?.();
+          } catch {}
+          return;
+        }
 
         const mountEl = document.getElementById("checkout");
         if (!mountEl) throw new Error("Missing #checkout mount element.");
 
         checkout.mount("#checkout");
+        checkoutRef.current = checkout;
+
+        // THIS CHANGE ONLY:
+        // - Stripe Embedded Checkout can shift focus/scroll after mount.
+        // - Force the Donate page back to the top on first load.
+        window.setTimeout(() => {
+          resetDonateScrollToTop();
+        }, 0);
+
+        window.setTimeout(() => {
+          resetDonateScrollToTop();
+        }, 100);
+
         setLoadingText("");
       } catch (e: any) {
         if (!alive) return;
         setLoadingText("");
         setErrorText(e?.message || "Failed to load donation form.");
+        bootedRef.current = false;
       }
     }
 
     boot();
+
     return () => {
       alive = false;
+
+      // Best-effort cleanup so returning to Donate does not leave an old instance hanging around
+      if (checkoutRef.current) {
+        try {
+          checkoutRef.current.destroy?.();
+        } catch {}
+        checkoutRef.current = null;
+      }
+
+      bootedRef.current = false;
     };
   }, [publishableKey]);
 
   return (
-    <div className="app-screen">
-      {/* Sticky header card junction same as Week */}
-      <div className="week-sticky">
-        <div className="app-container">
-          <section className="week-headerCard">
-            {/* Donate-only grid row */}
-            <div className={`week-headerTopRow donateHeaderRow`}>
-              <div />
+    <div
+      ref={pageRef}
+      className="app-screen"
+      /*style={{ paddingTop: "var(--appheader-height, 0px)" }}*/
+    >
+      <StickyPageHeaderCard
+        centerContent={
+          donateIconSrc ? (
+            <img
+              src={donateIconSrc}
+              alt="Donate"
+              style={{ height: 64, width: "auto", objectFit: "contain" }}
+            />
+          ) : (
+            <div style={{ fontWeight: 900 }}>Donate</div>
+          )
+        }
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
 
-              <div className="donateHeaderCenter">
-                {donateIconSrc ? (
-                  <img
-                    src={donateIconSrc}
-                    alt="Donate"
-                    style={{ height: 64, width: "auto", objectFit: "contain" }}
-                  />
-                ) : (
-                  <div style={{ fontWeight: 900 }}>Donate</div>
-                )}
-              </div>
-
-              <div className="donateHeaderRight">
-                <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="app-container week-body">
+      <div className="app-container" style={{ paddingTop: 0, paddingBottom: 28 }}>
         <section className="card" style={{ padding: 14 }}>
           <div style={{ fontWeight: 700, color: "#132333" }}>
             This webapp is community funded by donations from users.
           </div>
-          <div style={{ marginTop: 18, fontSize: 13, fontWeight: 600, color: "rgba(19,35,51,0.70)", lineHeight: 1.35 }}>
-            Please donate to help cover the costs of website hosting, data storage, notifications, encryption, etc.
+          <div
+            style={{
+              marginTop: 18,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "rgba(19,35,51,0.70)",
+              lineHeight: 1.35,
+            }}
+          >
+            Please donate to help cover the costs of website hosting, data storage,
+            notifications, encryption, etc.
           </div>
         </section>
 
         <section className="card" style={{ padding: 14 }}>
           {loadingText ? (
-            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.75)" }}>{loadingText}</div>
+            <div style={{ fontWeight: 700, color: "rgba(19,35,51,0.75)" }}>
+              {loadingText}
+            </div>
           ) : null}
 
           {errorText ? (
-            <div style={{ fontWeight: 700, color: "rgba(220,38,38,0.95)" }}>{errorText}</div>
+            <div style={{ fontWeight: 700, color: "rgba(220,38,38,0.95)" }}>
+              {errorText}
+            </div>
           ) : null}
 
           <div id="checkout" />

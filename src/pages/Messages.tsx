@@ -14,12 +14,9 @@
 // - No feature-specific API coupling here
 //
 // THIS CHANGE ONLY
-// - After message state changes (mark-as-read), dispatch a global
-//   "messages:summary-refresh" event so AppHeader bell/badge refresh immediately.
-// - Add a contextual push-notifications CTA on Messages page.
-// - CTA is shown only when browser permission state is "default".
-// - Permission request occurs ONLY after explicit user action.
-// - No other behaviour changes.
+// - Move page onto reusable StickyPageHeaderCard pattern
+// - Keep messages logic / CTA / grouping / actions unchanged
+// - Remove old local title-row / back-button shell
 //
 // ADDED FOR THIS REVISION
 // - Show "View" only when a real link exists on the message.
@@ -31,8 +28,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 import { getMessages, markMessageRead, dismissMessage } from "../api/messagesApi";
 import { requestPushPermissionAndRegister } from "../api/pushApi";
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 import "../styles/messages.css";
+import { UI_ICONS } from "../assets";
 
 type MessageType = "listing" | "flight" | "locker" | "system" | "account" | "admin";
 
@@ -345,118 +343,119 @@ export default function Messages() {
 
   const hasAny = messages.length > 0;
 
-  if (!isMember) {
-    return (
-      <div className="messages-page">
-        <div className="messages-scroll">
-          <div className="messages-headerRow">
-            <div className="messages-pageTitle">Messages</div>
-            <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-          </div>
+  return (
+    <div className="messages-page">
+      <StickyPageHeaderCard
+	    leftContent={
+            <img
+              src={UI_ICONS.message}
+              alt="My profile"
+              style={{
+                width: 52,
+                height: 52,
+                objectFit: "contain",
+                borderRadius: 14,
+              }}
+            />
+          }
+        title="Messages"
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
 
+      <div className="messages-scroll">
+        {!isMember ? (
           <div className="messages-emptyWrap">
             <div className="messages-emptyTitle">Members only</div>
             <div className="messages-emptyBody">
               Sign in to view your messages and notifications.
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="messages-page">
-      <div className="messages-scroll">
-        <div className="messages-headerRow">
-          <div className="messages-pageTitle">Messages</div>
-          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-        </div>
-
-        {/* THIS CHANGE ONLY:
-            Contextual push-notifications CTA.
-            Shown only when browser permission state is still "default". */}
-        {showPushCta ? (
-          <div
-            style={{
-              marginBottom: 16,
-              border: "1px solid #dbe7ff",
-              background: "#f7faff",
-              borderRadius: 16,
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 900,
-                color: "#111827",
-                marginBottom: 8,
-              }}
-            >
-              Enable notifications
-            </div>
-
-            <div
-              style={{
-                color: "#374151",
-                lineHeight: "20px",
-                marginBottom: 14,
-              }}
-            >
-              Receive important alerts about flights, listings, crew lockers, and admin notices.
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void onEnableNotifications()}
-              disabled={pushBusy}
-              style={{
-                border: "none",
-                borderRadius: 999,
-                padding: "12px 18px",
-                fontWeight: 900,
-                fontSize: 15,
-                background: "#111827",
-                color: "#ffffff",
-                cursor: pushBusy ? "default" : "pointer",
-                opacity: pushBusy ? 0.7 : 1,
-              }}
-            >
-              {pushBusy ? "Please wait…" : "Enable notifications"}
-            </button>
-          </div>
-        ) : null}
-
-        {loadingText ? (
-          <div className="messages-statusLine">{loadingText}</div>
-        ) : errorText ? (
-          <div className="messages-statusLine">{errorText}</div>
-        ) : null}
-
-        {!hasAny ? (
-          <div className="messages-emptyWrap">
-            <div className="messages-emptyTitle">No messages</div>
-            <div className="messages-emptyBody">
-              Operational updates, notices, and alerts will appear here.
-            </div>
-          </div>
         ) : (
-          <div className="messages-sections">
-            {grouped.today.length > 0 ? (
-              <div className="messages-sectionBlock">
-                <div className="messages-sectionTitle">Today</div>
-                {grouped.today.map(renderMessage)}
+          <>
+            {showPushCta ? (
+              <div
+                style={{
+                  marginBottom: 16,
+                  border: "1px solid #dbe7ff",
+                  background: "#f7faff",
+                  borderRadius: 16,
+                  padding: 16,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 900,
+                    color: "#111827",
+                    marginBottom: 8,
+                  }}
+                >
+                  Enable notifications
+                </div>
+
+                <div
+                  style={{
+                    color: "#374151",
+                    lineHeight: "20px",
+                    marginBottom: 14,
+                  }}
+                >
+                  Receive important alerts about flights, listings, crew lockers, and admin notices.
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void onEnableNotifications()}
+                  disabled={pushBusy}
+                  style={{
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "12px 18px",
+                    fontWeight: 900,
+                    fontSize: 15,
+                    background: "#111827",
+                    color: "#ffffff",
+                    cursor: pushBusy ? "default" : "pointer",
+                    opacity: pushBusy ? 0.7 : 1,
+                  }}
+                >
+                  {pushBusy ? "Please wait…" : "Enable notifications"}
+                </button>
               </div>
             ) : null}
 
-            {grouped.earlier.length > 0 ? (
-              <div className="messages-sectionBlock">
-                <div className="messages-sectionTitle">Earlier</div>
-                {grouped.earlier.map(renderMessage)}
-              </div>
+            {loadingText ? (
+              <div className="messages-statusLine">{loadingText}</div>
+            ) : errorText ? (
+              <div className="messages-statusLine">{errorText}</div>
             ) : null}
-          </div>
+
+            {!hasAny ? (
+              <div className="messages-emptyWrap">
+                <div className="messages-emptyTitle">No messages</div>
+                <div className="messages-emptyBody">
+                  Operational updates, notices, and alerts will appear here.
+                </div>
+              </div>
+            ) : (
+              <div className="messages-sections">
+                {grouped.today.length > 0 ? (
+                  <div className="messages-sectionBlock">
+                    <div className="messages-sectionTitle">Today</div>
+                    {grouped.today.map(renderMessage)}
+                  </div>
+                ) : null}
+
+                {grouped.earlier.length > 0 ? (
+                  <div className="messages-sectionBlock">
+                    <div className="messages-sectionTitle">Earlier</div>
+                    {grouped.earlier.map(renderMessage)}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -1,10 +1,32 @@
 // src/components/LoginModal.tsx
+//
+// =====================================================================================
+// LOGIN MODAL
+// =====================================================================================
+//
+// PHASE-1 PASSKEY SUPPORT
+// - Password login remains the primary/default flow.
+// - Passkey login is OPTIONAL.
+// - If onPasskeyLogin is supplied, show a secondary "Sign in with a passkey" button.
+// - Username hint is optional for passkey login:
+//     * if user has typed username, pass it through
+//     * if blank, allow username-less passkey flow
+//
+// IMPORTANT
+// - This modal still owns only UI + local validation/error handling.
+// - It does NOT talk directly to backend APIs.
+// - Password submit uses onSubmit(...)
+// - Passkey submit uses onPasskeyLogin(...)
+//
+// =====================================================================================
+
 import { useMemo, useState } from "react";
+import { UI_ICONS } from "../assets";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  
+
   onForgotPassword(): void;
 
   // RN parity handlers
@@ -14,10 +36,20 @@ type Props = {
     rememberDevice: boolean;
   }): Promise<void>;
 
+  // PHASE-1 PASSKEY LOGIN
+  onPasskeyLogin?(args: {
+    usernameHint?: string;
+    rememberDevice?: boolean;
+    deviceId?: string;
+  }): Promise<void>;
+
   onCancel(): void; // Continue as guest
   onCreateAccount(): void;
 };
 
+
+
+{/*
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -39,6 +71,27 @@ function EyeIcon({ open }: { open: boolean }) {
     </svg>
   );
 }
+*/}
+
+
+
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <img
+      src={UI_ICONS.eyes_open}
+      alt=""
+      aria-hidden="true"
+      style={{ width: 25, height: 25, objectFit: "contain", display: "block" }}
+    />
+  ) : (
+    <img
+      src={UI_ICONS.eyes_closed}
+      alt=""
+      aria-hidden="true"
+      style={{ width: 25, height: 25, objectFit: "contain", display: "block" }}
+    />
+  );
+}
 
 function LoginIcon() {
   return (
@@ -51,10 +104,22 @@ function LoginIcon() {
   );
 }
 
+function PasskeyIcon() {
+  return (
+    <img
+      src={UI_ICONS.passkey}
+      alt=""
+      aria-hidden="true"
+      style={{ width: 25, height: 25, objectFit: "contain", display: "block", marginRight: 20 }}
+    />
+  );
+}
+
 export default function LoginModal({
   open,
   onClose,
   onSubmit,
+  onPasskeyLogin,
   onForgotPassword,
   onCancel,
   onCreateAccount,
@@ -81,8 +146,10 @@ export default function LoginModal({
   const canSubmit =
     normalizedUsername.length > 0 && password.trim().length > 0 && !busy;
 
+  const canUsePasskey = Boolean(onPasskeyLogin) && !busy;
+
   if (!open) return null;
-  
+
   const handleForgotPassword = () => {
     onClose();
     onForgotPassword();
@@ -122,6 +189,31 @@ export default function LoginModal({
         } else {
           setAuthError(msg);
         }
+        return;
+      }
+
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    if (!onPasskeyLogin) return;
+
+    setAuthError(null);
+    setPostLoginError(null);
+
+    setBusy(true);
+    try {
+      try {
+        await onPasskeyLogin({
+          usernameHint: normalizedUsername || undefined,
+          rememberDevice,
+        });
+      } catch (e: any) {
+        const msg = String(e?.message || "Passkey sign-in failed.");
+        setAuthError(msg);
         return;
       }
 
@@ -285,7 +377,7 @@ export default function LoginModal({
             marginBottom: 14,
           }}
         >
-		  <button
+          <button
             type="button"
             onClick={handleForgotPassword}
             disabled={busy}
@@ -338,27 +430,56 @@ export default function LoginModal({
           </span>
         </label>
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          style={{
-            width: "100%",
-            marginTop: 0,
-            padding: "15px 16px",
-            borderRadius: 999,
-            border: "1px solid #1d4ed8",
-            background: canSubmit ? "#2563eb" : "#dbe7ff",
-            fontWeight: 800,
-            fontSize: 17,
-            lineHeight: "22px",
-            color: canSubmit ? "#ffffff" : "#6b7280",
-            cursor: canSubmit ? "pointer" : "not-allowed",
-            opacity: 1,
-          }}
-        >
-          {busy ? "…" : "Sign in"}
-        </button>
+        <div style={{ display: "grid", gap: 10 }}>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            style={{
+              width: "100%",
+              marginTop: 0,
+              padding: "15px 16px",
+              borderRadius: 20,
+              border: "1px solid #1d4ed8",
+              background: canSubmit ? "#2563eb" : "#dbe7ff",
+              fontWeight: 800,
+              fontSize: 17,
+              lineHeight: "22px",
+              color: canSubmit ? "#ffffff" : "#6b7280",
+              cursor: canSubmit ? "pointer" : "not-allowed",
+              opacity: 1,
+            }}
+          >
+            {busy ? "…" : "Sign in"}
+          </button>
+
+          {onPasskeyLogin ? (
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={!canUsePasskey}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 20,
+                border: "1px solid #d1d5db",
+                background: "#f9fafb",
+                fontWeight: 800,
+                fontSize: 16,
+                lineHeight: "20px",
+                color: "#111827",
+                cursor: canUsePasskey ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <PasskeyIcon />
+              <span>{busy ? "…" : "Sign in with a passkey"}</span>
+            </button>
+          ) : null}
+        </div>
 
         {authError && (
           <div
@@ -398,7 +519,7 @@ export default function LoginModal({
             style={{
               width: "100%",
               padding: "14px 16px",
-              borderRadius: 999,
+              borderRadius: 20,
               border: "1px solid #d1d5db",
               background: "#f9fafb",
               fontWeight: 700,
@@ -418,7 +539,7 @@ export default function LoginModal({
             style={{
               width: "100%",
               padding: "14px 16px",
-              borderRadius: 999,
+              borderRadius: 20,
               border: "1px solid #dbeafe",
               background: "#eff6ff",
               fontWeight: 700,

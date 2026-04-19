@@ -375,7 +375,7 @@ export default function AirportInfoModal(props: Props) {
                     )}
                   </div>
 
-                  <div className="airportInfoModalGridLabel">Cutoff</div>
+                  <div className="airportInfoModalGridLabel">Listing Cutoff</div>
                   <div className="airportInfoModalGridValue">
                     {airportInfoBusy ? (
                       "Loading…"

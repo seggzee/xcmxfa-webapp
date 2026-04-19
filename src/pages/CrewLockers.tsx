@@ -4,24 +4,11 @@
 // - Crew lockers page
 //
 // THIS CHANGE ONLY
-// - Tighten top 2-chip card so it sits closer to Home proportions
-// - Restructure locker cards into:
-//     * top action zone
-//     * divider
-//     * bottom metadata zone
-// - Keep page logic/API behaviour unchanged
-// - Restore remove-locker confirm modal
-// - FIX metadata rendering (robust, no metaParts, no index shifting)
-// - FIX end_dt handling so DATE values are not shifted by timezone
-// - ALSO support end_dt when backend returns local datetime strings like YYYY-MM-DD HH:MM:SS
-// - Add dedicated Days left pill on the right side of the metadata zone
-// - Use same pill family for Days left and Open / manage
-// - Days pill variants:
-//     * green  > 14 days
-//     * amber  1-14 days
-//     * red    expired
-//     * grey   unknown
-// - Status text on left remains simple ("Active" / "Expired" / "--")
+// - Move page onto reusable StickyPageHeaderCard pattern
+// - Base header treatment on FAQ page behaviour
+// - Keep page logic / API behaviour unchanged
+// - Leave FAQ icon in the header code intentionally so it can be swapped later
+// - Keep the rest of the page structure and locker card behaviour intact
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +16,7 @@ import { useAuth } from "../app/authStore";
 import { getCrewLockers, removeCrewLocker } from "../api/crewLockersApi";
 
 import { APP_IMAGES, UI_ICONS } from "../assets";
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 
 import "../styles/crewLockers.css";
 
@@ -245,34 +232,58 @@ export default function CrewLockers() {
 
   if (!isMember) {
     return (
-      <div className="crewLockers-page crewLockers-page--guest">
-        <div className="crewLockers-titleRow">
-          <div className="crewLockers-titleCol">
-            <div className="crewLockers-title">Crew lockers</div>
-            <div className="crewLockers-status">Member-only page.</div>
-          </div>
-          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-        </div>
+      <div className="crewLockers-page">
+        <StickyPageHeaderCard
+          leftContent={
+            <img
+              src={UI_ICONS.locker}
+              alt="Crew lockers"
+              style={{
+                width: 52,
+                height: 52,
+                objectFit: "contain",
+                borderRadius: 14,
+              }}
+            />
+          }
+          title="Crew lockers"
+          subtitle="Member-only page."
+          onBack={() => nav(-1)}
+          backAriaLabel="Back"
+        />
       </div>
     );
   }
 
   return (
     <div className="crewLockers-page">
-      <div className="crewLockers-scroll">
-        <div className="crewLockers-titleRow">
-          <div className="crewLockers-titleCol">
-            <div className="crewLockers-title">Crew lockers</div>
+      <StickyPageHeaderCard
+        leftContent={
+          <img
+            src={UI_ICONS.locker}
+            alt="Crew lockers"
+            style={{
+              width: 52,
+              height: 52,
+              objectFit: "contain",
+              borderRadius: 14,
+            }}
+          />
+        }
+        title="Crew lockers"
+        subtitle="Open & manage"
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
 
-            {loading ? (
-              <div className="crewLockers-status">Loading your lockers…</div>
-            ) : errorText ? (
-              <div className="crewLockers-status">{errorText}</div>
-            ) : null}
+      <div className="crewLockers-scroll app-container">
+        {loading ? (
+          <div className="crewLockers-inlineStatus">Loading your lockers…</div>
+        ) : errorText ? (
+          <div className="crewLockers-inlineStatus crewLockers-inlineStatus--error">
+            {errorText}
           </div>
-
-          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-        </div>
+        ) : null}
 
         <div className="crewLockers-topCard">
           <div className="crewLockers-topTitle">Access & setup</div>
@@ -322,7 +333,7 @@ export default function CrewLockers() {
             <div key={String(l.locker_uuid)} className="crewLockers-cardHorizontal">
               <div className="crewLockers-cardTopZone">
                 <div className="crewLockers-cardIconWrap">
-                  <img src={UI_ICONS.locker} alt="" className="crewLockers-cardIcon" />
+                  <img src={UI_ICONS.locker_key} alt="" className="crewLockers-cardIcon" />
                 </div>
 
                 <div className="crewLockers-cardActionBlock">

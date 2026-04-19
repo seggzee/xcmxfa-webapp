@@ -57,6 +57,7 @@ import calendar from "../../assets/icons/calendar.webp";
 import BACK from "../../assets/back_button.webp";
 import cancel from "../../assets/icons/cancel.webp";
 import change_password from "../../assets/icons/change_password.webp";
+import passkey from "../../assets/icons/passkey.webp";
 
 import contact_us from "../../assets/icons/contact_us.webp";
 import legal from "../../assets/icons/legal.webp";
@@ -66,10 +67,16 @@ import faq from "../../assets/icons/faq.webp";
 import profile from "../../assets/icons/profile.webp";
 import passport from "../../assets/icons/passport.webp";
 import locker from "../../assets/icons/locker.webp";
+import locker_key from "../../assets/icons/locker_key.webp";
 import esta from "../../assets/icons/esta.webp";
 import logout from "../../assets/icons/logout.webp";
 import message from "../../assets/icons/message.webp";
-
+import profile_blue from "../../assets/icons/profile_blue.webp";
+import flight_blue from "../../assets/icons/flight_blue.webp";
+import info from "../../assets/icons/info.webp";
+import close from "../../assets/icons/close.webp";
+import hotel from "../../assets/icons/hotel.webp";
+import standby_room from "../../assets/icons/standby_room.webp";
 
 // ? NEW: avatar + calendar are now imported (bundled) so pages/components never use "/assets/..."
 
@@ -104,8 +111,8 @@ export const UI_ICONS = {
   contact_us,
   legal,
   privacy,
-  faq,
-  profile, esta, passport, locker, logout, message,
+  faq, passkey, hotel, standby_room,
+  profile, esta, passport, locker, locker_key, logout, message, profile_blue, flight_blue, info, close, 
   
 } as const;
 
