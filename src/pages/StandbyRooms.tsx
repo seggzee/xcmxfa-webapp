@@ -3,32 +3,14 @@
 // PURPOSE
 // - Standby rooms page for short crew-stay private room adverts near Schiphol
 //
-// THIS CHANGE ONLY
-// - Keep StickyPageHeaderCard pattern
-// - Keep sticky submission card under the page header
-// - Remove old per-card onPress/detail-page flow
-// - Feed the already-amended StandbyRoomCard component with booking_url + website_label
-// - Keep simple mock data for now until backend exists
-//
-// NOTES
-// - StandbyRoomCard is assumed to already use this contract:
-//   {
-//     room_id,
-//     title,
-//     area_label,
-//     primary_image_url,
-//     description_short,
-//     contact_name,
-//     contact_phone?,
-//     contact_email?,
-//     website_label?,
-//     booking_url,
-//     price_per_night: { currency, amount }
-//   }
-// - The icon key below uses UI_ICONS.standby_room because that is what the current file uses.
-//   If your assets file uses a different key, swap that one line only.
+// THIS VERSION
+// - Uses live backend data
+// - Uses backend sorting
+// - Keeps StickyPageHeaderCard pattern
+// - Keeps sticky submission card
+// - Keeps StandbyRoomCard as already amended
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { UI_ICONS } from "../assets";
@@ -36,67 +18,55 @@ import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 import StandbyRoomCard from "../components/StandbyRoomCard";
 import type { StandbyRoomCardData } from "../components/StandbyRoomCard";
 
+import {
+  getStandbyRoomsList,
+  type StandbyRoomSort,
+} from "../api/standbyRoomsApi";
+
 import "../styles/standbyRooms.css";
 
-const MOCK_ROOMS: StandbyRoomCardData[] = [
-  {
-    room_id: 1,
-    title: "Private room near Schiphol",
-    area_label: "Hoofddorp · 12 mins from AMS",
-    primary_image_url:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
-    description_short:
-      "Furnished private room with Wi-Fi, shared kitchen, quiet residential area, suitable for short crew stays.",
-    contact_name: "Maria",
-    contact_phone: "+31 6 1234 5678",
-    contact_email: "maria@example.com",
-    website_label: "Advert website",
-    booking_url: "https://example.com/room-maria",
-    price_per_night: {
-      currency: "EUR",
-      amount: "65",
-    },
-  },
-  {
-    room_id: 2,
-    title: "Crew room with own bathroom",
-    area_label: "Aalsmeer · 15 mins from AMS",
-    primary_image_url:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
-    description_short:
-      "Single occupancy room with private bathroom, desk, and parking. Ideal for overnight airport standby.",
-    contact_name: "Jeroen",
-    contact_phone: "+31 6 9876 5432",
-    contact_email: "jeroen@example.com",
-    website_label: "Advert website",
-    booking_url: "https://example.com/room-jeroen",
-    price_per_night: {
-      currency: "EUR",
-      amount: "72",
-    },
-  },
-  {
-    room_id: 3,
-    title: "Short-stay room close to bus link",
-    area_label: "Badhoevedorp · 10 mins from AMS",
-    primary_image_url:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
-    description_short:
-      "Compact clean room with fast bus access to Schiphol, flexible late arrival, and shared lounge access.",
-    contact_name: "Aisha",
-    contact_phone: "+31 6 2468 1357",
-    contact_email: "aisha@example.com",
-    website_label: "Advert website",
-    booking_url: "https://example.com/room-aisha",
-    price_per_night: {
-      currency: "EUR",
-      amount: "59",
-    },
-  },
+const SORT_OPTIONS: Array<{ value: StandbyRoomSort; label: string }> = [
+  { value: "recommended", label: "Recommended" },
+  { value: "price_asc", label: "Price ↑" },
+  { value: "price_desc", label: "Price ↓" },
+  { value: "distance_asc", label: "Distance" },
 ];
 
 export default function StandbyRooms() {
   const navigate = useNavigate();
+
+  const [sort, setSort] = useState<StandbyRoomSort>("recommended");
+  const [rooms, setRooms] = useState<StandbyRoomCardData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      setLoading(true);
+      setErrorText("");
+
+      try {
+        const resp = await getStandbyRoomsList(sort);
+        if (!alive) return;
+
+        setRooms(Array.isArray(resp.rooms) ? resp.rooms : []);
+      } catch (e: any) {
+        if (!alive) return;
+        setRooms([]);
+        setErrorText(e?.message || "Failed to load standby rooms");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      alive = false;
+    };
+  }, [sort]);
 
   function handlePostAdvert() {
     navigate("/standby-rooms/submit");
@@ -118,7 +88,7 @@ export default function StandbyRooms() {
           />
         }
         title="Rooms"
-        subtitle="Private rooms offered for standby / short crew stays"
+        subtitle=" "
         onBack={() => navigate(-1)}
         backAriaLabel="Back"
       />
@@ -143,10 +113,52 @@ export default function StandbyRooms() {
               Post advert
             </button>
           </div>
+
+          <div
+            className="standbyRoomsSortRow"
+            role="group"
+            aria-label="Sort standby rooms"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={
+                  sort === option.value
+                    ? "standbyRoomsSortChip standbyRoomsSortChip--active"
+                    : "standbyRoomsSortChip"
+                }
+                onClick={() => setSort(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {loading ? (
+          <div className="standbyRooms-inlineStatus">
+            Loading standby rooms…
+          </div>
+        ) : errorText ? (
+          <div className="standbyRooms-inlineStatus standbyRooms-inlineStatus--error">
+            {errorText}
+          </div>
+        ) : null}
+
+        {!loading && !errorText && rooms.length === 0 ? (
+          <div className="standbyRooms-emptyCard">
+            <div className="standbyRooms-emptyTitle">
+              No standby rooms available
+            </div>
+            <div className="standbyRooms-emptyBody">
+              Please check again later.
+            </div>
+          </div>
+        ) : null}
+
         <div className="standbyRoomsList">
-          {MOCK_ROOMS.map((room) => (
+          {rooms.map((room) => (
             <StandbyRoomCard key={room.room_id} room={room} />
           ))}
         </div>

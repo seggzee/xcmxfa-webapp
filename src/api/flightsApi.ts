@@ -354,6 +354,8 @@ export type MyFlightRow = {
 
   list_position: number | string | null;
   list_total: number | string | null;
+  
+  security_number: string | null;
 
   airline_iata: string;
   flight_number: string;
@@ -434,6 +436,8 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
 
     list_position: (r.list_position as any) ?? null,
     list_total: (r.list_total as any) ?? null,
+	
+	security_number: (r.security_number as any) ?? null,
 
     airline_iata: (r.airline_iata as any) ?? "",
     flight_number: (r.flight_number as any) ?? "",

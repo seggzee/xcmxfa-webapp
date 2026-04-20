@@ -43,11 +43,21 @@ function fmtDayLabel(dtLike: unknown) {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 }
 
-function fmtRequestedOn(utcLike: unknown) {
+function fmtRequestedAt(utcLike: unknown) {
   if (!utcLike) return "";
   const d = new Date(String(utcLike));
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const date = d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} ${time}`;
 }
 
 /**
@@ -62,6 +72,13 @@ function normalizeListingStatusForUI(raw: unknown): "" | "pending" | "sent" | "b
   if (s === "booked") return "booked";
   if (s === "confirmed") return "booked";
   return "";
+}
+
+function fmtListingStatusLabel(s: "" | "pending" | "sent" | "booked") {
+  if (s === "pending") return "Pending";
+  if (s === "sent") return "Sent";
+  if (s === "booked") return "Booked";
+  return "--";
 }
 
 function listingIconSrcFromStatus(s: "" | "pending" | "sent" | "booked") {
@@ -92,7 +109,11 @@ type CardVM = {
   row0: RawMyFlightRow;
 
   depDate: string; // "Mon 25 Feb"
-  requestedAt: string; // "25 Feb 2026"
+ 
+  
+  requestedAtDisplay: string; // "25 Feb 2026"
+  securityNumber: string | null;
+  
   listingStatus: "" | "pending" | "sent" | "booked";
 
   listPos: any;
@@ -139,7 +160,9 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
   // Find “my” row
   const myRow = rows.find((x) => String(x?.psn || "").trim() === currentStaffNo) || r0;
 
-  const requestedAt = fmtRequestedOn(myRow?.requested_at_utc);
+  const requestedAtDisplay = fmtRequestedAt(myRow?.requested_at_utc);
+  const securityNumber = String(myRow?.security_number || "").trim() || null;
+  
   const listingStatus = normalizeListingStatusForUI(myRow?.booking_status);
 
   const listPos = myRow?.list_position ?? myRow?.listPos ?? null;
@@ -208,7 +231,8 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
     },
 
     depDate: fmtDayLabel(stdLocal),
-    requestedAt,
+    requestedAtDisplay,
+	securityNumber,
     listingStatus,
 
     listPos,
@@ -733,13 +757,26 @@ export default function MyFlights() {
                         {/* If overlay zone rendered, keep the next divider so zones remain visually separated */}
                         <div className="myFlights-zoneDivider" />
 
-                        <div className="myFlights-zone">
-                          <div className="myFlights-zoneTitle">Listing information</div>
-                          <div className="myFlights-zoneRow">
-                            <div className="myFlights-zoneMeta">Requested: {flight.requestedAt || "--"}</div>
-                            <div className="myFlights-zoneMeta">Status: {flight.listingStatus || "--"}</div>
-                          </div>
-                        </div>
+						<div className="myFlights-zone">
+						  <div className="myFlights-zoneTitle">Listing information</div>
+
+						  <div className="myFlights-zoneMeta">
+							Requested: {flight.requestedAtDisplay || "--"}
+						  </div>
+
+						  <div className="myFlights-zoneRow">
+							<div className="myFlights-zoneMeta">
+							  Status: {fmtListingStatusLabel(flight.listingStatus)}
+							</div>
+
+							<div
+							  className="myFlights-zoneMeta"
+							  style={{ textAlign: "right" }}
+							>
+							  Security No.: {flight.securityNumber || "--"}
+							</div>
+						  </div>
+						</div>
 
                         <div className="myFlights-zoneDivider" />
 

@@ -4,22 +4,11 @@
   PURPOSE
   - Hotels page styles
 
-  THIS CHANGE ONLY
-  - Keep page shell aligned to Crew Lockers / StickyPageHeaderCard pattern
-  - Tighten card spacing to support the already-amended HotelTodayCard component
-  - Use smaller right-side price pill
-  - Keep price pill pale blue
-  - Keep Book button green
-  - Remove old top-right CTA styling and old clickable thumbnail button styling
-
-  NOTES
-  - This file assumes HotelTodayCard now uses:
-    .hotelCard-thumbWrap
-    .hotelCard-link
-    .hotelCard-bookBtn
-  - It no longer assumes:
-    .hotelCard-thumbButton
-    .hotelCard-topCta
+  THIS VERSION
+  - Matches Rooms behaviour more closely
+  - Sort row sits OUTSIDE the intro card
+  - Intro card + sort row live inside one sticky controls block
+  - Keeps card shell aligned to the already-amended HotelTodayCard
 */
 
 .hotels-page {
@@ -32,12 +21,21 @@
   padding-bottom: 40px;
 }
 
+.hotelsStickyControls {
+  position: sticky;
+  top: 96px;
+  z-index: 30;
+  background: var(--app-bg, #f6f7f9);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
 .hotels-topCard {
   background: #fff;
   border-radius: 16px;
   padding: 14px;
   border: 2px solid #d9e2ee;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
 
 .hotels-topTitle {
@@ -60,6 +58,63 @@
   font-size: 11px;
   line-height: 15px;
   color: rgba(19, 35, 51, 0.5);
+}
+
+.hotels-sortRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hotels-sortChip {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(19, 35, 51, 0.12);
+  background: #fff;
+  color: #132333;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.hotels-sortChip--active {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.hotels-inlineStatus {
+  margin-bottom: 12px;
+  font-weight: 800;
+  font-size: 12px;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+.hotels-inlineStatus--error {
+  color: #7f1d1d;
+}
+
+.hotels-emptyCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px;
+  border: 2px solid #d9e2ee;
+  margin: 0 0 16px;
+}
+
+.hotels-emptyTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: #132333;
+}
+
+.hotels-emptyBody {
+  margin-top: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(19, 35, 51, 0.72);
 }
 
 .hotelsList {
@@ -191,7 +246,7 @@
   color: rgba(19, 35, 51, 0.5);
 }
 
-/* External website link now lives in the meta section */
+/* External website link */
 .hotelCard-link {
   display: inline-block;
   margin-top: 8px;
@@ -212,7 +267,6 @@
   gap: 8px;
 }
 
-/* Small title above price pill */
 .hotelCard-priceTitle {
   font-weight: 900;
   font-size: 11px;
@@ -221,7 +275,6 @@
   color: #1f3b57;
 }
 
-/* Price pill: intentionally closer to locker days pill footprint, but blue */
 .hotelCard-priceBox {
   min-height: 38px;
   min-width: 90px;
@@ -242,7 +295,6 @@
   color: #132333;
 }
 
-/* Book button: same general size family as locker open/manage pill */
 .hotelCard-bookBtn {
   min-height: 38px;
   min-width: 90px;
@@ -263,8 +315,11 @@
   text-decoration: none;
 }
 
-/* Mobile tightening */
 @media (max-width: 520px) {
+  .hotelsStickyControls {
+    top: 92px;
+  }
+
   .hotelCard-top {
     gap: 12px;
   }
