@@ -534,16 +534,22 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
 export async function getBookingsForDay(args: {
   airportCode: string;
   dateKey: string;
-  staffNo: unknown;
+  staffNo?: unknown;
 }): Promise<ApiJson> {
   const { airportCode, dateKey, staffNo } = args;
-  const psn = requirePsnStrict(staffNo, "getBookingsForDay");
 
-  const q = new URLSearchParams({
+  const psn = String(staffNo ?? "").trim().toUpperCase();
+
+  const query: Record<string, string> = {
     airport: airportCode,
     date: dateKey,
-    psn,
-  }).toString();
+  };
+
+  if (psn) {
+    query.psn = psn;
+  }
+
+  const q = new URLSearchParams(query).toString();
 
   return requestJson(`/api/bookings/day.php?${q}`);
 }

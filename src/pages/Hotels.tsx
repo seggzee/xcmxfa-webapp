@@ -101,15 +101,15 @@ export default function Hotels() {
       <div className="hotels-scroll app-container">
         <div className="hotelsStickyControls">
           <div className="hotels-topCard">
-            <div className="hotels-topTitle">Crew discount bookings</div>
+            <div className="hotels-topTitle">Schiphol hotels offering crew rates</div>
 
             <div className="hotels-topBody">
-              These hotels offer discounted room rates to KLM and Transavia crew
+              These schiphol area hotels offer discounted room rates to KLM and Transavia crew
               members. Valid ID will be required upon check-in.
             </div>
 
             <div className="hotels-topNote">
-              Subject to availability. Rates shown valid for today only.
+              Subject to availability. Rates shown are generic rates. May vary with hotel occupancy. Contact hotel for todays rate.
               {rateDateLocal ? ` (${rateDateLocal})` : ""}
             </div>
           </div>

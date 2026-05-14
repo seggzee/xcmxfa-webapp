@@ -13,6 +13,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "../app/authStore";
+
 import { UI_ICONS } from "../assets";
 import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 import StandbyRoomCard from "../components/StandbyRoomCard";
@@ -32,6 +34,8 @@ const SORT_OPTIONS: Array<{ value: StandbyRoomSort; label: string }> = [
   { value: "distance_asc", label: "Distance" },
 ];
 
+
+
 export default function StandbyRooms() {
   const navigate = useNavigate();
 
@@ -39,6 +43,9 @@ export default function StandbyRooms() {
   const [rooms, setRooms] = useState<StandbyRoomCardData[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
+  
+	const { auth } = useAuth();
+	const isMember = auth?.mode === "member";
 
   useEffect(() => {
     let alive = true;
@@ -138,7 +145,7 @@ export default function StandbyRooms() {
 
         {loading ? (
           <div className="standbyRooms-inlineStatus">
-            Loading standby rooms…
+            Loading rooms…
           </div>
         ) : errorText ? (
           <div className="standbyRooms-inlineStatus standbyRooms-inlineStatus--error">
@@ -149,7 +156,7 @@ export default function StandbyRooms() {
         {!loading && !errorText && rooms.length === 0 ? (
           <div className="standbyRooms-emptyCard">
             <div className="standbyRooms-emptyTitle">
-              No standby rooms available
+              No rooms available
             </div>
             <div className="standbyRooms-emptyBody">
               Please check again later.
@@ -159,7 +166,7 @@ export default function StandbyRooms() {
 
         <div className="standbyRoomsList">
           {rooms.map((room) => (
-            <StandbyRoomCard key={room.room_id} room={room} />
+            <StandbyRoomCard key={room.room_id} room={room} isMember={isMember} />
           ))}
         </div>
       </div>

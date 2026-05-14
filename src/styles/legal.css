@@ -1,0 +1,28 @@
+/* src/styles/legal.css */
+
+/*
+  PURPOSE
+  - Legal page styles
+*/
+
+.legal-page {
+  min-height: 100dvh;
+  background: var(--app-bg, #f6f7f9);
+}
+
+.legal-body {
+  padding-top: 0;
+  padding-bottom: 24px;
+}
+
+.legal-card {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.legal-copy {
+  margin: 0;
+  line-height: 1.6;
+  color: #4b5563;
+  font-weight: 600;
+}

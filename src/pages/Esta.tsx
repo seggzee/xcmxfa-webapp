@@ -155,8 +155,9 @@ export default function Esta() {
 
       <div className="app-container" style={{ paddingTop: 0 }}>
         <div className="passport-sub">
-          ESTA / FX details are required for United States and Canada. Please enter the details exactly as shown on your
-          residence documents / visa
+			<p>ESTA / FX details are required for United States and Canada</p>
+			<p>For UK, the information is only required for non UK passport holders</p>
+			<p>Please enter the details exactly as shown on your residence documents / visa </p>
         </div>
 
         {!isMember ? (

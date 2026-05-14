@@ -1,0 +1,188 @@
+/* src/styles/contact.css */
+
+/*
+  PURPOSE
+  - Contact page styles
+*/
+
+.contact-page {
+  min-height: 100dvh;
+  background: var(--app-bg, #f6f7f9);
+}
+
+.contact-body {
+  padding-top: 0;
+  padding-bottom: 24px;
+}
+
+.contact-formCard {
+  margin-top: 18px;
+}
+
+.contact-sectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.contact-helpText {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.6);
+}
+
+.contact-quickGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.contact-quickTile {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 108px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: var(--border-2) solid var(--border-card);
+  background: var(--bg-card);
+
+  cursor: pointer;
+  text-align: left;
+}
+
+.contact-quickTileTitle {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 900;
+  color: #132333;
+}
+
+.contact-quickTileSub {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: rgba(19, 35, 51, 0.55);
+}
+
+.contact-field {
+  margin-top: 14px;
+}
+
+.contact-fieldLabel {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.contact-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: var(--border-2) solid var(--border-card);
+  background: var(--bg-card);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.contact-input:disabled {
+  opacity: 0.7;
+}
+
+.contact-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.contact-error {
+  margin-top: 12px;
+  color: #b91c1c;
+  font-weight: var(--font-weight-black);
+  font-size: 13px;
+}
+
+.contact-submitBtn {
+  width: 100%;
+  margin-top: 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: var(--space-5);
+  background: var(--klm-blue, #0a5bd3);
+  color: #fff;
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.contact-submitBtn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.contact-hiddenField {
+  display: none;
+}
+
+.contact-modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  padding: var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.contact-modalCard {
+  width: min(520px, 100%);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid #e6e9ee;
+  padding: var(--space-5);
+}
+
+.contact-modalTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-black);
+  color: var(--text-primary);
+}
+
+.contact-modalBody {
+  margin-top: 10px;
+  color: rgba(19, 35, 51, 0.75);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.contact-modalBtn {
+  width: 100%;
+  margin-top: 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: var(--space-5);
+  background: var(--klm-blue, #0a5bd3);
+  color: #fff;
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .contact-quickGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,707 @@
+0.0 Authentication and Login System Technical Specification, Vol. 5
+
+0.1 This document is the new authoritative authentication specification for the project and supersedes the earlier Authentication Flow Vol. 4 intent document.
+
+0.2 This document is written to reflect the actual implemented architecture, the approved passkey phase 1 design, the known compromises in the current backend, and the agreed operating rules for maintenance, handover, debugging, and future change work.
+
+0.3 This document is intended to be the single source of truth for all work touching login, refresh, logout, onboarding-related authentication, passkey setup, passkey login, session persistence, and user-authenticated entry flows.
+
+0.4 This document is deliberately written as a practical engineering reference, not a product brochure. It prioritises precision, boundaries, contracts, edge cases, and current realities over idealised architecture.
+
+1.0 Purpose
+
+1.1 The purpose of this document is to define the authentication system from A to Z.
+
+1.2 This includes password login, remember-device refresh flow, logout, guest entry, registration and set-password flows, member post-login branching, passkey registration, passkey login, prompt suppression, and profile-initiated passkey setup recovery.
+
+1.3 This document must be used before any future modification of login, tokens, onboarding-related routing, passkey flows, or auth-adjacent profile actions.
+
+1.4 Any future work that conflicts with this document must either be rejected or accompanied by an explicit document update.
+
+2.0 Scope
+
+2.1 This document covers the web app and its supporting backends.
+
+2.2 This document covers the current live architecture split across the main backend and the dedicated passkeys backend.
+
+2.3 This document covers phase 1 passkeys only.
+
+2.4 This document does not define a full account-security dashboard, full passkey management UI, passkey revocation UI, or a generic bearer-authenticated server API framework.
+
+2.5 This document does not define RN-specific UI components, but it preserves the same architectural principles that were originally used for the RN auth model.
+
+3.0 Bootstrap
+
+3.1 Frontend application domain is https://webapp.xcmxfa.com.
+
+3.2 Main backend domain is https://apps-backend.xcmxfa.com.
+
+3.3 Dedicated passkeys backend domain is https://passkeys.xcmxfa.com.
+
+3.4 Main backend remains the source of truth for user identity, password verification, email verification state, refresh-token persistence, and the canonical login response shape.
+
+3.5 Dedicated passkeys backend exists because passkey/WebAuthn verification requires a runtime and dependency posture that was isolated from the older main backend environment.
+
+3.6 Main backend is treated as the primary application backend.
+
+3.7 Dedicated passkeys backend is treated as a specialist authentication subservice, not a replacement for the main backend.
+
+3.8 The relying party identifier for passkeys is xcmxfa.com.
+
+3.9 This RP ID choice is deliberate so passkeys remain valid across sibling subdomains under the same parent domain.
+
+3.10 The browser-facing passkey ceremonies are initiated from the web app origin and executed against the passkeys backend.
+
+3.11 The final app login state is always established through the main backend, never directly by the passkeys backend.
+
+4.0 Runtime and environment model
+
+4.1 The main backend is the legacy/auth application backend.
+
+4.2 The passkeys backend is a dedicated PHP 8.5 deployment.
+
+4.3 Composer dependencies for WebAuthn live on the passkeys backend only.
+
+4.4 The passkeys backend uses the same main application database connection source as the main backend.
+
+4.5 The passkeys backend must include the exact correct on-disk dbConnect.php path used by the main backend deployment.
+
+4.6 Auto-discovery of backend paths is not permitted for this subsystem because it previously caused the passkeys service to attach to the wrong database.
+
+5.0 Locked architecture principles
+
+5.1 The auth boundary on the client side remains the auth client plus global auth state model.
+
+5.2 Login success is not the same as app-ready state.
+
+5.3 Authentication success must be separated from post-login routing and post-login completeness checks.
+
+5.4 A password or passkey may prove identity successfully, yet the user may still branch to onboarding completion instead of Home.
+
+5.5 Password login and passkey login must converge into the same app-level authenticated state and the same post-login decision tree.
+
+5.6 The password fallback remains available at all times in phase 1.
+
+5.7 Passkeys are optional in phase 1.
+
+5.8 Passkeys are additive only in phase 1.
+
+5.9 No phase 1 change may break normal username/password login.
+
+5.10 No phase 1 change may force the project into passwordless-only mode.
+
+6.0 Current architectural reality
+
+6.1 The frontend maintains the canonical logged-in application state.
+
+6.2 The main backend issues opaque access and refresh tokens.
+
+6.3 The current backend does not yet expose a proven generic server-side “resolve current user from bearer access token” layer for arbitrary downstream business endpoints.
+
+6.4 Some post-login business endpoints still operate by trusting posted member identity such as PSN or username rather than validating an access token server-side.
+
+6.5 This is an important constraint and explains several design decisions in the passkey implementation.
+
+6.6 Specifically, it explains why profile-initiated passkey setup recovery is designed around password re-confirmation rather than a generic bearer-authenticated “current user” token mint endpoint.
+
+7.0 Canonical user identity fields
+
+7.1 The canonical login identifier is the staff number / username such as KLM12345.
+
+7.2 On the frontend, the canonical authenticated member identity is stored in auth.user.username in uppercase form.
+
+7.3 When present, aliases such as staffNo, staff_number, and staff_identity may also exist for compatibility, but auth.user.username is the locked canonical UI-side identifier.
+
+7.4 Main backend identity source of truth remains auth_users_v2.
+
+7.5 Member profile completeness and onboarding routing depend on auth_members_v2.
+
+8.0 Token model
+
+8.1 Access token is short-lived.
+
+8.2 Refresh token is longer-lived and is only persisted when the user explicitly enables “Remember this device”.
+
+8.3 Logout clears the persisted refresh token on the client regardless of server response outcome.
+
+8.4 The passkeys backend does not establish the main app session.
+
+8.5 The passkeys backend only proves possession of the passkey and then hands off to the main backend.
+
+8.6 The main backend remains the only place that turns successful identity proof into the canonical app login response.
+
+9.0 Recommended authoritative token lifetimes
+
+9.1 The old V4-era remembered-device assumption was up to 10 days.
+
+9.2 The current recommended policy is stricter.
+
+9.3 The recommended authoritative access token lifetime is 15 minutes.
+
+9.4 The recommended authoritative refresh token lifetime is 24 hours.
+
+9.5 Password login and passkey login must use the same lifetime values.
+
+9.6 These timeout values should be centralised in /auth/login/_auth_timeouts.php.
+
+9.7 If any environment still carries older per-file hardcoded values, that is legacy drift and should be corrected immediately.
+
+10.0 Main backend auth files
+
+10.1 /auth/login/login.php is the canonical password login endpoint.
+
+10.2 /auth/login/refresh.php is the canonical token refresh endpoint.
+
+10.3 /auth/login/logout.php is the canonical logout endpoint.
+
+10.4 /auth/register/start.php, /auth/register/verify.php, and /auth/register/set-password.php govern the registration and onboarding auth-adjacent flow.
+
+10.5 /auth/passkeys/reconfirm-password.php is the phase 1 profile recovery seam for passkey setup.
+
+10.6 /auth/login/passkey-exchange.php is the canonical main-backend exchange endpoint for successful passkey sign-in.
+
+10.7 /auth/passkeys/_lib/RegistrationHandoffToken.php is the main-backend helper for minting passkey registration handoff tokens.
+
+10.8 /auth/passkeys/_lib/AuthHandoffToken.php is the main-backend helper for validating passkey login handoff tokens returned by the passkeys backend.
+
+11.0 Dedicated passkeys backend files
+
+11.1 app/config/passkey_config.php is the central passkeys backend configuration source.
+
+11.2 app/bootstrap.php is the passkeys backend bootstrap and service loader.
+
+11.3 app/lib/PasskeyService.php coordinates ceremony orchestration, repository access, and verifier use.
+
+11.4 app/lib/WebAuthnVerifier.php performs the underlying WebAuthn verification work.
+
+11.5 app/lib/AuthHandoffToken.php mints short-lived auth handoff tokens after successful passkey sign-in.
+
+11.6 app/lib/RegistrationHandoffToken.php validates short-lived registration handoff tokens minted by the main backend.
+
+11.7 api/auth/passkeys/register/begin.php starts passkey registration.
+
+11.8 api/auth/passkeys/register/finish.php finishes passkey registration.
+
+11.9 api/auth/passkeys/authenticate/begin.php starts passkey authentication.
+
+11.10 api/auth/passkeys/authenticate/finish.php finishes passkey authentication and returns a short-lived login handoff token.
+
+12.0 Shared secret model
+
+12.1 There are two shared-secret paths, not one generic secret for everything.
+
+12.2 Auth handoff secret is used only for the sign-in exchange path.
+
+12.3 Registration handoff secret is used only for the passkey registration path.
+
+12.4 Using two secrets is preferred because compromise of one trust path does not automatically compromise the other.
+
+12.5 The auth handoff secret must match between passkeys.xcmxfa.com/app/config/passkey_config.php and apps-backend.xcmxfa.com/auth/login/passkey-exchange.php.
+
+12.6 The registration handoff secret must match between passkeys.xcmxfa.com/app/config/passkey_config.php, apps-backend.xcmxfa.com/auth/login/login.php, and apps-backend.xcmxfa.com/auth/passkeys/reconfirm-password.php.
+
+12.7 Long random secrets of at least 64 hex characters are recommended.
+
+13.0 Global frontend auth state model
+
+13.1 The user is treated as authenticated only when auth.mode === "member".
+
+13.2 Any other auth mode is treated as not logged in.
+
+13.3 Password login success must set global auth state immediately.
+
+13.4 Passkey login success must also set global auth state immediately after exchange.
+
+13.5 Post-login checks must run only after global auth state is set.
+
+13.6 Post-login failures must never be presented as “login failed”.
+
+13.7 Post-login failures must never silently undo valid authentication.
+
+14.0 Canonical password login flow
+
+14.1 User opens login UI.
+
+14.2 User enters username, password, and optional remember-device choice.
+
+14.3 Frontend normalises username to uppercase canonical form.
+
+14.4 Frontend calls /auth/login/login.php.
+
+14.5 Backend loads auth_users_v2 row by staff number.
+
+14.6 Backend enforces active account state.
+
+14.7 Backend enforces email verified state.
+
+14.8 Backend verifies password_hash.
+
+14.9 Backend mints access token.
+
+14.10 Backend conditionally mints and stores refresh token hash when remember-device is enabled.
+
+14.11 Backend returns canonical login response containing user data and access token, and optionally refresh token.
+
+14.12 Backend may also return a passkey registration token after successful password login.
+
+14.13 Frontend sets global member auth state.
+
+14.14 Frontend persists refresh token only if remember-device was enabled and a refresh token was actually returned.
+
+14.15 Frontend then runs post-login checks.
+
+15.0 Canonical passkey sign-in flow
+
+15.1 User opens login UI.
+
+15.2 User chooses “Sign in with a passkey”.
+
+15.3 Frontend optionally sends a username hint to the passkeys backend begin-auth endpoint.
+
+15.4 authenticate/begin.php returns WebAuthn request options.
+
+15.5 Browser or platform prompts the user with the native passkey UX.
+
+15.6 The user approves the ceremony with Face ID, Touch ID, Windows Hello, device PIN, or equivalent platform mechanism.
+
+15.7 Frontend sends the returned assertion credential to authenticate/finish.php.
+
+15.8 Passkeys backend verifies the assertion.
+
+15.9 Passkeys backend mints a short-lived auth handoff token.
+
+15.10 Frontend sends that handoff token to /auth/login/passkey-exchange.php.
+
+15.11 Main backend verifies the handoff token.
+
+15.12 Main backend loads the user.
+
+15.13 Main backend enforces active and email-verified gates.
+
+15.14 Main backend mints the normal app login response in the same shape as password login.
+
+15.15 Frontend sets global auth state and then runs the same post-login checks used after password login.
+
+16.0 Canonical refresh flow
+
+16.1 If remember-device was enabled previously, the frontend may hold a persisted refresh token.
+
+16.2 On app launch or rehydrate, the client attempts /auth/login/refresh.php.
+
+16.3 If refresh succeeds, a fresh access token is returned and global member auth state is restored.
+
+16.4 The same post-login decision path then runs.
+
+16.5 If refresh fails, the client clears persisted refresh state and treats the user as logged out.
+
+17.0 Canonical logout flow
+
+17.1 Frontend triggers logout action.
+
+17.2 Frontend clears stored refresh token.
+
+17.3 Frontend resets global auth state to guest/non-member.
+
+17.4 Frontend may call server logout, but local clearing remains mandatory regardless of server outcome.
+
+18.0 Registration and onboarding auth-adjacent flow
+
+18.1 New registration does not equal login.
+
+18.2 Registration creates user identity and verification prerequisites.
+
+18.3 Email verification must succeed before password setup can proceed.
+
+18.4 Set-password creates the initial password hash.
+
+18.5 Member details and profile completeness remain separate from password setup.
+
+18.6 Therefore, a user may be validly authenticated yet still branch to onboarding/profile completion rather than Home.
+
+19.0 Post-login checks
+
+19.1 Post-login checks are intentionally separate from credential verification.
+
+19.2 Their job is to decide what the app should do after identity is proven.
+
+19.3 Current checks include whether the member exists in the member profile table and whether required profile fields are complete.
+
+19.4 Successful auth plus incomplete member state must never be described as failed login.
+
+19.5 This separation is a locked principle and must not be collapsed in future work.
+
+20.0 Guest flow
+
+20.1 Guest use does not involve auth tokens.
+
+20.2 Guest state does not persist a refresh token.
+
+20.3 Guest access remains limited.
+
+20.4 Member-only views are guarded by the frontend auth model.
+
+21.0 Passkeys phase 1 scope
+
+21.1 Phase 1 passkeys are optional.
+
+21.2 Password remains fallback at all times.
+
+21.3 Passkey setup may happen immediately after successful password login.
+
+21.4 Passkey login may be used on future visits.
+
+21.5 Profile includes a lightweight way to set up a passkey later on the current device.
+
+21.6 There is no full passkey management UI in phase 1.
+
+21.7 There is no passkey revocation UI in phase 1.
+
+21.8 There is no “passkey enabled” toggle in phase 1.
+
+21.9 There is no passwordless-only mode in phase 1.
+
+22.0 Immediate post-login passkey setup prompt
+
+22.1 After successful password login, the backend may return a short-lived passkey registration token.
+
+22.2 If the browser/device supports passkeys and local suppression is not active for that username on that device, the frontend may show a passkey setup prompt.
+
+22.3 The prompt offers “Create passkey” and “Not now”.
+
+22.4 The prompt is a convenience prompt only. It is not the only route into passkey setup.
+
+22.5 The prompt should never appear after passkey login exchange because passkey login exchange normally does not return a registration token.
+
+23.0 Prompt suppression model
+
+23.1 Prompt suppression is local and device-specific.
+
+23.2 Prompt suppression is also username-scoped.
+
+23.3 The local key format is passkey_prompt_suppressed_v1:<USERNAME>.
+
+23.4 If the user taps “Not now”, the suppression key is stored locally for that username.
+
+23.5 If the user successfully creates a passkey, the same suppression key is stored locally for that username.
+
+23.6 If the system determines the device is already ready for passkey sign-in, the suppression key is also stored locally.
+
+23.7 Suppression does not disable passkeys globally.
+
+23.8 Suppression does not remove passkeys from the account.
+
+23.9 Suppression only stops the automatic prompt on that device for that username.
+
+24.0 Profile recovery path for passkey setup
+
+24.1 A user who dismissed the post-login prompt must have a clean way back in.
+
+24.2 The profile account section therefore contains a permanent action such as “Set up passkey on this device”.
+
+24.3 This action stays active even if the account already has a passkey elsewhere.
+
+24.4 It also stays active even if the same device is probably already ready, because the system does not maintain authoritative per-device passkey inventory in phase 1.
+
+24.5 This profile action does not rely on a generic bearer-authenticated current-user resolver, because that backend seam does not currently exist as a proven general framework.
+
+24.6 Instead, it uses password re-confirmation.
+
+25.0 Password re-confirmation path for profile-initiated passkey setup
+
+25.1 User taps the profile passkey row.
+
+25.2 Frontend opens ConfirmPasswordModal.
+
+25.3 User enters current password.
+
+25.4 Frontend calls /auth/passkeys/reconfirm-password.php with the current username and entered password.
+
+25.5 Backend verifies the password against auth_users_v2.
+
+25.6 Backend enforces the same active and email-verified gates used by normal login.
+
+25.7 Backend does not rotate refresh tokens.
+
+25.8 Backend does not change current app auth state.
+
+25.9 Backend only returns a fresh short-lived passkey registration token.
+
+25.10 Frontend then runs the normal passkey registration flow using that token.
+
+26.0 Registration handoff token model
+
+26.1 Registration handoff tokens exist to allow the passkeys backend to trust that the main backend has recently approved passkey registration for a specific user.
+
+26.2 Registration handoff tokens are short-lived.
+
+26.3 The current intended lifetime is 300 seconds.
+
+26.4 They are used by register/begin.php and register/finish.php.
+
+26.5 They include at minimum the user subject, username, and purpose.
+
+26.6 They are not app login tokens.
+
+27.0 Passkey registration flow
+
+27.1 Frontend obtains a valid registration handoff token either from successful password login or from password re-confirmation in Profile.
+
+27.2 Frontend calls register/begin.php with that token.
+
+27.3 Passkeys backend validates the registration handoff token.
+
+27.4 Passkeys backend loads the user and returns WebAuthn creation options.
+
+27.5 Browser or platform prompts the native passkey creation experience.
+
+27.6 Frontend sends the resulting credential to register/finish.php with the same registration handoff token.
+
+27.7 Passkeys backend verifies the attestation/registration response and stores the passkey record.
+
+27.8 Frontend then treats the current device as passkey-ready.
+
+28.0 Passkey duplicate and already-ready handling
+
+28.1 Phase 1 does not pre-compute a definitive “this exact device already has a passkey” state before setup starts.
+
+28.2 Therefore, the system must handle duplicate or no-op outcomes gracefully after the user attempts setup.
+
+28.3 If the browser or backend indicates the credential already exists, the user should see a friendly message such as “Passkey is already set up on this device.”
+
+28.4 This outcome should still mark local prompt suppression for that username on that device.
+
+28.5 This is preferred over greying out the Profile row, because the system does not maintain authoritative device-local passkey inventory ahead of time.
+
+29.0 Passkey login handoff token model
+
+29.1 Passkey login handoff tokens are returned only after successful passkey assertion verification on the passkeys backend.
+
+29.2 Their purpose is to allow the main backend to trust the passkeys backend’s proof result.
+
+29.3 They are not persistent session tokens.
+
+29.4 They are very short-lived.
+
+29.5 The current intended lifetime is 120 seconds.
+
+29.6 They are consumed by /auth/login/passkey-exchange.php.
+
+30.0 Canonical login response shape
+
+30.1 Password login and passkey login exchange must converge to the same login response shape.
+
+30.2 This response includes accessToken.
+
+30.3 This response may include refreshToken when remember-device is enabled.
+
+30.4 This response includes user identity fields needed by the frontend auth store.
+
+30.5 This response shape must remain stable so the frontend can treat password login and passkey login identically after exchange.
+
+31.0 Current backend limitation that must remain explicit
+
+31.1 The project currently does not have a fully general, shared, server-side bearer-auth middleware layer that resolves current user identity for arbitrary business endpoints.
+
+31.2 This is why some business endpoints still trust posted member identity fields.
+
+31.3 This is also why the passkey Profile recovery path uses password re-confirmation instead of a generic “current authenticated user” register-handoff endpoint.
+
+31.4 Any future engineer touching this area must understand that this is not an accident or oversight in the passkeys design. It is a consequence of the current broader auth architecture.
+
+32.0 Why a generic /auth/passkeys/register-handoff.php is not authoritative in the current architecture
+
+32.1 A server-side current-user handoff mint endpoint would only be trustworthy if the server could already validate the current access token and resolve the authenticated user independently.
+
+32.2 The files examined during implementation did not prove that capability exists as a generic backend seam.
+
+32.3 Therefore, a body-posted username plus bearer token design would be weaker than the password re-confirmation seam.
+
+32.4 Password re-confirmation is therefore the current approved phase 1 recovery design.
+
+33.0 Current passkeys backend CORS rule
+
+33.1 Browser preflight must succeed before bootstrap logic.
+
+33.2 All public passkeys endpoints must set CORS headers before requiring the main bootstrap.
+
+33.3 This avoids failures where the browser blocks the request before the application can even return JSON.
+
+34.0 Current passkeys frontend helper rule
+
+34.1 The frontend WebAuthn helper must use PublicKeyCredential.parseCreationOptionsFromJSON() and pass the returned object directly as publicKey to navigator.credentials.create().
+
+34.2 The frontend WebAuthn helper must use PublicKeyCredential.parseRequestOptionsFromJSON() and pass the returned object directly as publicKey to navigator.credentials.get().
+
+34.3 Reverting to the earlier incorrect shape will break browser ceremony startup.
+
+35.0 Current verifier reconstruction rule
+
+35.1 WebAuthnVerifier.php must reconstruct stored credential source JSON in the exact shape expected by the library ecosystem in use.
+
+35.2 This includes the correct trust path type and canonical zero AAGUID representation.
+
+35.3 This was a real implementation pitfall and must not be “simplified” casually.
+
+36.0 Remember-device semantics
+
+36.1 “Remember this device” means refresh-token persistence and silent re-entry for the refresh-token lifetime.
+
+36.2 It does not mean manually prefilled password fields.
+
+36.3 It does not mean browser-managed password manager UX.
+
+36.4 It does not mean a permanent login.
+
+36.5 Under the stricter current token policy, it effectively means “allow quick return without re-entering credentials until refresh expiry.”
+
+37.0 Error message rules
+
+37.1 Incorrect password or inactive account is an authentication error.
+
+37.2 Post-login routing failure is not an authentication error.
+
+37.3 Passkey setup cancellation is not a hard failure and should be described calmly.
+
+37.4 Passkey duplicate/already-ready state should be described calmly and not as a scary error.
+
+37.5 The UI should always preserve the message distinction between “identity proof failed”, “identity proof succeeded but app routing/setup failed”, and “passkey setup could not be completed”.
+
+38.0 Security boundaries
+
+38.1 Password verification lives only on the main backend.
+
+38.2 Passkey ceremony verification lives only on the passkeys backend.
+
+38.3 Main app login state is established only by the main backend.
+
+38.4 Secrets are never shared with the frontend.
+
+38.5 The frontend must never mint or interpret trust tokens itself.
+
+39.0 File inventory for future workers
+
+39.1 Frontend files that matter are src/app/routes.tsx, src/components/AppHeader.tsx, src/components/LoginModal.tsx, src/components/ConfirmPasswordModal.tsx, src/pages/Profile.tsx, src/api/passkeysApi.ts, and src/utils/passkeys.ts.
+
+39.2 Main backend files that matter are /auth/login/login.php, /auth/login/passkey-exchange.php, /auth/login/_auth_timeouts.php, /auth/passkeys/reconfirm-password.php, /auth/passkeys/_lib/RegistrationHandoffToken.php, and /auth/passkeys/_lib/AuthHandoffToken.php.
+
+39.3 Passkeys backend files that matter are app/config/passkey_config.php, app/bootstrap.php, app/lib/PasskeyService.php, app/lib/WebAuthnVerifier.php, app/lib/AuthHandoffToken.php, app/lib/RegistrationHandoffToken.php, and the four public begin/finish endpoints.
+
+40.0 Current approved phase 1 UX rules
+
+40.1 Password login remains first-class.
+
+40.2 Passkey sign-in is offered as an additional faster route.
+
+40.3 Immediate post-login passkey setup prompt is allowed.
+
+40.4 That prompt must be dismissible.
+
+40.5 Dismissal must suppress repeated nagging on that device for that user.
+
+40.6 Profile must provide a recovery path back into passkey setup.
+
+40.7 No passkey settings toggle is required.
+
+40.8 No passkey management page is required.
+
+41.0 What is intentionally out of scope
+
+41.1 Listing all registered passkeys.
+
+41.2 Renaming passkeys by device.
+
+41.3 Revoking passkeys from UI.
+
+41.4 Global passkey on/off toggle.
+
+41.5 Passwordless-only mode.
+
+41.6 Full backend-wide bearer-auth refactor.
+
+41.7 Logout-all-devices or session inventory UI.
+
+42.0 Testing checklist for password login
+
+42.1 Test valid login with remember-device on.
+
+42.2 Test valid login with remember-device off.
+
+42.3 Test wrong password.
+
+42.4 Test inactive user.
+
+42.5 Test email-not-verified user.
+
+42.6 Test member-exists and member-missing post-login branches.
+
+42.7 Test refresh rehydrate after app relaunch.
+
+43.0 Testing checklist for passkey registration
+
+43.1 Test immediate post-login prompt appears when not suppressed and passkey support exists.
+
+43.2 Test “Not now” stores suppression and prevents repeat prompt on that device for that username.
+
+43.3 Test successful passkey creation from the prompt.
+
+43.4 Test successful passkey creation from Profile recovery path.
+
+43.5 Test duplicate/already-ready handling from Profile path.
+
+43.6 Test user cancellation during browser ceremony.
+
+44.0 Testing checklist for passkey login
+
+44.1 Test passkey sign-in on a device that has already registered a passkey.
+
+44.2 Test main-backend exchange returns the same canonical auth shape as password login.
+
+44.3 Test remember-device on during passkey sign-in.
+
+44.4 Test remember-device off during passkey sign-in.
+
+44.5 Test post-login branching remains identical to password login.
+
+45.0 Maintenance rules
+
+45.1 Do not change login response shape casually.
+
+45.2 Do not change passkey handoff token shapes casually.
+
+45.3 Do not move CORS behind passkeys bootstrap.
+
+45.4 Do not reintroduce guessed filesystem path discovery for dbConnect.php in the passkeys backend.
+
+45.5 Do not replace password re-confirmation with a generic bearer-authenticated register-handoff endpoint unless a real server-side current-user auth layer is first built and documented.
+
+45.6 Do not collapse auth success and post-login routing back into one indistinct flow.
+
+46.0 Future upgrade path if a broader auth refactor is ever approved
+
+46.1 A broader auth architecture upgrade would require the server to validate access tokens and resolve current user identity independently for protected endpoints.
+
+46.2 That would likely require a true shared auth middleware layer and server-side access-session model.
+
+46.3 Only after that would a generic current-user-based /auth/passkeys/register-handoff.php become the clean preferred design.
+
+46.4 That upgrade is explicitly not required for current phase 1 passkeys.
+
+47.0 Immediate practical bootstrap for any future engineer
+
+47.1 First identify whether the task touches password login, refresh/logout, post-login branching, passkey registration, or passkey sign-in.
+
+47.2 Then identify whether the task belongs to frontend, main backend, or passkeys backend.
+
+47.3 Then confirm whether the task changes a locked contract, a UI message only, a token lifetime only, or a ceremony/secret boundary.
+
+47.4 Then read the relevant files from Section 39.0 before editing anything.
+
+47.5 If the task involves “current authenticated user on the server”, stop and verify whether the work incorrectly assumes a generic bearer-auth backend that does not currently exist.
+
+48.0 Document status
+
+48.1 This document is the authoritative Vol. 5 replacement for the earlier V4 intent document.
+
+48.2 V4 remains useful as history, especially for the original separation of auth success from post-login routing, but it no longer fully describes the live or approved system.
+
+48.3 Any future change to authentication, token lifetime policy, passkey behaviour, or profile recovery path must update this document in the same change set.

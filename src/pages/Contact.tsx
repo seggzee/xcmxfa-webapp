@@ -4,19 +4,23 @@
 // - Contact page for support email and contact form
 //
 // THIS CHANGE ONLY:
+// - Move page onto reusable StickyPageHeaderCard pattern
+// - Use page-specific Contact CSS instead of ad-hoc inline styling
 // - Wire quick cards
 // - Wire send button to /api/contact/create.php
 // - Show success modal after submission
 // - Stay on Contact page after success acknowledgement
-// - Keep Home-style visual language
+// - Keep consistent app page structure and styling
 
 import React, { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import BackButton from "../components/BackButton";
+import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 import { API_BASE_URL, postJson } from "../app/api";
 import { useAuth } from "../app/authStore";
 import { useCrew } from "../app/crewStore";
+
+import "../styles/contact.css";
 
 const CONTACT_CREATE_URL = `${API_BASE_URL}/api/contact/create.php`;
 
@@ -110,93 +114,88 @@ export default function Contact() {
   }
 
   return (
-    <div className="homeScreen">
-      <div className="homeInner">
-        <div className="profile-top" style={{ marginBottom: 16 }}>
-          <div className="text-title">Contact us</div>
-          <BackButton onClick={() => nav(-1)} ariaLabel="Back" size={38} />
-        </div>
+    <div className="app-screen contact-page">
+      <StickyPageHeaderCard
+        title="Contact us"
+        onBack={() => nav(-1)}
+        backAriaLabel="Back"
+      />
 
-        <section className="card" style={{ padding: 16 }}>
-          <div className="sectionTitle">Get help</div>
+      <div className="app-container contact-body">
+        <section className="card">
+          <div className="contact-sectionTitle">Get help</div>
 
-          <div className="quickGridRow">
+          <div className="contact-quickGrid">
             <button
               type="button"
-              className="quickTile"
+              className="contact-quickTile"
               onClick={() => focusForm("General question")}
             >
-              <div className="quickTileTitle">General support</div>
-              <div className="quickTileSub">Questions about listings, profile, lockers</div>
+              <div className="contact-quickTileTitle">General support</div>
+              <div className="contact-quickTileSub">
+                Questions about listings, profile, lockers
+              </div>
             </button>
 
             <button
               type="button"
-              className="quickTile"
+              className="contact-quickTile"
               onClick={() => focusForm("Bug report")}
             >
-              <div className="quickTileTitle">Report a bug</div>
-              <div className="quickTileSub">Something not working as expected</div>
+              <div className="contact-quickTileTitle">Report a bug</div>
+              <div className="contact-quickTileSub">
+                Something not working as expected
+              </div>
             </button>
-          </div>
 
-          <div className="quickGridRow">
             <button
               type="button"
-              className="quickTile"
+              className="contact-quickTile"
               onClick={() => focusForm("Privacy / data")}
             >
-              <div className="quickTileTitle">Privacy / data</div>
-              <div className="quickTileSub">Questions about stored personal data</div>
+              <div className="contact-quickTileTitle">Privacy / data</div>
+              <div className="contact-quickTileSub">
+                Questions about stored personal data
+              </div>
             </button>
 
             <button
               type="button"
-              className="quickTile"
+              className="contact-quickTile"
               onClick={() => {
                 window.location.href = "mailto:admin@xcmxfa.com";
               }}
             >
-              <div className="quickTileTitle">Email support</div>
-              <div className="quickTileSub">admin@xcmxfa.com</div>
+              <div className="contact-quickTileTitle">Email support</div>
+              <div className="contact-quickTileSub">admin@xcmxfa.com</div>
             </button>
           </div>
         </section>
 
-        <section className="card" style={{ padding: 16, marginTop: 18 }}>
+        <section className="card contact-formCard">
           <input
-            value={""}
+            value=""
             readOnly
             aria-hidden="true"
             tabIndex={-1}
-            style={{ display: "none" }}
+            className="contact-hiddenField"
           />
 
-          <div ref={formRef} className="sectionTitle">
+          <div ref={formRef} className="contact-sectionTitle">
             Send a message
           </div>
 
-          <div
-            style={{
-              marginTop: 12,
-              fontWeight: 700,
-              fontSize: 12,
-              color: "rgba(19,35,51,0.60)",
-              lineHeight: 1.35,
-            }}
-          >
+          <div className="contact-helpText">
             For faster help, include flight number, airport, date, and screenshots if relevant.
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <div className="sectionTitle" style={{ fontSize: 14 }}>
-              Category
-            </div>
+          <div className="contact-field">
+            <div className="contact-fieldLabel">Category</div>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               disabled={busy}
-              className="wizard-input"
+              className="contact-input"
             >
               <option>General question</option>
               <option>Bug report</option>
@@ -208,52 +207,44 @@ export default function Contact() {
             </select>
           </div>
 
-          <div style={{ marginTop: 14 }}>
-            <div className="sectionTitle" style={{ fontSize: 14 }}>
-              Subject
-            </div>
+          <div className="contact-field">
+            <div className="contact-fieldLabel">Subject</div>
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className="wizard-input"
+              className="contact-input"
               placeholder="Short summary"
               disabled={busy}
             />
           </div>
 
-          <div style={{ marginTop: 14 }}>
-            <div className="sectionTitle" style={{ fontSize: 14 }}>
-              Message
-            </div>
+          <div className="contact-field">
+            <div className="contact-fieldLabel">Message</div>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="wizard-input"
-              style={{ minHeight: 120, resize: "vertical" }}
+              className="contact-input contact-textarea"
               placeholder="Describe your issue or question"
               disabled={busy}
             />
           </div>
 
-          <div style={{ marginTop: 14 }}>
-            <div className="sectionTitle" style={{ fontSize: 14 }}>
-              Email
-            </div>
+          <div className="contact-field">
+            <div className="contact-fieldLabel">Email</div>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="wizard-input"
+              className="contact-input"
               placeholder="your@email.com"
               disabled={busy}
             />
           </div>
 
-          {error ? <div className="wizard-error" style={{ marginTop: 12 }}>{error}</div> : null}
+          {error ? <div className="contact-error">{error}</div> : null}
 
           <button
             type="button"
-            className="modalBtn modalBtnPrimary"
-            style={{ marginTop: 18, width: "100%" }}
+            className="contact-submitBtn"
             onClick={handleSubmit}
             disabled={busy}
           >
@@ -263,22 +254,24 @@ export default function Contact() {
 
         {successVisible ? (
           <div
-            className="modalOverlay"
+            className="contact-modalOverlay"
             onClick={() => {
               setSuccessVisible(false);
               resetForm();
             }}
           >
-            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
-              <div className="modalTitle">Message sent</div>
-              <div className="modalBody">
+            <div
+              className="contact-modalCard"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="contact-modalTitle">Message sent</div>
+              <div className="contact-modalBody">
                 Your message has been received and will be reviewed as soon as possible.
               </div>
 
               <button
                 type="button"
-                className="modalBtn modalBtnPrimary"
-                style={{ marginTop: 14, width: "100%" }}
+                className="contact-modalBtn"
                 onClick={() => {
                   setSuccessVisible(false);
                   resetForm();

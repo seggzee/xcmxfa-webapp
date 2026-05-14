@@ -1257,11 +1257,11 @@ const firstFlightRows = Array.isArray(rows)
               <div className="quickGridRow">
                 <button type="button" className="quickTile" onClick={() => nav("/hotels")}>
                   <div className="quickTileTitle">Hotels</div>
-                  <div className="quickTileSub">Crew rate hotels</div>
+                  <div className="quickTileSub">Schiphol area hotels</div>
                 </button>
 
                 <button type="button" className="quickTile" onClick={() => nav("/standby-rooms")}>
-                  <div className="quickTileTitle">Standby Rooms</div>
+                  <div className="quickTileTitle">Rooms</div>
                   <div className="quickTileSub">Short stay rooms</div>
                 </button>
               </div>			
@@ -1315,7 +1315,7 @@ const firstFlightRows = Array.isArray(rows)
                 </button>
 
                 <button type="button" className="quickTile" onClick={() => nav("/standby-rooms")}>
-                  <div className="quickTileTitle">Standby Rooms</div>
+                  <div className="quickTileTitle">Rooms</div>
                   <div className="quickTileSub">Short stay rooms</div>
                 </button>
               </div>

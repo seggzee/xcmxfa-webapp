@@ -63,21 +63,25 @@ function fmtWhen(utc: string) {
 }
 
 function typeLabel(t: MessageType) {
+	
   if (t === "locker") return "Crew locker";
-  if (t === "listing") return "Listing update";
+  if (t === "listing") return "Listing info";
   if (t === "flight") return "Flight update";
   if (t === "account") return "Account";
   if (t === "admin") return "Admin";
+  
   return "System";
 }
 
 function typeIcon(t: MessageType) {
-  if (t === "locker") return "🔒";
-  if (t === "listing") return "🧾";
-  if (t === "flight") return "✈️";
-  if (t === "account") return "🔐";
-  if (t === "admin") return "📣";
-  return "🔔";
+	
+  if (t === "locker") return UI_ICONS.locker_key;
+  if (t === "listing") return UI_ICONS.MENU;
+  if (t === "flight") return UI_ICONS.departures;
+  if (t === "account") return UI_ICONS.account;
+  if (t === "admin") return UI_ICONS.account;
+  
+  return UI_ICONS.locker_key;
 }
 
 function openExternal(url: string) {
@@ -301,12 +305,17 @@ export default function Messages() {
         }}
       >
         <div className="messages-cardTopRow">
+		
           <div className="messages-typeLeft">
-            <span className="messages-typeIcon">{typeIcon(m.type)}</span>
+		  
+            <img className="messages-Icon" alt={m.type} src={typeIcon(m.type)} />
+
             <div className="messages-typeText">{typeLabel(m.type)}</div>
+			
           </div>
 
           <div className="messages-whenText">{fmtWhen(m.created_at_utc)}</div>
+		  
         </div>
 
         <div className="messages-title">{m.title}</div>
@@ -351,8 +360,8 @@ export default function Messages() {
               src={UI_ICONS.message}
               alt="My profile"
               style={{
-                width: 52,
-                height: 52,
+                width: 44,
+                height: 44,
                 objectFit: "contain",
                 borderRadius: 14,
               }}

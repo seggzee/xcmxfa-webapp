@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 
@@ -6,18 +6,75 @@ import "./styles/index.css";
 import App from "./App.tsx";
 
 /**
- * Phase 0 PWA registration
- * ------------------------
- * - Vite PWA plugin owns the service worker lifecycle
- * - autoUpdate mode keeps the shell current
- * - immediate registration ensures the app can become ready for offline shell use
+ * ROOT APP SHELL
+ *
+ * PURPOSE
+ * - Keep Vite PWA registration at entry level
+ * - Use PROMPT update flow:
+ *    * detect when a new app version is ready
+ *    * show app-shell prompt
+ *    * reload only when user confirms
+ *
+ * IMPORTANT
+ * - This is NOT autoUpdate
+ * - No forced refresh while user is busy
+ * - updateSW() is only called when the user taps Reload
  */
-registerSW({
-  immediate: true,
-});
+function RootApp() {
+  const [showPwaUpdatePrompt, setShowPwaUpdatePrompt] = useState(false);
+  const [showOfflineReadyPrompt, setShowOfflineReadyPrompt] = useState(false);
+
+  const updateServiceWorkerRef = useRef<(() => Promise<void>) | null>(null);
+
+  useEffect(() => {
+    const updateSW = registerSW({
+      immediate: true,
+
+      onNeedRefresh() {
+        setShowPwaUpdatePrompt(true);
+      },
+
+      onOfflineReady() {
+        setShowOfflineReadyPrompt(true);
+      },
+    });
+
+    updateServiceWorkerRef.current = async () => {
+      await updateSW();
+    };
+  }, []);
+
+  const handleConfirmReload = useCallback(async () => {
+    setShowPwaUpdatePrompt(false);
+
+    try {
+      await updateServiceWorkerRef.current?.();
+    } catch (err) {
+      console.error("[PWA] updateSW failed", err);
+    }
+  }, []);
+
+  const handleDismissReloadPrompt = useCallback(() => {
+    setShowPwaUpdatePrompt(false);
+  }, []);
+
+  const handleDismissOfflineReady = useCallback(() => {
+    setShowOfflineReadyPrompt(false);
+  }, []);
+
+  return (
+    <App
+      showPwaUpdatePrompt={showPwaUpdatePrompt}
+      onConfirmReload={handleConfirmReload}
+      onDismissReloadPrompt={handleDismissReloadPrompt}
+      showOfflineReadyPrompt={showOfflineReadyPrompt}
+      onDismissOfflineReady={handleDismissOfflineReady}
+    />
+  );
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <RootApp />
   </StrictMode>,
 );

@@ -55,8 +55,11 @@ export type RouteReason =
 type AuthContextValue = {
   // Auth state
   auth: AuthState;
+  
+  authReady: boolean;
+  
   setAuth: React.Dispatch<React.SetStateAction<AuthState>>;
-
+  
   // Why did we route you here?
   routeReason: RouteReason;
   setRouteReason: React.Dispatch<React.SetStateAction<RouteReason>>;
@@ -115,6 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     accessToken: null,
     refreshToken: null,
   });
+  
+  const [authReady, setAuthReady] = useState(false);
 
   // --------------------------------------------
   // 2) Global routing helper states
@@ -147,72 +152,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // --------------------------------------------
   // 4) V4: boot rehydrate (refresh on app start)
   // --------------------------------------------
-  useEffect(() => {
-    let alive = true;
+useEffect(() => {
+  let alive = true;
 
-    (async () => {
-      // If already logged in (e.g. hot reload), do nothing.
-      if (auth?.mode === "member") return;
+  (async () => {
+    let stored = "";
+    try {
+      stored = String(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || "").trim();
+    } catch {
+      stored = "";
+    }
 
-      let stored = "";
-      try {
-        stored = String(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || "").trim();
-      } catch {
-        stored = "";
-      }
-
-      // No stored token -> remain guest
-      if (!stored) return;
-
-      // React 18 StrictMode dev will run this effect twice.
-      // refresh.php rotates tokens, so we must ensure ONLY ONE network call.
-      if (!__bootRefreshPromise) {
-        __bootRefreshPromise = (async () => {
-          try {
-            return await postJson<RefreshResponse>(AUTH_REFRESH_URL, {
-              refreshToken: stored,
-            });
-          } catch {
-            return null;
-          }
-        })();
-      }
-
-      const r = await __bootRefreshPromise;
-
+    // No stored token -> boot complete as guest
+    if (!stored) {
       if (!alive) return;
+      setAuthReady(true);
+      return;
+    }
 
-      // Any failure -> clear storage and remain guest
-      if (!r || r.ok !== true) {
-        clearPersistedRefreshToken();
-        return;
-      }
+    // React 18 StrictMode dev will run this effect twice.
+    // refresh.php rotates tokens, so we must ensure ONLY ONE network call.
+    if (!__bootRefreshPromise) {
+      __bootRefreshPromise = (async () => {
+        try {
+          return await postJson<RefreshResponse>(AUTH_REFRESH_URL, {
+            refreshToken: stored,
+          });
+        } catch {
+          return null;
+        }
+      })();
+    }
 
-      const accessToken = String(r.accessToken || "").trim();
-      const rotatedRefreshToken = String(r.refreshToken || "").trim();
+    const r = await __bootRefreshPromise;
 
-      // refresh.php contract: both must exist on success
-      if (!accessToken || !rotatedRefreshToken) {
-        clearPersistedRefreshToken();
-        return;
-      }
+    if (!alive) return;
 
-      // IMPORTANT: overwrite stored token with rotated token
-      persistRefreshToken(rotatedRefreshToken);
+    // Any failure -> clear storage, remain guest, boot complete
+    if (!r || r.ok !== true) {
+      clearPersistedRefreshToken();
+      setAuthReady(true);
+      return;
+    }
 
-      setAuth({
-        mode: "member",
-        user: r.user ?? null,
-        accessToken,
-        refreshToken: rotatedRefreshToken,
-      });
-    })();
+    const accessToken = String(r.accessToken || "").trim();
+    const rotatedRefreshToken = String(r.refreshToken || "").trim();
 
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // refresh.php contract: both must exist on success
+    if (!accessToken || !rotatedRefreshToken) {
+      clearPersistedRefreshToken();
+      setAuthReady(true);
+      return;
+    }
+
+    // IMPORTANT: overwrite stored token with rotated token
+    persistRefreshToken(rotatedRefreshToken);
+
+    setAuth({
+      mode: "member",
+      user: r.user ?? null,
+      accessToken,
+      refreshToken: rotatedRefreshToken,
+    });
+
+    setAuthReady(true);
+  })();
+
+  return () => {
+    alive = false;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   // --------------------------------------------
   // 5) Derived: psn (identity key)
@@ -233,12 +243,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // --------------------------------------------
   // 7) Reset to guest state (matches RN resetToGuestState)
   // --------------------------------------------
-  const resetToGuestState = () => {
-    setAuth({ mode: "guest", user: null, accessToken: null, refreshToken: null });
-    setRouteReason(null);
-    setOnboardingUsername("");
-    setLoginReturnTo("/home");
-    clearPersistedRefreshToken();
+const resetToGuestState = () => {
+  setAuth({ mode: "guest", user: null, accessToken: null, refreshToken: null });
+  setAuthReady(true);
+  setRouteReason(null);
+  setOnboardingUsername("");
+  setLoginReturnTo("/home");
+  clearPersistedRefreshToken();
 
     // Idiot-guide:
     // If the user logs out, we must allow a future boot refresh attempt to run again.
@@ -247,23 +258,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthCtx.Provider
-      value={{
-        auth,
-        setAuth,
-        routeReason,
-        setRouteReason,
-        onboardingUsername,
-        setOnboardingUsername,
-        loginReturnTo,
-        setLoginReturnTo,
-        psn,
-        authHeader,
-        resetToGuestState,
-        persistRefreshToken,
-        clearPersistedRefreshToken,
-      }}
-    >
+<AuthCtx.Provider
+  value={{
+    auth,
+    authReady,
+    setAuth,
+    routeReason,
+    setRouteReason,
+    onboardingUsername,
+    setOnboardingUsername,
+    loginReturnTo,
+    setLoginReturnTo,
+    psn,
+    authHeader,
+    resetToGuestState,
+    persistRefreshToken,
+    clearPersistedRefreshToken,
+  }}
+>
       {children}
     </AuthCtx.Provider>
   );

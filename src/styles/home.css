@@ -80,8 +80,8 @@
 
 
 .infoButton img {
-  width: 25px;
-  height: 25px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
    -webkit-tap-highlight-color: transparent;
 }
@@ -139,8 +139,8 @@
 }
 
 .airportChipRemove img {
-  width: 25px;
-  height: 25px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 
@@ -226,8 +226,8 @@
 }
 
 .airportChipInfo img {
-  width: 25px;
-  height: 25px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 

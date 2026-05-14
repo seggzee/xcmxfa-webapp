@@ -208,6 +208,7 @@
   font-size: 14px;
   font-weight: var(--font-weight-black);
   color: var(--text-primary);
+  text-align: left;
 }
 
 .flightCard-timeCancelled {

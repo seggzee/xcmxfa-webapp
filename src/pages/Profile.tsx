@@ -508,6 +508,17 @@ export default function Profile() {
               showLock={true}
             />
           </div>
+		  
+          <div className="card">
+            <div className="profile-section-title">Travel history</div>
+
+            <ActionTile
+              iconSrc={UI_ICONS.listing}
+              title="Listings history"
+              subtext="Recent listing records"
+              onClick={() => nav("/profile/travel-history")}
+            />
+          </div>		  
 
           <div className="card">
             <div className="profile-section-title">Notification preferences</div>

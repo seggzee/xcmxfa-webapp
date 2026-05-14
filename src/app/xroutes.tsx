@@ -34,7 +34,6 @@
 // - Add foreground in-app banner for app-open push receipt
 // - Add passkey sign-in flow through dedicated passkeys API + backend exchange
 // - Add immediate post-password-login passkey enrollment prompt
-// - Add local per-device prompt suppression for passkey setup
 // - No other behaviour changes.
 // =====================================================================================
 
@@ -43,7 +42,6 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { onMessage } from "firebase/messaging";
 
 import AppHeader from "../components/AppHeader";
-import AppBootSplash from "../components/AppBootSplash";
 
 import { RequireMember } from "./guards";
 import { useAuth } from "./authStore";
@@ -88,12 +86,6 @@ import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import Legal from "../pages/Legal";
 import Contact from "../pages/Contact";
-import Hotels from "../pages/Hotels";
-import StandbyRooms from "../pages/StandbyRooms";
-import TravelHistory from "../pages/TravelHistory";
-import TravelHistoryRecent from "../pages/TravelHistoryRecent";
-
-import { UI_ICONS } from "../assets";
 
 /**
  * Idiot-guide:
@@ -122,73 +114,6 @@ function extractStaffIdentity(username: string) {
 
   const staffNumber = m[1];
   return { staffIdentity, staffNumber };
-}
-
-function getPasskeyPromptSuppressionKey(username: string) {
-  return `passkey_prompt_suppressed_v1:${String(username || "").trim().toUpperCase()}`;
-}
-
-function isPasskeyPromptSuppressed(username: string): boolean {
-  if (typeof window === "undefined") return false;
-
-  const normalized = String(username || "").trim().toUpperCase();
-  if (!normalized) return false;
-
-  try {
-    return window.localStorage.getItem(getPasskeyPromptSuppressionKey(normalized)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function suppressPasskeyPromptForUser(username: string): void {
-  if (typeof window === "undefined") return;
-
-  const normalized = String(username || "").trim().toUpperCase();
-  if (!normalized) return;
-
-  try {
-    window.localStorage.setItem(getPasskeyPromptSuppressionKey(normalized), "1");
-  } catch {
-    // silent by design
-  }
-}
-
-function normalizePasskeyPromptError(error: unknown): {
-  message: string;
-  treatAsReady: boolean;
-} {
-  const raw = String((error as any)?.message || error || "PASSKEY_REGISTRATION_FAILED");
-  const lower = raw.toLowerCase();
-
-  if (
-    lower.includes("duplicate_credential") ||
-    lower.includes("already set up") ||
-    lower.includes("already exists") ||
-    lower.includes("already ready") ||
-    lower.includes("invalidstateerror")
-  ) {
-    return {
-      message: "This device is already ready for passkey sign-in.",
-      treatAsReady: true,
-    };
-  }
-
-  if (
-    lower.includes("passkey_creation_cancelled") ||
-    lower.includes("notallowederror") ||
-    lower.includes("cancelled")
-  ) {
-    return {
-      message: "Passkey setup was cancelled.",
-      treatAsReady: false,
-    };
-  }
-
-  return {
-    message: raw,
-    treatAsReady: false,
-  };
 }
 
 /**
@@ -233,7 +158,6 @@ type ForegroundBanner = {
 } | null;
 
 type PasskeyEnrollmentPrompt = {
-  username: string;
   token: string;
   expiresIn: number;
   status: "idle" | "working" | "done" | "error";
@@ -275,17 +199,16 @@ export default function AppRoutes() {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [location.pathname]);
 
-const {
-  auth,
-  authReady,
-  setAuth,
-  setRouteReason,
-  setOnboardingUsername,
-  loginReturnTo,
-  resetToGuestState,
-  persistRefreshToken,
-  clearPersistedRefreshToken,
-} = useAuth();
+  const {
+    auth,
+    setAuth,
+    setRouteReason,
+    setOnboardingUsername,
+    loginReturnTo,
+    resetToGuestState,
+    persistRefreshToken,
+    clearPersistedRefreshToken,
+  } = useAuth();
 
   const { loadCrew } = useCrew();
 
@@ -545,38 +468,22 @@ const {
   /**
    * If normal password login returned a short-lived passkey registration token,
    * prime the immediate post-login enrollment prompt.
-   *
-   * IMPORTANT
-   * - Prompt is suppressed locally per-device and per-username after:
-   *   * explicit dismiss ("Not now")
-   *   * successful passkey creation
-   *   * graceful already-ready handling
    */
-  const primePasskeyEnrollmentPrompt = useCallback(
-    (resp: LoginResponse, usernameForSuppression: string) => {
-      const token = String(resp?.passkeyRegistrationToken || "").trim();
-      const expiresIn = Number(resp?.passkeyRegistrationExpiresIn || 0);
-      const normalizedUsername = String(usernameForSuppression || "").trim().toUpperCase();
+  const primePasskeyEnrollmentPrompt = useCallback((resp: LoginResponse) => {
+    const token = String(resp?.passkeyRegistrationToken || "").trim();
+    const expiresIn = Number(resp?.passkeyRegistrationExpiresIn || 0);
 
-      if (!isPasskeySupported() || !token || expiresIn <= 0 || !normalizedUsername) {
-        setPasskeyEnrollmentPrompt(null);
-        return;
-      }
+    if (!isPasskeySupported() || !token || expiresIn <= 0) {
+      setPasskeyEnrollmentPrompt(null);
+      return;
+    }
 
-      if (isPasskeyPromptSuppressed(normalizedUsername)) {
-        setPasskeyEnrollmentPrompt(null);
-        return;
-      }
-
-      setPasskeyEnrollmentPrompt({
-        username: normalizedUsername,
-        token,
-        expiresIn,
-        status: "idle",
-      });
-    },
-    []
-  );
+    setPasskeyEnrollmentPrompt({
+      token,
+      expiresIn,
+      status: "idle",
+    });
+  }, []);
 
   /**
    * Shared member-login completion path.
@@ -628,7 +535,7 @@ const {
 
       // After normal password login, this may prime optional passkey enrollment.
       // After passkey login exchange, these fields will typically be absent.
-      primePasskeyEnrollmentPrompt(resp, staffIdentity);
+      primePasskeyEnrollmentPrompt(resp);
 
       const token = resp?.accessToken || "";
       if (!token) {
@@ -716,7 +623,7 @@ const {
    * - passkeys API register/finish verifies token and stores credential
    */
   const handleCreatePasskeyNow = useCallback(async () => {
-    if (!passkeyEnrollmentPrompt?.token || !passkeyEnrollmentPrompt?.username) {
+    if (!passkeyEnrollmentPrompt?.token) {
       return;
     }
 
@@ -729,45 +636,24 @@ const {
       const credential = await createPasskeyFromOptions(beginResp.options);
       await finishPasskeyRegistration(passkeyEnrollmentPrompt.token, credential);
 
-      suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
-
       setPasskeyEnrollmentPrompt((prev) =>
         prev ? { ...prev, status: "done", error: undefined } : prev
       );
     } catch (err) {
-      const normalized = normalizePasskeyPromptError(err);
-
-      if (normalized.treatAsReady) {
-        suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
-
-        setPasskeyEnrollmentPrompt((prev) =>
-          prev ? { ...prev, status: "done", error: undefined } : prev
-        );
-        return;
-      }
+      const message =
+        err instanceof Error ? err.message : "PASSKEY_REGISTRATION_FAILED";
 
       setPasskeyEnrollmentPrompt((prev) =>
         prev
           ? {
               ...prev,
               status: "error",
-              error: normalized.message,
+              error: message,
             }
           : prev
       );
     }
   }, [passkeyEnrollmentPrompt]);
-
-  const handleDismissPasskeyPrompt = useCallback(() => {
-    if (passkeyEnrollmentPrompt?.username) {
-      suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
-    }
-    setPasskeyEnrollmentPrompt(null);
-  }, [passkeyEnrollmentPrompt]);
-  
-  if (!authReady) {
-	  return <AppBootSplash />;
-  }
 
   return (
     <>
@@ -959,7 +845,7 @@ const {
           {passkeyEnrollmentPrompt.status === "done" ? (
             <>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>
-                Passkey ready
+                Passkey created
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.35, marginBottom: 12 }}>
                 You can now sign in with a passkey on this device.
@@ -984,11 +870,8 @@ const {
                 Create a passkey on this device
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.35, marginBottom: 12 }}>
-                <br />
-				Use Face ID, Touch ID, Windows Hello, or your device PIN to sign in faster next time.
-				<br /><br />
-				This does not affect your current password.
-				<br />
+                Use Face ID, Touch ID, Windows Hello, or your device PIN to sign
+                in faster next time. Your password will still work.
               </div>
 
               {passkeyEnrollmentPrompt.status === "error" &&
@@ -1013,7 +896,6 @@ const {
                   style={{
                     border: 0,
                     borderRadius: 10,
-					marginRight: 50,
                     padding: "10px 14px",
                     cursor:
                       passkeyEnrollmentPrompt.status === "working"
@@ -1029,7 +911,7 @@ const {
 
                 <button
                   type="button"
-                  onClick={handleDismissPasskeyPrompt}
+                  onClick={() => setPasskeyEnrollmentPrompt(null)}
                   disabled={passkeyEnrollmentPrompt.status === "working"}
                   style={{
                     borderRadius: 10,
@@ -1074,62 +956,6 @@ const {
         <Route path="/donate-return" element={<DonateReturn />} />
         <Route path="/legal" element={<Legal />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/hotels" element={<Hotels />} />
-		
-		
-        <Route path="/standby-rooms" element={<StandbyRooms />} />	
-		<Route path="/standby-rooms/:roomId" element={<div>Standby room detail page</div>} />
-
-
-		<Route 
-			path="/standby-rooms/submit" 
-			element={
-						<div className="app-screen">
-						
-							<div className="app-container">
-							
-								{/* Header */}
-								<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-
-								</div>
-
-								{/* Content card */}
-								<div
-								  className="card"
-								  style={{
-									maxWidth: 720,
-									margin: "0 auto",
-									padding: 16,
-									textAlign:"center",
-								  }}
-								>
-								
-									<img
-										src={UI_ICONS.wip}
-										alt="Under Construction"
-										style={{
-										  width: 250,
-										  height: 250,
-										  objectFit: "contain",
-										  borderRadius: 14,
-										}}
-									/>										
-								
-									<p style={{ margin: 0, lineHeight: 1.6, color: "#4b5563" }}>
-										In future, this page will contain the form to self submit rooms to rent.
-									</p>
-									<p> </p>
-									<p style={{ margin: 0, lineHeight: 1.6, color: "#4b5563" }}>
-										For now please email admin@xcmxfa.com with your room availabilities.
-									</p>									
-								</div>
-								
-							</div>
-							
-						</div>
-												
-					} 
-		/>			
 
         <Route
           path="/week"
@@ -1165,26 +991,6 @@ const {
             </RequireMember>
           }
         />
-		
-		<Route
-          path="/profile/travel-history"
-          element={
-            <RequireMember>
-              <TravelHistory />
-            </RequireMember>
-          }
-        />
-		
-		
-		<Route
-          path="/profile/travel-history/recent"
-          element={
-            <RequireMember>
-              <TravelHistoryRecent />
-            </RequireMember>
-          }
-        />
-		
 
         {/* Messages page currently remains directly routable.
             If you want this member-only later, wrap it in RequireMember too. */}

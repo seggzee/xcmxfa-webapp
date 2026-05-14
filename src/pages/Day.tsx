@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../app/authStore";
 
-
 import FlightCard3x3 from "../components/FlightCard3x3";
 import BackButton from "../components/BackButton";
 import AirportInfoModal from "../components/AirportInfoModal";
@@ -37,6 +36,7 @@ function dateToLocalDateKey(d: Date) {
 function isBefore(a: string, b: string) {
   return String(a) < String(b);
 }
+
 function isAfter(a: string, b: string) {
   return String(a) > String(b);
 }
@@ -45,11 +45,31 @@ function safeUpper(v: unknown) {
   return String(v || "").trim().toUpperCase();
 }
 
+function toCleanString(v: unknown) {
+  return String(v ?? "").trim();
+}
+
 function fmtTimeLocal(dtLike: unknown) {
   if (!dtLike) return "";
   const d = new Date(String(dtLike));
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Airport overlay local-time display helper.
+ *
+ * LOCKED DISPLAY RULE:
+ * - Airport overlay rows already expose scheduled_time_local / estimated_time_local / actual_time_local.
+ * - These are airport-local display strings.
+ * - Do not convert them through browser timezone for the Day airport info panels.
+ */
+function fmtOverlayLocalTime(dtLike: unknown) {
+  const s = String(dtLike || "").trim();
+  if (!s) return "";
+
+  const m = s.match(/\b([01]\d|2[0-3]):[0-5]\d\b/);
+  return m ? m[0] : "";
 }
 
 function normalizeBookingStatusStrict(raw: any): "confirmed" | "sent" | "pending" {
@@ -84,54 +104,294 @@ type CrewRow = {
 
 const POLL_MS = 2.5 * 60 * 1000;
 
-/* ----------------------------- Schiphol Ultra overlay (LOCKED) ----------------------------- */
-function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
-  const dep = safeUpper(row?.dep_airport);
-  const arr = safeUpper(row?.arr_airport);
+/* =====================================================================================
+   AIRPORT OPERATIONAL INFO PANELS - REPLACEABLE BLOCK
+   =====================================================================================
 
-  const isDepAMS = dep === "AMS";
-  const isArrAMS = !isDepAMS && arr === "AMS";
-  if (!isDepAMS && !isArrAMS) return null;
+   BACKEND CONTRACT - LOCKED:
+   - airport_overlay
+       = 3x3 card operational overlay.
+       = departure-side preferred.
+       = kept for FlightCard3x3 compatibility.
+   - airport_overlay_dep
+       = departure-side airport operational overlay.
+       = source for Departure info panel.
+   - airport_overlay_arr
+       = arrival-side airport operational overlay.
+       = source for Arrival info panel.
+
+   DISPLAY CONTRACT - LOCKED:
+   - 3x3 card already shows flight number, route, departure/arrival time, status, type/reg/gate.
+   - Departure/Arrival panels must not simply duplicate the 3x3 card.
+   - Panels show operational context only.
+   - If a panel has a source object but no useful extra detail, show:
+       "No additional information"
+
+   FUTURE COLLAPSE WIRING:
+   - AirportOperationalPanels accepts expanded.
+   - It is currently always passed true.
+   - Later, expanded can be controlled by tapping the 3x3 status/card area without rewriting this block.
+   ===================================================================================== */
+
+type OpsPanelModel = {
+  key: "departure" | "arrival";
+  title: string;
+  airportCode: string;
+  lines: string[];
+  emptyText: string;
+  tone: "ams" | "rtm" | "ein" | "aena" | "default";
+};
+
+function isUsefulStatus(raw: unknown) {
+  const s = toCleanString(raw);
+  const u = s.toUpperCase();
+
+  if (!s) return false;
+  if (u === "UNKNOWN") return false;
+  if (u === "SCHEDULED") return false;
+
+  return true;
+}
+
+function isBoardingLikeStatus(raw: unknown) {
+  const u = toCleanString(raw).toUpperCase();
+
+  if (!u) return false;
+
+  return (
+    u.includes("BOARD") ||
+    u.includes("GATE") ||
+    u.includes("FINAL") ||
+    u.includes("CLOS") ||
+    u.includes("EMB") ||
+    u.includes("BOR")
+  );
+}
+
+function normaliseTerminal(raw: unknown) {
+  const s = toCleanString(raw);
+  const u = s.toUpperCase();
+
+  if (!s) return "";
+  if (u === "PAX") return "";
+  if (u === "NULL") return "";
+
+  if (u === "NTERM") return "Terminal N";
+  if (u.endsWith("TERM") && u.length > 4) return `Terminal ${u.slice(0, -4)}`;
+  if (u.startsWith("TERMINAL ")) return s;
+  if (u.startsWith("T") && u.length <= 3) return u;
+
+  return `Terminal ${s}`;
+}
+
+function normaliseGate(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+
+  if (/^[A-Z]$/i.test(s)) return `Area ${s.toUpperCase()}`;
+  return `Gate ${s}`;
+}
+
+function normaliseBelt(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+  return `Belt ${s}`;
+}
+
+function normaliseCheckin(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+  return `Check-in ${s}`;
+}
+
+function changedEstimatedLine({
+  label,
+  scheduled,
+  estimated,
+}: {
+  label: "departure" | "arrival";
+  scheduled: string;
+  estimated: string;
+}) {
+  if (!estimated) return "";
+  if (scheduled && estimated === scheduled) return "";
+
+  if (scheduled) {
+    return `Estimated ${label} ${estimated} instead of ${scheduled}`;
+  }
+
+  return `Estimated ${label} ${estimated}`;
+}
+
+function actualLine({
+  label,
+  actual,
+}: {
+  label: "departure" | "arrival";
+  actual: string;
+}) {
+  if (!actual) return "";
+  return `Actual ${label} ${actual}`;
+}
+
+function panelToneForAirport(airportCode: string): OpsPanelModel["tone"] {
+  if (airportCode === "AMS") return "ams";
+  if (airportCode === "RTM") return "rtm";
+  if (airportCode === "EIN") return "ein";
+  if (["ALC", "AGP", "VLC"].includes(airportCode)) return "aena";
+  return "default";
+}
+
+function panelStyleForTone(tone: OpsPanelModel["tone"]): React.CSSProperties {
+  const background =
+    tone === "ams"
+      ? "rgba(232, 240, 255, 0.85)"
+      : tone === "rtm"
+      ? "rgba(240, 235, 250, 0.85)"
+      : tone === "ein"
+      ? "rgba(238, 244, 255, 0.88)"
+      : tone === "aena"
+      ? "rgba(245, 248, 255, 0.88)"
+      : "rgba(245, 247, 250, 0.88)";
+
+  return {
+    marginTop: 10,
+    borderRadius: 14,
+    padding: "10px 12px",
+    background,
+    border: "1px solid rgba(19,35,51,0.08)",
+  };
+}
+
+function isRealOverlay(overlay: any) {
+  return Boolean(overlay && typeof overlay === "object" && overlay?.is_fallback !== true);
+}
+
+function buildDeparturePanelFromAirportOverlay(row: ApiFlightRow): OpsPanelModel | null {
+  const ao = row?.airport_overlay_dep ?? null;
+  if (!isRealOverlay(ao)) return null;
+
+  const airportCode = safeUpper(ao?.airport_code || row?.dep_airport);
+  if (!airportCode) return null;
+
+  const scheduled = fmtOverlayLocalTime(ao?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(ao?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(ao?.actual_time_local);
+
+  const status = toCleanString(ao?.status_text);
+  const terminal = normaliseTerminal(ao?.terminal);
+  const gate = normaliseGate(ao?.gate);
+  const checkin = normaliseCheckin(ao?.checkin_area);
+
+  const lines: string[] = [];
+
+  if (terminal) lines.push(terminal);
+
+  if (isUsefulStatus(status)) {
+    if (gate && isBoardingLikeStatus(status)) {
+      lines.push(`${status} · ${gate}`);
+    } else {
+      lines.push(status);
+    }
+  }
+
+  if (checkin) lines.push(checkin);
+
+  const estimatedLine = changedEstimatedLine({
+    label: "departure",
+    scheduled,
+    estimated,
+  });
+
+  if (estimatedLine) lines.push(estimatedLine);
+
+  const actualDeparture = actualLine({
+    label: "departure",
+    actual,
+  });
+
+  if (actualDeparture) lines.push(actualDeparture);
+
+  return {
+    key: "departure",
+    title: `${airportCode} Departure info`,
+    airportCode,
+    lines,
+    emptyText: "No additional information",
+    tone: panelToneForAirport(airportCode),
+  };
+}
+
+function buildArrivalPanelFromAirportOverlay(row: ApiFlightRow): OpsPanelModel | null {
+  const ao = row?.airport_overlay_arr ?? null;
+  if (!isRealOverlay(ao)) return null;
+
+  const airportCode = safeUpper(ao?.airport_code || row?.arr_airport);
+  if (!airportCode) return null;
+
+  const scheduled = fmtOverlayLocalTime(ao?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(ao?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(ao?.actual_time_local);
+
+  const status = toCleanString(ao?.status_text);
+  const terminal = normaliseTerminal(ao?.terminal);
+  const gate = normaliseGate(ao?.gate);
+  const belt = normaliseBelt(ao?.belt);
+
+  const lines: string[] = [];
+
+  if (isUsefulStatus(status)) lines.push(status);
+
+  const estimatedLine = changedEstimatedLine({
+    label: "arrival",
+    scheduled,
+    estimated,
+  });
+
+  if (estimatedLine) lines.push(estimatedLine);
+
+  const actualArrival = actualLine({
+    label: "arrival",
+    actual,
+  });
+
+  if (actualArrival) lines.push(actualArrival);
+
+  if (terminal) lines.push(terminal);
+  if (gate) lines.push(gate);
+  if (belt) lines.push(belt);
+
+  return {
+    key: "arrival",
+    title: `${airportCode} Arrival info`,
+    airportCode,
+    lines,
+    emptyText: "No additional information",
+    tone: panelToneForAirport(airportCode),
+  };
+}
+
+function buildDeparturePanelFromSchiphol(row: ApiFlightRow): OpsPanelModel | null {
+  const dep = safeUpper(row?.dep_airport);
+  if (dep !== "AMS") return null;
 
   const s = row?.schiphol ?? null;
   if (!s || typeof s !== "object") return null;
 
-  const title = isDepAMS ? "AMS Departure info" : "AMS Arrival info";
-
-  const terminalRaw = String((s as any)?.terminal ?? "").trim();
-  const pierRaw = String((s as any)?.pier ?? "").trim();
-  const gateRaw = String((s as any)?.gate ?? "").trim();
+  const terminalRaw = toCleanString(s?.terminal);
+  const pierRaw = toCleanString(s?.pier);
+  const gateRaw = toCleanString(s?.gate);
 
   const locationParts: string[] = [];
+
   if (terminalRaw) {
-    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
-    locationParts.push(t);
+    const terminal = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
+    locationParts.push(terminal);
   }
+
   if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
-  if (gateRaw) locationParts.push(`Gate ${gateRaw}`);
-  const locationLine = locationParts.join(" · ");
 
-  const timeParts: string[] = [];
-  let movementLine = "";
-
-  if (isDepAMS) {
-    const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
-    const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
-    const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
-    if (open) timeParts.push(`Open: ${open}`);
-    if (board) timeParts.push(`Boarding: ${board}`);
-    if (close) timeParts.push(`Close: ${close}`);
-
-    const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
-    if (offb) movementLine = `Off-block ${offb}`;
-  } else {
-    const land = fmtTimeLocal((s as any)?.estimated_landing_time_utc);
-    if (land) timeParts.push(`Est. landing ${land}`);
-  }
-
-  const timesLine = timeParts.join(" · ");
-
-  const stateRaw = String((s as any)?.public_flight_state ?? "").toUpperCase();
+  const stateRaw = safeUpper(s?.public_flight_state);
   const stateLabel = (() => {
     if (!stateRaw) return "";
     if (stateRaw.includes("BRD") || stateRaw.includes("BOARD")) return "Boarding";
@@ -139,56 +399,160 @@ function SchipholOpsPanel({ row }: { row: ApiFlightRow }) {
     return "";
   })();
 
-  if (!locationLine && !timesLine && !movementLine && !stateLabel) return null;
+  const gate = normaliseGate(gateRaw);
+
+  const open = fmtTimeLocal(s?.expected_gate_open_utc);
+  const board = fmtTimeLocal(s?.expected_boarding_time_utc);
+  const close = fmtTimeLocal(s?.expected_gate_closing_utc);
+  const offb = fmtTimeLocal(s?.actual_off_block_time_utc);
+
+  const lines: string[] = [];
+
+  if (locationParts.length > 0) lines.push(locationParts.join(" · "));
+
+  if (stateLabel) {
+    if (gate && isBoardingLikeStatus(stateLabel)) {
+      lines.push(`${stateLabel} · ${gate}`);
+    } else {
+      lines.push(stateLabel);
+    }
+  }
+
+  const timeParts: string[] = [];
+  if (open) timeParts.push(`Open ${open}`);
+  if (board) timeParts.push(`Boarding ${board}`);
+  if (close) timeParts.push(`Close ${close}`);
+  if (timeParts.length > 0) lines.push(timeParts.join(" · "));
+
+  if (offb) lines.push(`Off-block ${offb}`);
+
+  return {
+    key: "departure",
+    title: "AMS Departure info",
+    airportCode: "AMS",
+    lines,
+    emptyText: "No additional information",
+    tone: "ams",
+  };
+}
+
+function buildArrivalPanelFromSchiphol(row: ApiFlightRow): OpsPanelModel | null {
+  const arr = safeUpper(row?.arr_airport);
+  if (arr !== "AMS") return null;
+
+  const s = row?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const terminalRaw = toCleanString(s?.terminal);
+  const pierRaw = toCleanString(s?.pier);
+  const gateRaw = toCleanString(s?.gate);
+  const land = fmtTimeLocal(s?.estimated_landing_time_utc);
+
+  const lines: string[] = [];
+
+  if (land) lines.push(`Estimated arrival ${land}`);
+
+  const locationParts: string[] = [];
+
+  if (terminalRaw) {
+    const terminal = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
+    locationParts.push(terminal);
+  }
+
+  if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
+
+  const gate = normaliseGate(gateRaw);
+  if (gate) locationParts.push(gate);
+
+  if (locationParts.length > 0) lines.push(locationParts.join(" · "));
+
+  return {
+    key: "arrival",
+    title: "AMS Arrival info",
+    airportCode: "AMS",
+    lines,
+    emptyText: "No additional information",
+    tone: "ams",
+  };
+}
+
+function buildDeparturePanelModel(row: ApiFlightRow): OpsPanelModel | null {
+  return buildDeparturePanelFromSchiphol(row) || buildDeparturePanelFromAirportOverlay(row);
+}
+
+function buildArrivalPanelModel(row: ApiFlightRow): OpsPanelModel | null {
+  return buildArrivalPanelFromSchiphol(row) || buildArrivalPanelFromAirportOverlay(row);
+}
+
+function AirportInfoPanelBlock({ model }: { model: OpsPanelModel }) {
+  return (
+    <div style={panelStyleForTone(model.tone)}>
+      <div style={{ fontWeight: 900, color: "#132333", fontSize: 13 }}>{model.title}</div>
+
+      {model.lines.length > 0 ? (
+        <div style={{ marginTop: 6 }}>
+          {model.lines.map((line, idx) => (
+            <div
+              key={`${model.key}-${idx}-${line}`}
+              style={{
+                marginTop: idx === 0 ? 0 : 5,
+                fontWeight: 800,
+                color: "rgba(19,35,51,0.78)",
+                fontSize: 12,
+                lineHeight: "16px",
+              }}
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{
+            marginTop: 6,
+            fontWeight: 800,
+            color: "rgba(19,35,51,0.58)",
+            fontSize: 12,
+            lineHeight: "16px",
+          }}
+        >
+          {model.emptyText}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AirportOperationalPanels({
+  row,
+  expanded,
+}: {
+  row: ApiFlightRow;
+  expanded: boolean;
+}) {
+  if (!expanded) return null;
+
+  const departurePanel = buildDeparturePanelModel(row);
+  const arrivalPanel = buildArrivalPanelModel(row);
+
+  if (!departurePanel && !arrivalPanel) return null;
 
   return (
-    <div
-      style={{
-        marginTop: 10,
-        borderRadius: 14,
-        padding: "10px 12px",
-        background: "rgba(232, 240, 255, 0.85)",
-        border: "1px solid rgba(19,35,51,0.08)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontWeight: 900, color: "#132333", fontSize: 13 }}>{title}</div>
-
-        {stateLabel ? (
-          <div
-            style={{
-              fontWeight: 900,
-              fontSize: 12,
-              padding: "4px 10px",
-              borderRadius: 999,
-              background: "rgba(19,35,51,0.08)",
-              color: "rgba(19,35,51,0.85)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {stateLabel}
-          </div>
-        ) : null}
-      </div>
-
-      {locationLine ? (
-        <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.82)", fontSize: 12 }}>
-          {locationLine}
-        </div>
+    <>
+      {departurePanel ? (
+        <>
+          <div className="day-zoneDivider" />
+          <AirportInfoPanelBlock model={departurePanel} />
+        </>
       ) : null}
 
-      {timesLine ? (
-        <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.75)", fontSize: 12 }}>
-          {timesLine}
-        </div>
+      {arrivalPanel ? (
+        <>
+          <div className="day-zoneDivider" />
+          <AirportInfoPanelBlock model={arrivalPanel} />
+        </>
       ) : null}
-
-      {movementLine ? (
-        <div style={{ marginTop: 6, fontWeight: 800, color: "rgba(19,35,51,0.75)", fontSize: 12 }}>
-          {movementLine}
-        </div>
-      ) : null}
-    </div>
+    </>
   );
 }
 
@@ -260,12 +624,14 @@ export default function Day() {
     () => !isBefore(dateKey, minDateKey) && dateKey !== minDateKey,
     [dateKey, minDateKey]
   );
+
   const canGoNext = useMemo(
     () => !isAfter(dateKey, maxDateKey) && dateKey !== maxDateKey,
     [dateKey, maxDateKey]
   );
 
   const [dateBoundMsg, setDateBoundMsg] = useState("");
+
   const flashBoundMsg = (msg: string) => {
     setDateBoundMsg(msg);
     window.setTimeout(() => setDateBoundMsg(""), 1200);
@@ -648,8 +1014,7 @@ export default function Day() {
     setAmsDutyVisible(true);
   }
 
-	  
-	function openInfoModal(meta: InfoMeta) {
+  function openInfoModal(meta: InfoMeta) {
     setInfoMeta(meta);
     setInfoVisible(true);
   }
@@ -671,7 +1036,6 @@ export default function Day() {
     setAirportInfoOpen(false);
     setAirportInfoCode(null);
   }
-  
 
   function mapBackendErrorToUserMessage(e: any): string {
     // We expect backend to return { ok:false, code, message } and requestJson throws message
@@ -818,7 +1182,7 @@ export default function Day() {
                 </div>
               </div>
 
-                <div className="day-logoCenter">
+              <div className="day-logoCenter">
                 {airportLogoSrc ? (
                   <button
                     type="button"
@@ -941,14 +1305,11 @@ export default function Day() {
           const xfa = crew.filter((u) => u.role === "XFA").length;
           const other = crew.filter((u) => u.role !== "XCM" && u.role !== "XFA").length;
 
-          const willRenderOps =
-            (safeUpper(row?.dep_airport) === "AMS" || safeUpper(row?.arr_airport) === "AMS") && Boolean(row?.schiphol);
-
           const isDepAMS = safeUpper(row?.dep_airport) === "AMS";
 
           const flightNo = `${String(row?.airline_iata || "").toUpperCase()}${String(row?.flight_number || "").trim()}`.trim();
 
-		  const depCode = safeUpper(row?.dep_airport);
+          const depCode = safeUpper(row?.dep_airport);
           const arrCode = safeUpper(row?.arr_airport);
 
           const isAmsLinked = depCode === "AMS" || arrCode === "AMS";
@@ -964,8 +1325,8 @@ export default function Day() {
           const backupCardStyle =
             backupAirportCode === "RTM"
               ? {
-                  background: "#eefaf1",
-                  borderColor: "#d6eadb",				  
+                  background: "#f0ebfa",
+                  borderColor: "#d6eadb",
                 }
               : backupAirportCode === "EIN"
               ? {
@@ -973,6 +1334,11 @@ export default function Day() {
                   borderColor: "#d7e3f7",
                 }
               : undefined;
+
+          // Background wiring for later collapsible operational panels.
+          // Current agreed behaviour: always expanded.
+          // Later this can become per-flight state toggled from the 3x3 status/card area.
+          const airportOpsPanelsExpanded = true;
 
           return (
             <div
@@ -987,12 +1353,10 @@ export default function Day() {
                   footerRightContent={<span className="flightCard-xstaff">X-staff: {xStaff}</span>}
                 />
 
-                {willRenderOps ? (
-                  <>
-                    <div className="day-zoneDivider" />
-                    <SchipholOpsPanel row={row} />
-                  </>
-                ) : null}
+                <AirportOperationalPanels
+                  row={row}
+                  expanded={airportOpsPanelsExpanded}
+                />
               </div>
 
               {resolvedIsLoggedIn ? (
@@ -1274,9 +1638,6 @@ export default function Day() {
         </div>
       ) : null}
 
-	  
-	  
-	  
       {/* Confirm modal */}
       {confirmVisible ? (
         <div
@@ -1300,26 +1661,37 @@ export default function Day() {
                - Branch modal body by unlist type
                - Type 1 → internal only warning
                - Type 2 → destructive + airport notification
+               - If backend returns an error, suppress normal modal body and show only the error
                ============================================================ */}
-            <div style={{ marginTop: 10, color: "rgba(19,35,51,0.75)", fontWeight: 700, lineHeight: "18px", whiteSpace: "pre-line" }}>
-              {confirmMode === "list"
-                ? "You will be added to the commuter list in order of priority. Your position may change as other xcm/xfa list on the flight."
-                : (() => {
-                    const mode = confirmMeta?.flightInstanceId
-                      ? getUnlistModeForFlight(confirmMeta.flightInstanceId)
-                      : "none";
+            {!confirmErrorText ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  color: "rgba(19,35,51,0.75)",
+                  fontWeight: 700,
+                  lineHeight: "18px",
+                  whiteSpace: "pre-line",
+                }}
+              >
+                {confirmMode === "list"
+                  ? "You will be added to the commuter list in order of priority. Your position may change as other xcm/xfa list on the flight."
+                  : (() => {
+                      const mode = confirmMeta?.flightInstanceId
+                        ? getUnlistModeForFlight(confirmMeta.flightInstanceId)
+                        : "none";
 
-                    if (mode === "type2") {
-                      return `\u2022 This will cancel your check-in and flight listing for this flight.\n\n\u2022 The airport will be notified of your cancellation.\n\n\u2022 This action cannot be undone.`;
-                    }
+                      if (mode === "type2") {
+                        return `\u2022 This will cancel your check-in and flight listing for this flight.\n\n\u2022 The airport will be notified of your cancellation.\n\n\u2022 This action cannot be undone.`;
+                      }
 
-                    // default = type1
-                    return `\u2022 You will be removed from this flight’s commuter list.\n\n\u2022 Your current position will be lost and may change if you re-list later.`;
-                  })()}
-            </div>
+                      // default = type1
+                      return `\u2022 You will be removed from this flight’s commuter list.\n\n\u2022 Your current position will be lost and may change if you re-list later.`;
+                    })()}
+              </div>
+            ) : null}
 
             {confirmErrorText ? (
-              <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c" }}>
+              <div style={{ marginTop: 10, fontWeight: 900, color: "#b91c1c", lineHeight: "20px" }}>
                 {confirmErrorText}
               </div>
             ) : null}
@@ -1395,17 +1767,13 @@ export default function Day() {
         </div>
       ) : null}
 
-	  
-
       {/* Airport info modal */}
-	  <AirportInfoModal
+      <AirportInfoModal
         isOpen={airportInfoOpen}
         airportCode={airportInfoCode}
         onClose={closeAirportInfo}
       />
 
-	  
-	  
       {/* Info modal (updated per confirmed scope) */}
       {infoVisible ? (
         <div

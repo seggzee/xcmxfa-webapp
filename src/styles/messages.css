@@ -55,13 +55,15 @@
   min-width: 0;
 }
 
-.messages-typeIcon {
-  font-size: 16px;
+.messages-Icon {
+   width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .messages-typeText {
   font-weight: 900;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-900, #132333);
 }
 
@@ -77,6 +79,7 @@
   font-weight: 900;
   font-size: 14px;
   color: var(--ink-900, #132333);
+  margin-bottom: 12px;
 }
 
 /* ADDED FOR THIS REVISION:

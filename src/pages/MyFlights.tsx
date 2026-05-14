@@ -224,11 +224,19 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
     id: flightInstanceId,
     flightInstanceId,
 
-    row0: {
-      ...r0,
-      // keep op_status key aligned for FlightCard3x3 display
-      op_status: opStatus,
-    },
+row0: {
+  ...r0,
+
+  // keep op_status key aligned for FlightCard3x3 display
+  op_status: opStatus,
+
+  // IMPORTANT:
+  // MyFlights groups multiple commuter rows per flight.
+  // r0 is only the first row in the group and may NOT be the logged-in user's row.
+  // Unlist capability is user-specific, so promote it from myRow.
+  can_unlist: myRow?.can_unlist === true,
+  unlist_mode: String(myRow?.unlist_mode || "").trim().toLowerCase(),
+},
 
     depDate: fmtDayLabel(stdLocal),
     requestedAtDisplay,
@@ -761,7 +769,7 @@ export default function MyFlights() {
 						  <div className="myFlights-zoneTitle">Listing information</div>
 
 						  <div className="myFlights-zoneMeta">
-							Requested: {flight.requestedAtDisplay || "--"}
+							Requested: {flight.requestedAtDisplay || "--"} UTC
 						  </div>
 
 						  <div className="myFlights-zoneRow">

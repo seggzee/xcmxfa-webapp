@@ -31,15 +31,16 @@ import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 
 type Group =
   | "all"
+  | "legal" 
+  | "bugs"  
   | "flights"
   | "lockers"
   | "listing"
   | "account"
-  | "passport"
-  | "notifications"
-  | "privacy"
-  | "amsterdam"
-  | "outstations";
+  | "acceptance"
+  | "alerts"
+  | "airports"
+  | "general";
 
 type FaqItem = {
   id: string;
@@ -74,16 +75,18 @@ function groupLabel(g: Group) {
       return "Listing";
     case "account":
       return "Account";
-    case "passport":
-      return "Passport";
-    case "notifications":
-      return "Notifications";
-    case "privacy":
-      return "Privacy";
-    case "amsterdam":
-      return "Amsterdam";
-    case "outstations":
-      return "Outstations";
+    case "acceptance":
+      return "Acceptance";
+    case "alerts":
+      return "Alerts";
+    case "legal":
+      return "Legal";
+    case "bugs":
+      return "Bugs";	  
+    case "airports":
+      return "Airports";
+    case "general":
+      return "General";
     default:
       return String(g);
   }
@@ -272,43 +275,88 @@ export default function Faq() {
 
   const items: FaqItem[] = useMemo(
     () => [
+	
+	
+//************* LEGAL SECTION ***********************************
+
       {
-        id: "unofficial",
-        group: "privacy",
-        q: "Is this an official KLM app?",
+        id: "transparency",
+        group: "legal",
+        q: "Transparency",
         a: (
           <FaqAnswer>
-            <p>
-              No. This is a privately developed app used by kind agreement of some outstations
-              to help them plan for XCM/XFA travel and reduce day-of-travel friction.
-            </p>
-            <p>
-              There is no direct link from this app to airline booking systems or KLM IT
-              infrastructure.
-            </p>
+            <p>This is not an official KLM app! Your privacy and the security of your personal information is important to us!</p>
           </FaqAnswer>
         ),
-        keywords: ["official", "klm", "unofficial", "private", "independent"],
+        keywords: ["privacy", "official", "security", "personal"],
       },
+	  
       {
-        id: "voluntary",
-        group: "privacy",
-        q: "Do I have to use the app for XCM/XFA flights?",
+        id: "disclaimer",
+        group: "legal",
+        q: "Disclaimer",
+        a: (
+		
+          <FaqAnswer>
+            <p>Information is provided in good faith for general purposes.</p>
+
+			<p>Any action you take upon our information is strictly at your own risk and we will not be liable for any losses and damages in connection with it’s use.</p>
+			
+            <p>Operational reality can vary by airport, staff and systems. Use at your own risk and validate time-critical information via official channels.</p>
+			
+			<p>All the information on this website (or contained within our downloads) has been published and prepared in good faith and is for general information purposes only. We do not make any warranties about the completeness, reliability and accuracy of this information.</p>  
+					 
+			<p>From our website, you can visit other websites by following hyperlinks to these sites. While we strive to provide only links to useful and ethical websites, we have no control over the content and nature of these sites and the links to other websites do not imply a recommendation for all the content found on these sites.</p>
+				
+			<p>Please be also aware that when you leave our website, other sites may have different privacy policies and terms which are beyond our control.</p>			
+			
+          </FaqAnswer>
+        ),
+        keywords: ["disclaimer", "liability", "purposes"],
+      },	
+	
+      {
+        id: "privacy",
+        group: "legal",
+        q: "Privacy policy & GDPR",
         a: (
           <FaqAnswer>
-            <p>No. Use of this app is totally voluntary.</p>
-            <ul style={{ margin: "0 0 0 18px" }}>
-              <li>All previous listing methods, including telephone listing, remain available in parallel.</li>
-              <li>
-                Using the app may involve storing or transmitting personal information, depending on what you
-                choose to provide.
-              </li>
-              <li>If you have privacy concerns, use the traditional methods instead.</li>
-            </ul>
+            <p>Our privacy policy information explains what data is stored, why it is stored, and how it is protected.</p>
+            <p>Please refer to our 'Privacy and Cookies' PDF for futher information</p>
           </FaqAnswer>
         ),
-        keywords: ["voluntary", "optional", "do i have to"],
+        keywords: ["privacy", "cookie", "gdpr"],
       },
+	  
+      {
+        id: "cookies",
+        group: "legal",
+        q: "Cookies policy & GDPR",
+        a: (
+          <FaqAnswer>
+            <p>Our cookie policy information explains what data is stored, why it is stored, and how it is protected.</p>
+            <p>Please refer to our 'Privacy and Cookies' PDF for futher information</p>
+          </FaqAnswer>
+        ),
+        keywords: ["privacy", "cookie", "gdpr"],
+      },
+
+      {
+        id: "gdpr",
+        group: "legal",
+        q: "GDPR Compliance",
+        a: (
+          <FaqAnswer>
+            <p><b>GDPR Compliance - </b>Read about how the GDPR regulations protect your personal information and how this site complies with the regulations in our downloadable document.</p>
+            <p>The detailed document titled 'XCMXFA Privacy and Cookie Notice' can be downloaded <b><i><a href="legal/XCM-privacy-and-cookie-notice.pdf">here</a></i></b></p>			 
+          </FaqAnswer>
+        ),
+        keywords: ["privacy", "cookie", "gdpr"],
+      },	  
+	  	    
+
+//************* ACCOUNT SECTION ***********************************
+	  
       {
         id: "register",
         group: "account",
@@ -324,9 +372,27 @@ export default function Faq() {
         ),
         keywords: ["register", "sign in", "member", "guest"],
       },
+	      
+	  
+      {
+        id: "contact-admin",
+        group: "account",
+        q: "Contact app admin",
+        a: (
+          <FaqAnswer>
+            <p>Primary: admin@xcmxfa.com</p>
+            <p>Secondary: olu.ayoola@klm.com</p>
+          </FaqAnswer>
+        ),
+        keywords: ["contact", "admin"],
+      },	  
+
+	  
+//************* NOTIFICATIONS SECTION ***********************************
+	  
       {
         id: "notifications",
-        group: "notifications",
+        group: "alerts",
         q: "Notifications: email and push — what’s the situation?",
         a: (
           <FaqAnswer>
@@ -344,6 +410,10 @@ export default function Faq() {
         ),
         keywords: ["push", "email", "notifications", "ios", "android"],
       },
+
+	  
+//************* LOCKERS SECTION ***********************************
+	  
       {
         id: "locker-setup",
         group: "lockers",
@@ -365,6 +435,10 @@ export default function Faq() {
         ),
         keywords: ["locker", "crew locker", "keynius", "link", "share"],
       },
+
+	  
+//************* FLIGHTS SECTION ***********************************
+	  
       {
         id: "search-flights",
         group: "flights",
@@ -377,45 +451,132 @@ export default function Faq() {
         ),
         keywords: ["search", "week", "airport", "arrivals", "departures"],
       },
+	  
+      {
+        id: "no-countdown",
+        group: "flights",
+        q: "Why is the countdown missing sometimes?",
+        a: (
+          <FaqAnswer>
+            <p>Countdown uses UTC time and is phase dependent.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Countdown only shows closer to departure, generally within three hours before STD.</li>
+            </ul>
+          </FaqAnswer>
+        ),
+        keywords: ["countdown", "missing", "timer", "std_utc"],
+      },	  
+
+	  
+//************* LISTINGS SECTION ***********************************
+	  
+      {
+        id: "rules",
+        group: "listing",
+        q: "What are the listing rules?",
+        a: (
+          <FaqAnswer>
+            <p>There are a number of rules built into the listing process. Listing for KLM and Transavia are treated as separate processes.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Listing request must be received before station cutoff time</li>
+			  <li>Only one active listing from same airport / same day / same airline</li>
+			  <li>Previous duty MUST be specified if departing from AMS </li>
+			  <li>Your passport details MUST be stored in the App if departing from AMS </li>			  
+			  <li>If travelling to Canada / UK (non British passport holder) / USA your ESTA or FX information section of the app must be completed</li>	
+			  <li>Maximum 3 active (pending, sent or confirmed) listings per user</li>					  
+            </ul>
+          </FaqAnswer>
+        ),
+        keywords: ["cutoff", "deadline", "listing", "18:00", "22:00", "18:30", "16:30"],
+      },
+	  
+      {
+        id: "numbers",
+        group: "listing",
+        q: "How many flights can I list for?",
+        a: (
+          <FaqAnswer>
+            <p>On the app, you may only be listed on a maximum of 3 flights (per booking process) at any one time.</p>
+			<p>Listing for KLM and Transavia are counted as separate processes.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+				<li>If you already have 3 listed flights and wish to make changes, you will need to delete at least one of your exisiting listings</li>
+				<li>ALL airports will not accept if you make more than 1 listing for travel in the same direction on the same day on the same carrier</li>	  
+            </ul>
+          </FaqAnswer>
+        ),
+        keywords: ["maximum", "flights", "listing", "how many"],
+      },
+	  
+      {
+        id: "priority",
+        group: "listing",
+        q: "How is listing priority determined?",
+        a: (
+          <FaqAnswer>
+		  
+            <p>KLM flights listing applies a priority order as specified in union agreements:</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+				<li>1. KLM / KLC XCM</li>
+				<li>2. KLM /KLC  XFA</li>
+				<li>3. HV XCM</li>
+				<li>4. HV XFA</li>								
+            </ul>
+			
+			<p>Currently there is no specific notified priority ordering on Transavia flights</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+				<li>HV flights: first come, first served only based on time of request</li>				
+            </ul>
+			
+          </FaqAnswer>
+        ),
+        keywords: ["priority", "union", "listing", "XCM", "XFA"],
+      },	  
+	  
       {
         id: "cutoff",
         group: "listing",
         q: "Is there a cut-off time for requesting a listing?",
         a: (
           <FaqAnswer>
-            <p>Yes. Different departure regions have different cut-off times.</p>
+            <p>Yes. Different departure airports have different cut-off times.</p>
+			<p>Clicking on the information icon on each airport card will reveal that airports exact cut off time. The following are rough guides only:</p>
             <ul style={{ margin: "0 0 0 18px" }}>
-              <li>Flights ex AMS: around 18:00 NL time on the day before departure.</li>
-              <li>Outstations in Europe and Far East: around 18:30 NL time on the day before the flight date.</li>
+              <li>Flights ex AMS: 18:00 NL time on the day before departure.</li>
+              <li>Outstations in Europe: approximately 18:00 NL time on the day before the flight date.</li>
+			  <li>Outstations in Far East: around 16:30 NL time on the day before the flight date.</li>
               <li>Outstations in USA, Canada and South America: around 22:00 NL time on the day before the flight date.</li>
-              <li>Requests after cut-off may still appear in the app but will not be transmitted.</li>
             </ul>
           </FaqAnswer>
         ),
-        keywords: ["cutoff", "deadline", "18:00", "22:00", "6pm", "10pm"],
-      },
+        keywords: ["cutoff", "deadline", "listing", "18:00", "22:00", "18:30", "16:30"],
+      },	  
+  
       {
         id: "ams-process",
-        group: "amsterdam",
-        q: "Departing Amsterdam: what happens when I list via the app?",
+        group: "listing",
+        q: "Departing Amsterdam: what happens after I list via the app?",
         a: (
           <FaqAnswer>
-            <p>Legacy model:</p>
+            <p>The listing and acceptance process from Amsterdam is fully automated in the app, subject to the listing rules.</p>
             <ul style={{ margin: "0 0 0 18px" }}>
-              <li>KLM Backoffice creates the listing and, where possible, also completes check-in.</li>
-              <li>You will usually receive confirmation by in-app message and or your configured notification channel.</li>
-              <li>If you do not receive confirmation close to departure, use the official telephone option.</li>
+              <li>KLM Backoffice creates the listing and, where possible, also completes check-in for the flight.</li>
+              <li>You will usually receive confirmation by in-app message and or your configured notification channel (eg push notification).</li>		  
+              <li>The confirmation will be in the form of a 'check-in security number", but in future may transition to a mobile boarding pass.</li>
+              <li>The flight status icon of the app will also indicate the changed status of the listing request</li>				  
+              <li>If you do not receive confirmation by 2 hours to flight departure, use the official telephone option to verify checked-in status.</li>
             </ul>
           </FaqAnswer>
         ),
-        keywords: ["ams", "schiphol", "back office", "process"],
+        keywords: ["ams", "schiphol", "back office", "process", "check-in", "security number", "push", "notification"],
       },
+	  
       {
         id: "listing-line",
-        group: "amsterdam",
+        group: "listing",
         q: "KLM Listing line (AMS) — what number do I call?",
         a: (
           <FaqAnswer>
+			<p>The number below is ONLY FOR KLM FLIGHTS DEPARTING FROM AMSTERDAM.</p>		  
             <p>KLM XCM/XFA listing number:</p>
             <p>+31 (0)20 649 4090</p>
             <p>Option 2, Boarding, is the correct option for XCM/XFA matters.</p>
@@ -423,54 +584,33 @@ export default function Faq() {
         ),
         keywords: ["telephone", "listing line", "number", "4090"],
       },
+	  
       {
-        id: "outstations",
-        group: "outstations",
-        q: "Does the app work for all outstations?",
+        id: "outstations-process",
+        group: "listing",
+        q: "Departing Outstations: what happens after I list via the app?",
         a: (
           <FaqAnswer>
-            <p>No. Coverage is variable.</p>
-            <p>
-              Some outstations act on the daily request and some do not, because the app is not an official KLM
-              system. Treat it as helpful, not guaranteed, outside AMS.
-            </p>
-          </FaqAnswer>
-        ),
-        keywords: ["outstations", "coverage", "works everywhere", "not all airports"],
-      },
-      {
-        id: "outstations-desk",
-        group: "outstations",
-        q: "Departing outstations: what should I do at the check-in desk?",
-        a: (
-          <FaqAnswer>
-            <p>First ask the agent to check whether a listing already exists.</p>
-            <p>If they can’t find you, it usually means a listing or check-in must still be created.</p>
-            <p>If the agent is unfamiliar, use the DIY Listing guidance below to help them create it quickly.</p>
-          </FaqAnswer>
-        ),
-        keywords: ["check in agent", "cant find", "outstation"],
-      },
-      {
-        id: "passport-needed",
-        group: "passport",
-        q: "Do I have to store passport details in the app?",
-        a: (
-          <FaqAnswer>
-            <p>It is voluntary and at your own risk.</p>
+            <p>The listing and acceptance process from outstations is NOT YET fully automated in the app, unlike Amsterdam.</p>
+			<p>Some stations provide acknowledgement of the listing request, whilst others silently accept the request.</p>
+			<p>The generic process for all outstations is nevertheless as follows:</p>			
             <ul style={{ margin: "0 0 0 18px" }}>
-              <li>Outstations may not require stored passport details, although passport swipe at the airport may still be needed.</li>
-              <li>For AMS, passport details are required for the app-based listing and check-in path.</li>
-              <li>Passport data is encrypted at rest and only transmitted when needed.</li>
+              <li>KLM Station Management and / or contracted ground handling company receives the listing request</li>
+              <li>KLM Station Management and / or contracted ground handling company acknowledges the listing request</li>			  
+              <li>You will usually receive confirmation by in-app message and or your configured notification channel (eg push notification), that your request has been received and acknowledged by the station.</li>
+              <li>There will be no 'check-in security number". Primarily because passport details are NOT transmitted to outstations (except LCY, and ICA stations) and station is therefore unable to complete check in.</li>
+              <li>The flight status icon of the app will also indicate the changed status of the listing request</li>				  
+              <li>If you do not receive confirmation by 2 hours to flight departure, be prepared to follow the local manual process at the airport. Allow extra time for delays in processing.</li>
             </ul>
           </FaqAnswer>
         ),
-        keywords: ["passport", "personal data", "required", "ams"],
+        keywords: ["ams", "schiphol", "back office", "process", "check-in", "security number", "push", "notification"],
       },
+	  
       {
         id: "diy",
         group: "listing",
-        q: "DIY XCM/XFA listing — agent doesn’t know the process",
+        q: "DIY XCM/XFA listing — Outstation agent doesn’t know the process",
         a: (
           <FaqAnswer>
             <p>If a check-in agent is new or unsure, the quickest solution is to show them the step cards below.</p>
@@ -499,23 +639,125 @@ export default function Faq() {
         ),
         keywords: ["diy", "agent", "steps", "instructions", "english", "french"],
       },
+
+	  
+//************* AIRPORTS SECTION ***********************************	
+
+  
       {
-        id: "no-countdown",
-        group: "flights",
-        q: "Why is the countdown missing sometimes?",
+        id: "outstations",
+        group: "airports",
+        q: "Does the app work for all outstations?",
         a: (
           <FaqAnswer>
-            <p>Countdown uses UTC time and is phase dependent.</p>
+            <p>No. Coverage is variable.</p>
+            <p>
+              Some outstations act on the daily request and some do not, because the app is not an official KLM
+              system. Treat it as helpful, not guaranteed, outside AMS. Please report stations where difficulties are encountered to admin@xcmxfa.com
+            </p>
+          </FaqAnswer>
+        ),
+        keywords: ["outstations", "coverage", "works everywhere", "not all airports"],
+      },
+	  
+      {
+        id: "amsterdam-desk",
+        group: "airports",
+        q: "Departing Amsterdam: what should I do at the check-in desk?",
+        a: (
+          <FaqAnswer>
+            <p>When you request a listing via the app for flights departing amsterdam, KLM Passage Back Office create the listing, and at the same time, check you in for the flight.</p>
+			<p> You will receive confirmation that this has been done, via notification of your check in security number via email, app message or push notification</p>
+			<p>You do not need to contact the Back office at any stage of this process (unless you have not received a security number one hour before your flight departs)</p>
+			<p>If you have confirmation of your listing, you may proceed directly to the gate where your boarding pass will be issued.</p>
+          </FaqAnswer>
+        ),
+        keywords: ["Amsterdam", "Passage Back Office", "date", "confirmation"],
+      },
+	  
+      {
+        id: "outstations-desk",
+        group: "airports",
+        q: "Departing outstations: what should I do at the check-in desk?",
+        a: (
+          <FaqAnswer>
+            <p>First ask the agent to check whether a listing already exists.</p>
+            <p>If they can’t find you, it usually means a listing or check-in must still be created.</p>
+            <p>If the agent is unfamiliar, use the DIY Listing guidance below to help them create it quickly.</p>
+          </FaqAnswer>
+        ),
+        keywords: ["check in agent", "cant find", "outstation"],
+      },	  
+
+
+//************* GENERAL SECTION ***********************************		  
+
+
+      {
+        id: "unofficial",
+        group: "general",
+        q: "Is this an official KLM app?",
+        a: (
+          <FaqAnswer>
+            <p>
+              No. This is a privately developed app used by kind agreement of some outstations
+              to help them plan for XCM/XFA travel and reduce day-of-travel friction.
+            </p>
+            <p>
+              There is no direct link from this app to airline booking systems or KLM IT
+              infrastructure.
+            </p>
+          </FaqAnswer>
+        ),
+        keywords: ["official", "klm", "unofficial", "private", "independent"],
+      },
+	  
+      {
+        id: "voluntary",
+        group: "general",
+        q: "Do I have to use the app for XCM/XFA flights?",
+        a: (
+          <FaqAnswer>
+            <p>No. Use of this app is totally voluntary.</p>
             <ul style={{ margin: "0 0 0 18px" }}>
-              <li>Countdown only shows closer to departure, generally within three hours before STD.</li>
+              <li>All previous listing methods, including telephone listing, remain available in parallel.</li>
+              <li>
+                Using the app may involve storing or transmitting personal information, depending on what you
+                choose to provide.
+              </li>
+              <li>If you have privacy concerns, use the traditional methods instead.</li>
             </ul>
           </FaqAnswer>
         ),
-        keywords: ["countdown", "missing", "timer", "std_utc"],
+        keywords: ["voluntary", "optional", "do i have to"],
+      },  
+
+	  {
+        id: "passport-needed",
+        group: "general",
+        q: "Do I have to store passport details in the app?",
+        a: (
+          <FaqAnswer>
+            <p>It is voluntary and at your own risk.</p>
+            <ul style={{ margin: "0 0 0 18px" }}>
+              <li>Outstations may not require stored passport details, although passport swipe at the airport may still be needed.</li>
+              <li>For AMS, passport details are required for the app-based listing and check-in path.</li>
+              <li>Passport data is encrypted at rest and only transmitted when needed.</li>
+            </ul>
+          </FaqAnswer>
+        ),
+        keywords: ["passport", "personal data", "required", "ams"],
       },
+
+//************* ACCEPTANCE SECTION ***********************************	
+
+
+
+//************* BUGS SECTION ***********************************	
+
       {
         id: "bug-report",
-        group: "account",
+        group: "bugs",
         q: "Give feedback / report a bug",
         a: (
           <FaqAnswer>
@@ -531,61 +773,37 @@ export default function Faq() {
         ),
         keywords: ["bug", "feedback", "admin", "support"],
       },
-      {
-        id: "contact-admin",
-        group: "account",
-        q: "Contact app admin",
-        a: (
-          <FaqAnswer>
-            <p>Primary: admin@xcmxfa.com</p>
-            <p>Secondary: olu.ayoola@klm.com</p>
-          </FaqAnswer>
-        ),
-        keywords: ["contact", "admin"],
-      },
-      {
-        id: "privacy",
-        group: "privacy",
-        q: "Privacy / cookies / GDPR",
-        a: (
-          <FaqAnswer>
-            <p>Privacy and cookie information explains what data is stored, why it is stored, and how it is protected.</p>
-            <p>A later improvement can add direct in-app links to your Privacy and Cookie pages or PDF.</p>
-          </FaqAnswer>
-        ),
-        keywords: ["privacy", "cookie", "gdpr"],
-      },
-      {
-        id: "disclaimer",
-        group: "privacy",
-        q: "Disclaimer",
-        a: (
-          <FaqAnswer>
-            <p>Information is provided in good faith for general purposes.</p>
-            <p>
-              Operational reality can vary by airport, staff and systems. Use at your own risk and validate
-              time-critical information via official channels.
-            </p>
-          </FaqAnswer>
-        ),
-        keywords: ["disclaimer", "liability"],
-      },
+	  
+	  
     ],
     []
   );
 
   const groupCards: GroupCardDef[] = useMemo(
     () => [
+	
       { key: "all", label: "All", iconSrc: UI_ICONS.faq },
+	  
+      { key: "legal", label: "Legal", iconSrc: UI_ICONS.locked },
+	  
+      { key: "general", label: "General", iconSrc: UI_ICONS.departures },
+
+      { key: "account", label: "Account", iconSrc: UI_ICONS.avatar },	  
+	  
       { key: "flights", label: "Flights", iconSrc: UI_ICONS.departures },
-      { key: "lockers", label: "Lockers", iconSrc: UI_ICONS.locker },
+	  	  
       { key: "listing", label: "Listing", iconSrc: UI_ICONS.calendar },
-      { key: "account", label: "Account", iconSrc: UI_ICONS.avatar },
-      { key: "passport", label: "Passport", iconSrc: UI_ICONS.locked },
-      { key: "notifications", label: "Notifications", iconSrc: UI_ICONS.message },
-      { key: "privacy", label: "Privacy", iconSrc: UI_ICONS.locked },
-      { key: "amsterdam", label: "Amsterdam", iconSrc: UI_ICONS.arrivals },
-      { key: "outstations", label: "Outstations", iconSrc: UI_ICONS.departures },
+	  
+      { key: "alerts", label: "Alerts", iconSrc: UI_ICONS.message },
+	  
+      { key: "airports", label: "Airport", iconSrc: UI_ICONS.arrivals },	  
+	  
+      { key: "acceptance", label: "Acceptance", iconSrc: UI_ICONS.locked },
+	  	  
+      { key: "lockers", label: "Lockers", iconSrc: UI_ICONS.locker },	  
+	  
+      { key: "bugs", label: "Bugs", iconSrc: UI_ICONS.locked },
+
     ],
     []
   );
@@ -597,15 +815,16 @@ export default function Faq() {
   const counts = useMemo(() => {
     const out: Record<Group, number> = {
       all: items.length,
+      legal: 0,	  
       flights: 0,
       lockers: 0,
       listing: 0,
       account: 0,
-      passport: 0,
-      notifications: 0,
-      privacy: 0,
-      amsterdam: 0,
-      outstations: 0,
+      acceptance: 0,
+      alerts: 0,
+      bugs: 0,
+      airports: 0,
+      general: 0,
     };
 
     items.forEach((it) => {

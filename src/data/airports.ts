@@ -25,7 +25,7 @@ export const COUNTRY_AIRPORTS: Record<string, Airport[]> = {
     { code: "YVR", image: "YVR.webp" },
     { code: "YYC", image: "YYC.webp" },
     { code: "YYZ", image: "YYZ.webp" },
-    { code: "YHZ", image: "YHZ.webp" },
+	{ code: "YEG", image: "YEG.webp" },
   ],
   "Colombia": [
     { code: "BOG", image: "BOG.webp" },
@@ -152,7 +152,6 @@ export const COUNTRY_AIRPORTS: Record<string, Airport[]> = {
     { code: "NCL", image: "NCL.webp" },
     { code: "NWI", image: "NWI.webp" },
     { code: "SOU", image: "SOU.webp" },
-    { code: "STN", image: "STN.webp" },
   ],
   "USA": [
     { code: "JFK", image: "JFK.webp" },

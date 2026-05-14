@@ -263,8 +263,8 @@ export default function CrewLockers() {
             src={UI_ICONS.locker}
             alt="Crew lockers"
             style={{
-              width: 52,
-              height: 52,
+              width: 48,
+              height: 48,
               objectFit: "contain",
               borderRadius: 14,
             }}

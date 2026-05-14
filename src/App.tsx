@@ -5,6 +5,15 @@ import { PendingOnboardingGate, UseOnboardingBackOverride } from "./app/guards";
 import AppRoutes from "./app/routes";
 import PopupNoticeHost from "./components/PopupNoticeHost";
 import OfflineBanner from "./components/OfflineBanner";
+import PwaUpdatePrompt from "./components/PwaUpdatePrompt";
+
+type AppProps = {
+  showPwaUpdatePrompt?: boolean;
+  onConfirmReload?: () => void;
+  onDismissReloadPrompt?: () => void;
+  showOfflineReadyPrompt?: boolean;
+  onDismissOfflineReady?: () => void;
+};
 
 /**
  * Idiot-guide:
@@ -20,9 +29,16 @@ import OfflineBanner from "./components/OfflineBanner";
  * Phase 0 offline shell support:
  * - app shell can boot offline via PWA
  * - global offline banner lives here at app-shell level
+ * - app update prompt also lives here at app-shell level
  * - no offline data persistence is implemented here
  */
-export default function App() {
+export default function App({
+  showPwaUpdatePrompt = false,
+  onConfirmReload,
+  onDismissReloadPrompt,
+  showOfflineReadyPrompt = false,
+  onDismissOfflineReady,
+}: AppProps) {
   return (
     <AuthProvider>
       <CrewProvider>
@@ -35,6 +51,15 @@ export default function App() {
 
           {/* Global app-shell offline banner */}
           <OfflineBanner />
+
+          {/* Global PWA update / offline-ready prompts */}
+          <PwaUpdatePrompt
+            showUpdatePrompt={showPwaUpdatePrompt}
+            onConfirmReload={onConfirmReload}
+            onDismissReloadPrompt={onDismissReloadPrompt}
+            showOfflineReadyPrompt={showOfflineReadyPrompt}
+            onDismissOfflineReady={onDismissOfflineReady}
+          />
 
           {/* Global messaging popup host */}
           <PopupNoticeHost />

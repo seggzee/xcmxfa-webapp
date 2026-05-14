@@ -19,9 +19,10 @@ export type StandbyRoomCardData = {
 
 type Props = {
   room: StandbyRoomCardData;
+  isMember: boolean;
 };
 
-export default function StandbyRoomCard({ room }: Props) {
+export default function StandbyRoomCard({ room, isMember }: Props) {
   const price =
     room.price_per_night.currency === "EUR"
       ? `€${room.price_per_night.amount}`
@@ -31,7 +32,7 @@ export default function StandbyRoomCard({ room }: Props) {
     .filter(Boolean)
     .join(" · ");
 
-  const websiteLabel = room.website_label || "Advert website";
+  const websiteLabel = room.website_label || "More info";
 
   return (
     <article className="standbyRoomCard">
@@ -79,7 +80,8 @@ export default function StandbyRoomCard({ room }: Props) {
           <div className="standbyRoomCard-priceBox">
             <div className="standbyRoomCard-price">{price}</div>
           </div>
-
+		  
+		  {isMember ? (
           <a
             href={room.booking_url}
             target="_blank"
@@ -88,6 +90,8 @@ export default function StandbyRoomCard({ room }: Props) {
           >
             Book
           </a>
+		  ) : null}
+		  
         </div>
       </div>
     </article>

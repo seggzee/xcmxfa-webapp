@@ -47,16 +47,11 @@ export default function DonateReturn() {
   const [email, setEmail] = useState<string>("");
 
   function handleCloseBrowser(): void {
-    // Best-effort only:
+    // Best-effort only: NO LONGER USED AS RETURN DEEP LINKS INTO APP
     // - window.close() works only in some browser contexts
-    // - if blocked, try browser history back
-    window.close();
-
-    window.setTimeout(() => {
-      if (window.history.length > 1) {
-        window.history.back();
-      }
-    }, 250);
+    // - if it doesnt work, the text already tells user to close the browser
+	
+    // window.close();
   }
 
   useEffect(() => {
@@ -171,13 +166,13 @@ export default function DonateReturn() {
                   <>
                     A confirmation email has been sent to <b>{email}</b>.
                     <br /><br />
-                    You can now close this browser page and return to the XCMXFA app.
+                    Your donation was successful. Thank you for supporting the XCMXFA app.
                   </>
                 ) : (
                   <>
                     Your payment was successful.
                     <br /><br />
-                    You can now close this browser page and return to the XCMXFA app.
+                     Your donation was successful. Thank you for supporting the XCMXFA app.
                   </>
                 )}
               </div>
@@ -186,9 +181,9 @@ export default function DonateReturn() {
                 type="button"
                 className="btn btn-primary"
                 style={{ marginTop: 14 }}
-                onClick={handleCloseBrowser}
+                onClick={() => nav("/")}
               >
-                Close Browser
+                Back to Homepage
               </button>
             </>
           ) : (
@@ -206,7 +201,7 @@ export default function DonateReturn() {
               >
                 We could not confirm the donation on this page.
                 <br /><br />
-                Please close this browser page and return to the XCMXFA app.
+                Please close this browser page and return to the Homepage.
               </div>
 
               <div
@@ -220,9 +215,9 @@ export default function DonateReturn() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={handleCloseBrowser}
+                  onClick={() => nav("/")}
                 >
-                  Close Browser
+                  Back to Homepage
                 </button>
 
                 <button
