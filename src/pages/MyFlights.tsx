@@ -169,6 +169,17 @@ type ListedCommuter = {
   status: "" | "pending" | "sent" | "booked";
 };
 
+type LinkedCommuter = {
+  flight_instance_id: string;
+  psn: string;
+  firstname: string | null;
+  lastname: string | null;
+  x_type: string | null;
+  status: "pending" | "sent" | "confirmed" | string;
+  dep_airport: string;
+  arr_airport: string;
+};
+
 type CardVM = {
   id: string;
   flightInstanceId: string;
@@ -188,6 +199,7 @@ type CardVM = {
 
   commuterSummary: { XCM: number; XFA: number; Other: number };
   listedCommuters: ListedCommuter[];
+  linkedCommuters: LinkedCommuter[];
 
   depTerminal: string | null;
   depGate: string | null;
@@ -925,6 +937,9 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
 
       const group = String(x?.x_type || "").trim();
       const pos = x?.list_position ?? null;
+	  
+
+	  
 
       return {
         pos,
@@ -946,6 +961,17 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
     },
     { XCM: 0, XFA: 0, Other: 0 }
   );
+  
+    // LINKED 3-HOEK VISIBILITY - FRONTEND CONTRACT:
+  // - Informational only.
+  // - Not ranked.
+  // - Not merged into listedCommuters.
+  // - Not included in commuter summary or list totals.
+  // - Not used for can_unlist / unlist_mode.
+  const linkedCommuters: LinkedCommuter[] = Array.isArray((r0 as any)?.linked_visibility)
+    ? ((r0 as any).linked_visibility as LinkedCommuter[])
+    : [];
+  
 
   let isFuture = true;
   try {
@@ -992,7 +1018,9 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
 
     commuterSummary: summary,
     listedCommuters,
-
+	linkedCommuters,
+	
+	
     depTerminal: r0.dep_terminal ? String(r0.dep_terminal) : null,
     depGate: r0.dep_gate ? String(r0.dep_gate) : null,
     arrTerminal: r0.arr_terminal ? String(r0.arr_terminal) : null,
@@ -1476,6 +1504,105 @@ export default function MyFlights() {
                             <div className="myFlights-zoneHeaderStrong">All listed commuters: --</div>
                           </div>
                         )}
+ 					
+ {Array.isArray(flight.linkedCommuters) && flight.linkedCommuters.length > 0 ? (
+  <>
+    <div className="myFlights-zoneDivider" />
+
+    <div className="myFlights-zone">
+      <div className="myFlights-zoneHeaderStrong">Linked commuters</div>
+
+      <div className="myFlights-zoneMeta">
+        Shown on 3-hoek flights only - for awareness!
+      </div>
+
+      <div className="myFlights-commuterList">
+        {flight.linkedCommuters.map((p, idx) => {
+          const first = String(p?.firstname || "").trim();
+          const last = String(p?.lastname || "").trim();
+          const fullName = `${first} ${last}`.trim() || "Commuter";
+
+          const status = normalizeListingStatusForUI(p?.status);
+          const iconSrc = listingIconSrcFromStatus(status);
+
+          return (
+            <div
+              key={`${p.flight_instance_id}-${p.psn}-${idx}`}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                padding: "7px 8px",
+                borderRadius: 12,
+                background: "rgba(19,35,51,0.025)",
+                border: "1px solid rgba(19,35,51,0.05)",
+                marginBottom: 8,
+              }}
+            >
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 999,
+                  background: "rgba(19,35,51,0.35)",
+                  marginTop: 4,
+                  flexShrink: 0,
+                }}
+              />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    color: "rgba(19,35,51,0.86)",
+                    fontSize: 12,
+                    lineHeight: "16px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {fullName}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 2,
+                    fontWeight: 800,
+                    color: "rgba(19,35,51,0.62)",
+                    fontSize: 12,
+                    lineHeight: "16px",
+                    display: "flex",
+                    gap: 18,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span title={p.psn}>{p.psn}</span>
+                  <span title={p.x_type || "Other"}>{p.x_type || "Other"}</span>
+                  <span>
+                    {safeUpper(p.dep_airport)}-{safeUpper(p.arr_airport)}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ width: 22, flexShrink: 0, paddingTop: 1 }}>
+                {iconSrc ? (
+                  <img
+                    src={iconSrc}
+                    alt={status}
+                    style={{ width: 20, height: 20, display: "block" }}
+                  />
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </>
+) : null}
+ 					
+						
                       </>
                     ) : null}
 

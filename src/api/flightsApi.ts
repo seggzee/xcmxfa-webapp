@@ -386,6 +386,9 @@ export type MyFlightRow = {
   cancelled: boolean | number | string | null;
   status_last_updated_utc: string | null;
   schedule_last_updated_utc: string | null;
+  
+    //  info objects for My Flights listed pax panels (ADD-ONLY) 
+  linked_visibility?: Array<Record<string, unknown>>;
 
   // Schiphol Ultra overlay (ADD-ONLY)
   schiphol: SchipholOverlay | null;
@@ -492,6 +495,12 @@ export async function getMyFlights(args: { staffNo: unknown }): Promise<MyFlight
     // ✅ Unlist capability pass-through (ADD-ONLY)
     can_unlist: (r as any).can_unlist === true,
     unlist_mode: ((r as any).unlist_mode as any) ?? "none",
+	
+	// ✅ Linked 3-hoek visibility pass-through (ADD-ONLY)
+	// Courtesy-only awareness rows. Not part of ranking, totals, or actions.
+		linked_visibility: Array.isArray((r as any).linked_visibility)
+		? ((r as any).linked_visibility as any)
+		: [],
 
     flight_no: (r.flight_number as any) ?? "",
 

@@ -113,6 +113,20 @@ type CrewRow = {
   listedAt: string | null; // requested_at_utc
 };
 
+type LinkedCommuterRow = {
+  id: any;
+  flight_instance_id: string;
+  psn: string;
+  employer: string | null;
+  x_type: string | null;
+  firstname: string | null;
+  lastname: string | null;
+  status: "confirmed" | "sent" | "pending";
+  security_number: string | null;
+  dep_airport: string;
+  arr_airport: string;
+};
+
 const POLL_MS = 2.5 * 60 * 1000;
 
 /* =====================================================================================
@@ -952,6 +966,8 @@ export default function Day() {
   });
 
   const [bookingsByFlight, setBookingsByFlight] = useState<Record<string, BookingRow[]>>({});
+  
+  const [linkedVisibilityByFlight, setLinkedVisibilityByFlight] = useState<Record<string, LinkedCommuterRow[]>>({});
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshInFlightRef = useRef(false);
@@ -1035,9 +1051,20 @@ export default function Day() {
         });
 
         setBookingsByFlight(by);
+
+		const linked = bookingsResp?.linked_visibility_by_flight_instance_id;
+
+		setLinkedVisibilityByFlight(
+		  linked && typeof linked === "object" && !Array.isArray(linked)
+			? linked
+			: {}
+		);		
+					
+		
       } catch (e: any) {
         setErrorText(e?.message || "Failed to load commuter list");
         setBookingsByFlight({});
+		setLinkedVisibilityByFlight({});
       }
 
       setLoading(false);
@@ -1177,6 +1204,32 @@ export default function Day() {
       });
   }
 
+  
+function linkedCommutersForFlight(flightInstanceId: string): LinkedCommuterRow[] {
+  const rows = Array.isArray(linkedVisibilityByFlight?.[flightInstanceId])
+    ? linkedVisibilityByFlight[flightInstanceId]
+    : [];
+
+  // LINKED 3-HOEK VISIBILITY - FRONTEND CONTRACT:
+  // - Informational only.
+  // - Not ranked.
+  // - Not merged into Listed commuters.
+  // - Not included in commuter summary or X-staff totals.
+  // - Not used for can_unlist / unlist_mode.
+  return rows
+    .slice()
+    .sort((a, b) => {
+      const ar = `${String(a?.dep_airport || "")}-${String(a?.arr_airport || "")}`;
+      const br = `${String(b?.dep_airport || "")}-${String(b?.arr_airport || "")}`;
+      if (ar !== br) return ar.localeCompare(br);
+
+      const an = `${String(a?.lastname || "")} ${String(a?.firstname || "")}`;
+      const bn = `${String(b?.lastname || "")} ${String(b?.firstname || "")}`;
+      return an.localeCompare(bn);
+    });
+}  
+  
+  
   function isUserListed(flightInstanceId: string) {
     if (!resolvedIsLoggedIn) return false;
     const rows = bookingsByFlight?.[flightInstanceId] || [];
@@ -1500,7 +1553,7 @@ export default function Day() {
 
           const xStaff = Array.isArray(bookingsByFlight?.[fid]) ? bookingsByFlight[fid].length : 0;
           const crew = resolvedIsLoggedIn ? crewListForFlight(fid) : [];
-
+		  const linkedCrew = resolvedIsLoggedIn && userListed ? linkedCommutersForFlight(fid) : [];
           const actionCfg = actionConfigForFlight(row?.airline_iata, userListed);
 
           const busyMode = actionBusyByFlight?.[fid] || null;
@@ -1693,6 +1746,117 @@ export default function Day() {
                     </>
                   ) : null}
 
+				  
+{userListed && linkedCrew.length > 0 ? (
+  <>
+    <div className="day-zoneDivider" />
+
+    <div>
+      <div className="day-zoneSubtitle">Linked commuters</div>
+
+      <div
+        style={{
+          marginTop: 6,
+          fontWeight: 700,
+          fontSize: 12,
+          lineHeight: "17px",
+          color: "rgba(19,35,51,0.62)",
+        }}
+      >
+        Shown on 3-hoek flights only - for awareness!
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        {linkedCrew.map((u, idx) => {
+          const first = String(u?.firstname || "").trim();
+          const last = String(u?.lastname || "").trim();
+          const fullName = `${first} ${last}`.trim() || "Commuter";
+
+          const status = normalizeBookingStatusStrict(u?.status);
+
+          const statusIcon =
+            status === "confirmed"
+              ? LISTING_STATUS_ICONS.booked
+              : status === "sent"
+              ? LISTING_STATUS_ICONS.sent
+              : LISTING_STATUS_ICONS.pending;
+
+          return (
+            <div
+              key={`${u.flight_instance_id}-${u.psn}-${idx}`}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                padding: "7px 8px",
+                borderRadius: 12,
+                background: "rgba(19,35,51,0.025)",
+                border: "1px solid rgba(19,35,51,0.05)",
+                marginBottom: 8,
+              }}
+              aria-label={`Linked commuter ${fullName}`}
+            >
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 999,
+                  background: "rgba(19,35,51,0.35)",
+                  marginTop: 4,
+                  flexShrink: 0,
+                }}
+              />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    color: "rgba(19,35,51,0.86)",
+                    fontSize: 12,
+                    lineHeight: "16px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {fullName}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 2,
+                    fontWeight: 800,
+                    color: "rgba(19,35,51,0.62)",
+                    fontSize: 12,
+                    lineHeight: "16px",
+                    display: "flex",
+                    gap: 18,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span title={u.psn}>{u.psn}</span>
+                  <span title={u.x_type || "Other"}>{u.x_type || "Other"}</span>
+                  <span>
+                    {safeUpper(u.dep_airport)}-{safeUpper(u.arr_airport)}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ width: 22, flexShrink: 0, paddingTop: 1 }}>
+                <img
+                  src={statusIcon}
+                  alt={status}
+                  style={{ width: 20, height: 20, display: "block" }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </>
+) : null}				  
+				  
                   {showActionButton ? (
                     <>
                       <div className="day-zoneDivider" />
