@@ -343,9 +343,9 @@ function buildDepartureMovementLine({
   if (actual) return `Actual dep ${actual}`;
 
   const processLine = compactJoin([
-    gateOpen ? `Gate opens ${gateOpen}` : "",
+    gateOpen ? `Gate: Opens ${gateOpen}` : "",
     boarding ? `Boarding ${boarding}` : "",
-    gateClose ? `Gate closes ${gateClose}` : "",
+    gateClose ? `Closes ${gateClose}` : "",
   ]);
 
   if (processLine) return processLine;

@@ -382,6 +382,18 @@
 }
 
 /* ===============================
+   Operational panels - paler tints (OVERRIDES VALUES ABOVE......DELETE IF NO LONGER REQUIRED)
+   =============================== */
+
+.day-opsPanel--departure {
+  background: rgba(232, 240, 255, 0.42); /* very pale departure blue */
+}
+
+.day-opsPanel--arrival {
+  background: rgba(235, 248, 241, 0.42); /* very pale arrival green */
+}
+
+/* ===============================
    Action Button
    =============================== */
 

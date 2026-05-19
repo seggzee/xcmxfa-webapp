@@ -131,6 +131,21 @@ export default function AppHeader({
     setLoginOpen(false);
     setAccountOpen(true);
   };
+  
+  
+  const handleInfoClick = () => {
+  const currentPath = `${location.pathname}${location.search || ""}`;
+
+  if (location.pathname === "/faq") {
+    const returnTo = sessionStorage.getItem("faq:returnTo") || "/";
+    sessionStorage.removeItem("faq:returnTo");
+    navigate(returnTo);
+    return;
+  }
+
+  sessionStorage.setItem("faq:returnTo", currentPath);
+  navigate("/faq");
+};
 
   const loginHandlersOk = Boolean(
     onLoginSubmit && onCancelLogin && onCreateAccount && onForgotPassword
@@ -201,7 +216,7 @@ export default function AppHeader({
 		  <button
 			type="button"
 			className="appHeader-infoBtn"
-			onClick={() => navigate("/faq")}
+			onClick={handleInfoClick}
 			aria-label="Help and FAQ"
 		  >
 			<img
