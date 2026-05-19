@@ -46,6 +46,7 @@
 .day-metaLeft {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .day-metaHead {
@@ -78,15 +79,14 @@
   border-radius: 999px;
   border: 1px solid rgba(19, 35, 51, 0.20);
   background: #ffffff;
-  color: rgba(19, 35, 51, 0.65);
+  color: rgba(0, 122, 255, 1);
   font-weight: 900;
   font-size: 12px;
   line-height: 18px;
   padding: 0;
-  cursor: pointer;
+  cursor: help;
   flex: 0 0 auto;
   margin-top: 1px;
-
 }
 
 /* Center logo (NO airport code on Day) */
@@ -98,8 +98,7 @@
 }
 
 .day-airportLogo {
-  width: 160px;            /* keep fixed like Week */
-  /*height: 54px;*/
+  width: 160px;
   object-fit: contain;
 }
 
@@ -143,30 +142,20 @@
   object-fit: contain;
 }
 
-.day-metaInfo{
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 11px;
-  font-weight: 900;
-  color: rgba(0, 122, 255, 1); /* your bright progress blue */
-  cursor: help;
-}
-
-.day-spinner{
+.day-spinner {
   width: 20px;
   height: 20px;
   display: inline-block;
   border-radius: 999px;
-  border: 2px solid rgba(0, 122, 255, 0.22); /* bright blue, faint ring */
-  border-top-color: rgba(0, 122, 255, 1);    /* bright blue */
+  border: 2px solid rgba(0, 122, 255, 0.22);
+  border-top-color: rgba(0, 122, 255, 1);
   animation: daySpin 0.75s linear infinite;
 }
 
-/* Optional (only if you ever see overlap again)*/
-.day-metaLeft { overflow: hidden; }
-
-@keyframes daySpin{
-  to { transform: rotate(360deg); }
+@keyframes daySpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===============================
@@ -259,6 +248,22 @@
   margin-bottom: 12px;
 }
 
+/*
+   Route accent rule:
+   - The whole card background is always standard white.
+   - RTM/EIN are distinguished by border only.
+   - EIN wins if both EIN and RTM somehow occur on the same card.
+*/
+.day-flightCard--rtm {
+  border-width: 2px;
+  border-color: rgba(251, 191, 36, 0.45); /* pastel orange */
+}
+
+.day-flightCard--ein {
+  border-width: 2px;
+  border-color: rgba(167, 139, 250, 0.45); /* pastel purple */
+}
+
 .day-publicSection {
   padding-bottom: 10px;
 }
@@ -296,6 +301,84 @@
   font-weight: 700;
   color: rgba(19, 35, 51, 0.6);
   font-size: 12px;
+}
+
+/* ===============================
+   Departure / Arrival Operational Panels
+   =============================== */
+
+/*
+   LOCKED DISPLAY RULE:
+   - Only operational panels receive tinted backgrounds.
+   - Tint is based on panel type only, not airport/source.
+   - Flight cards themselves remain normal white.
+*/
+
+.day-opsPanel {
+  margin-top: 10px;
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(19, 35, 51, 0.08);
+}
+
+.day-opsPanel--departure {
+  background: rgba(232, 240, 255, 0.92);
+}
+
+.day-opsPanel--arrival {
+  background: rgba(236, 253, 245, 0.92);
+}
+
+.day-opsPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.day-opsPanelTitle {
+  min-width: 0;
+  flex: 1;
+  font-weight: 900;
+  color: #132333;
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.day-opsChip {
+  flex: 0 1 auto;
+  max-width: 58%;
+  min-width: 76px;
+  border: 0;
+  border-radius: 20px;
+  background: rgba(19, 35, 51, 0.08);
+  padding: 4px 12px;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.82);
+  font-size: 12px;
+  line-height: 14px;
+  text-align: center;
+  white-space: normal;
+}
+
+.day-opsPanelLine {
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.76);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.day-opsPanelLine3 {
+  color: rgba(19, 35, 51, 0.68);
+}
+
+.day-opsPanelEmpty {
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.54);
+  font-size: 12px;
+  line-height: 16px;
 }
 
 /* ===============================

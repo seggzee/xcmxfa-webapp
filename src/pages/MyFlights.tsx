@@ -3,11 +3,44 @@
 // PURPOSE
 // - Member-facing My Flights screen
 //
-// THIS CHANGE ONLY
-// - Move page onto reusable StickyPageHeaderCard pattern
-// - Remove old local title-row / back-button shell
-// - Keep all existing My Flights logic, card behaviour, collapse engine,
-//   confirm modal, and API behaviour unchanged
+// MY FLIGHTS OPERATIONAL PANEL UPDATE
+// - Uses the same locked Departure + Arrival information model as Day screen.
+// - Collapsed My Flights card shows:
+//     3x3 card
+//     Departure info panel, if UTC today/tomorrow
+//     Arrival info panel, if UTC today/tomorrow
+//     Action button, if available
+// - Expanded card additionally shows:
+//     Listing information
+//     Commuter summary
+//     Listed commuters
+//     Other information
+//
+// BACKEND CONTRACT EXPECTED
+// - /api/bookings/my_flights.php returns:
+//     schiphol
+//     airport_overlay
+//     airport_overlay_dep
+//     airport_overlay_arr
+//     airline_departure_info
+//     airline_arrival_info
+//
+// THIS REISSUE
+// - Uses source-scoped airport status normalisation.
+// - AENA raw-code diagnostic mode is closed; AENA_OFFICIAL now displays mapped labels.
+// - Departure panels now use the universal four-line departure contract:
+//     Line 1: {DEP} Departure info [status chip]
+//     Line 2: new departure / delay information, only when available
+//     Line 3: timing / movement information
+//     Line 4: airport handling / location information
+// - HV no-feed departure airports in the two-day operational window render:
+//     {DEP} Departure info [Unknown]
+//     No additional information available
+//   and never fall back to HV airline/canonical status.
+// - HV no-feed arrival airports render:
+//     {ARR} Arrival info [Unknown]
+//     No additional information available
+// - KLM no-feed arrival fallback remains unchanged.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,10 +49,25 @@ import FlightCard3x3 from "../components/FlightCard3x3";
 import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
 import { getMyFlights, setBookingListed } from "../api/flightsApi";
 import { LISTING_STATUS_ICONS, UI_ICONS } from "../assets";
+import {
+  normaliseAirportStatus as normaliseAirportStatusBySource,
+  normaliseSchipholPublicState as normaliseSchipholPublicStateBySource,
+} from "../utils/airportStatus";
 
 import "../styles/myFlights.css";
 
 /* ----------------------------- small helpers ----------------------------- */
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function dateToUtcDateKey(d: Date) {
+  const y = d.getUTCFullYear();
+  const m = pad2(d.getUTCMonth() + 1);
+  const day = pad2(d.getUTCDate());
+  return `${y}-${m}-${day}`;
+}
 
 function safeUpper(v: unknown) {
   return String(v || "").trim().toUpperCase();
@@ -27,6 +75,10 @@ function safeUpper(v: unknown) {
 
 function safeLower(v: unknown) {
   return String(v || "").trim().toLowerCase();
+}
+
+function toCleanString(v: unknown) {
+  return String(v ?? "").trim();
 }
 
 function fmtTimeLocal(dtLike: unknown) {
@@ -58,6 +110,22 @@ function fmtRequestedAt(utcLike: unknown) {
     hour12: false,
   });
   return `${date} ${time}`;
+}
+
+/**
+ * Airport overlay local-time display helper.
+ *
+ * LOCKED DISPLAY RULE:
+ * - Airport overlay rows already expose scheduled_time_local / estimated_time_local / actual_time_local.
+ * - These are airport-local display strings.
+ * - Do not convert them through browser timezone for My Flights operational panels.
+ */
+function fmtOverlayLocalTime(dtLike: unknown) {
+  const s = String(dtLike || "").trim();
+  if (!s) return "";
+
+  const m = s.match(/\b([01]\d|2[0-3]):[0-5]\d\b/);
+  return m ? m[0] : "";
 }
 
 /**
@@ -105,15 +173,14 @@ type CardVM = {
   id: string;
   flightInstanceId: string;
 
-  // For FlightCard3x3: we pass the RAW row through (RN parity: screen builds zones; card is display-only)
+  // For FlightCard3x3: we pass the RAW row through.
   row0: RawMyFlightRow;
 
-  depDate: string; // "Mon 25 Feb"
- 
-  
-  requestedAtDisplay: string; // "25 Feb 2026"
+  depDate: string;
+
+  requestedAtDisplay: string;
   securityNumber: string | null;
-  
+
   listingStatus: "" | "pending" | "sent" | "booked";
 
   listPos: any;
@@ -130,6 +197,683 @@ type CardVM = {
 
   isFuture: boolean;
 };
+
+/* =====================================================================================
+   DEPARTURE / ARRIVAL OPERATIONAL INFO PANELS - REPLACEABLE BLOCK
+   =====================================================================================
+
+   SOURCE PRIORITY - LOCKED:
+   - Departure info:
+       1. Schiphol if dep_airport = AMS
+       2. airport_overlay_dep
+       3. HV today/tomorrow no-feed fallback = Unknown + no additional information
+       4. airline_departure_info for non-HV / non-locked fallback cases
+
+   - Arrival info:
+       1. Schiphol if arr_airport = AMS
+       2. airport_overlay_arr
+       3. KLM airline_arrival_info fallback
+       4. HV no-feed fallback = Unknown + no additional information
+
+   DISPLAY CONTRACT - LOCKED:
+   - Panels are shown only when std_utc or sta_utc falls on UTC today or UTC tomorrow.
+   - Panel order is always:
+       Departure info
+       Arrival info
+   - Panels sit directly below the 3x3 card.
+   - In My Flights, panels remain visible even when the rest of the card is collapsed.
+
+   UNIVERSAL DEPARTURE PANEL LAYOUT - LOCKED:
+   - Line 1: {AIRPORT} Departure info        [status chip]
+   - Line 2: New departure time / delay information, only if available
+   - Line 3: Timing / movement information
+   - Line 4: Airport handling / location information
+       Terminal · Pier/Check-in · Gate
+   - If Lines 2, 3, and 4 are all empty:
+       "No additional information available"
+
+   ARRIVAL PANEL LAYOUT - CURRENT CONTRACT:
+   - Line 1: {AIRPORT} Arrival info        [status chip]
+   - Line 2: arrival timing information
+   - Line 3: airport handling information
+       Terminal · Gate · Belt
+   - If no useful detail beyond the chip:
+       "No additional information available"
+   ===================================================================================== */
+
+type OpsPanelModel = {
+  key: "departure" | "arrival";
+  title: string;
+  statusChip: string;
+  line2: string;
+  line3: string;
+  line4: string;
+  emptyText: string;
+};
+
+function isCancelledFlag(v: unknown) {
+  const u = safeUpper(v);
+  return u === "1" || u === "TRUE" || u === "YES" || u === "Y" || u === "CANCELLED";
+}
+
+function compactJoin(parts: string[]) {
+  return parts.map((p) => toCleanString(p)).filter(Boolean).join(" · ");
+}
+
+function normalisePublicStatus(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s) return "";
+
+  const u = s.toUpperCase().replace(/_/g, " ");
+
+  const map: Record<string, string> = {
+    SCHEDULED: "Scheduled",
+    UNKNOWN: "Unknown",
+    CANCELLED: "Cancelled",
+    CANCELED: "Cancelled",
+    DELAYED: "Delayed",
+    DEPARTED: "Departed",
+    ARRIVED: "Arrived",
+    LANDED: "Landed",
+    "IN FLIGHT": "In flight",
+    BOARDING: "Boarding",
+    "GATE OPEN": "Gate open",
+    "GATE CLOSING": "Gate closing",
+    "GATE CLOSED": "Gate closed",
+    "FINAL CALL": "Final call",
+  };
+
+  return map[u] || s;
+}
+
+function normaliseAenaStatus(
+  statusText: unknown,
+  statusCode: unknown,
+  direction: "DEP" | "ARR" = "DEP",
+  sourceName: unknown = "AENA_OFFICIAL"
+) {
+  // Source-scoped airport status display.
+  // AENA raw-code diagnostic mode is closed.
+  // AENA display now uses mapped labels from src/utils/airportStatus.ts.
+  // BOR is direction-sensitive in the helper:
+  // - DEP => Departed
+  // - ARR => Arrived
+  // - missing/unknown direction => Unknown
+  return normaliseAirportStatusBySource({
+    sourceName,
+    statusCode,
+    statusText,
+    direction,
+  });
+}
+
+function normaliseSchipholPublicState(raw: unknown) {
+  return normaliseSchipholPublicStateBySource(raw);
+}
+
+function usefulLineStatus(raw: unknown) {
+  const s = normalisePublicStatus(raw);
+  const u = safeUpper(s);
+
+  if (!s) return "";
+  if (u === "UNKNOWN") return "";
+  if (u === "SCHEDULED") return "";
+
+  return s;
+}
+
+function normaliseTerminal(raw: unknown) {
+  const s = toCleanString(raw);
+  const u = s.toUpperCase();
+
+  if (!s) return "";
+  if (u === "PAX") return "";
+  if (u === "NULL") return "";
+
+  if (u === "NTERM") return "Terminal N";
+  if (u.endsWith("TERM") && u.length > 4) return `Terminal ${u.slice(0, -4)}`;
+  if (u.startsWith("TERMINAL ")) return s;
+  if (u.startsWith("T") && u.length <= 3) return u;
+
+  return `Terminal ${s}`;
+}
+
+function normaliseGate(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+
+  if (/^[A-Z]$/i.test(s)) return `Area ${s.toUpperCase()}`;
+  return `Gate ${s}`;
+}
+
+function normalisePier(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+  return `Pier ${s}`;
+}
+
+function normaliseBelt(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+  return `Belt ${s}`;
+}
+
+function normaliseCheckin(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+  return `Check-in ${s}`;
+}
+
+function buildDepartureDelayLine({
+  scheduled,
+  estimated,
+}: {
+  scheduled: string;
+  estimated: string;
+}) {
+  if (estimated && (!scheduled || estimated !== scheduled)) {
+    return `New departure ${estimated}`;
+  }
+
+  return "";
+}
+
+function buildDepartureMovementLine({
+  actual,
+  gateOpen,
+  boarding,
+  gateClose,
+  movementStatus,
+  chip,
+}: {
+  actual?: string;
+  gateOpen?: string;
+  boarding?: string;
+  gateClose?: string;
+  movementStatus?: string;
+  chip?: string;
+}) {
+  if (actual) return `Actual dep ${actual}`;
+
+  const processLine = compactJoin([
+    gateOpen ? `Gate opens ${gateOpen}` : "",
+    boarding ? `Boarding ${boarding}` : "",
+    gateClose ? `Gate closes ${gateClose}` : "",
+  ]);
+
+  if (processLine) return processLine;
+
+  const movement = usefulLineStatus(movementStatus);
+  if (movement && movement !== chip) return movement;
+
+  return "";
+}
+
+function buildArrivalTimingLine({
+  scheduled,
+  estimated,
+  actual,
+}: {
+  scheduled: string;
+  estimated: string;
+  actual: string;
+}) {
+  if (actual) return `Actual arr ${actual}`;
+
+  if (estimated && (!scheduled || estimated !== scheduled)) {
+    return `Est arr ${estimated}`;
+  }
+
+  return "";
+}
+
+function isRealOverlay(overlay: any) {
+  return Boolean(overlay && typeof overlay === "object" && overlay?.is_fallback !== true);
+}
+
+function isHvDepartureTwoDayOperationalWindow(row: RawMyFlightRow) {
+  const airline = safeUpper(row?.airline_iata);
+  if (airline !== "HV") return false;
+
+  const stdKey = utcDateKeyFromValue(row?.std_utc);
+  if (!stdKey) return false;
+
+  const now = new Date();
+  const todayUtc = dateToUtcDateKey(now);
+
+  const tomorrow = new Date(now.getTime());
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowUtc = dateToUtcDateKey(tomorrow);
+
+  return stdKey === todayUtc || stdKey === tomorrowUtc;
+}
+
+function buildHvNoFeedDeparturePanel(row: RawMyFlightRow): OpsPanelModel | null {
+  if (!isHvDepartureTwoDayOperationalWindow(row)) return null;
+
+  const airportCode = safeUpper(row?.dep_airport);
+  if (!airportCode) return null;
+
+  // HV two-day departure no-feed fallback - LOCKED:
+  // If Schiphol/airport_overlay_dep is unavailable, do NOT present HV
+  // airline/canonical status as airport departure information.
+  // The departure panel must remain honest: Unknown + no additional information.
+  return {
+    key: "departure",
+    title: `${airportCode} Departure info`,
+    statusChip: "Unknown",
+    line2: "",
+    line3: "",
+    line4: "",
+    emptyText: "No additional information available",
+  };
+}
+
+function buildDeparturePanelFromSchiphol(row: RawMyFlightRow): OpsPanelModel | null {
+  const dep = safeUpper(row?.dep_airport);
+  if (dep !== "AMS") return null;
+
+  const s = row?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const chip = normaliseSchipholPublicState(s?.public_flight_state);
+
+  const open = fmtTimeLocal(s?.expected_gate_open_utc);
+  const board = fmtTimeLocal(s?.expected_boarding_time_utc);
+  const close = fmtTimeLocal(s?.expected_gate_closing_utc);
+  const offb = fmtTimeLocal(s?.actual_off_block_time_utc);
+
+  // Schiphol currently does not expose a separate "new departure" field in this object.
+  // Therefore Line 2 is only shown when a future backend field is wired.
+  const line2 = "";
+
+  const line3 = buildDepartureMovementLine({
+    actual: offb,
+    gateOpen: open,
+    boarding: board,
+    gateClose: close,
+    chip,
+  });
+
+  const line4 = compactJoin([
+    normaliseTerminal(s?.terminal),
+    normalisePier(s?.pier),
+    normaliseGate(s?.gate),
+  ]);
+
+  return {
+    key: "departure",
+    title: "AMS Departure info",
+    statusChip: chip,
+    line2,
+    line3,
+    line4,
+    emptyText: "No additional information available",
+  };
+}
+
+function buildArrivalPanelFromSchiphol(row: RawMyFlightRow): OpsPanelModel | null {
+  const arr = safeUpper(row?.arr_airport);
+  if (arr !== "AMS") return null;
+
+  const s = row?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const chip = normaliseSchipholPublicState(s?.public_flight_state);
+  const land = fmtTimeLocal(s?.estimated_landing_time_utc);
+
+  const line2 = land ? `Est arr ${land}` : "";
+
+  const line3 = compactJoin([
+    normaliseTerminal(s?.terminal),
+    normalisePier(s?.pier),
+    normaliseGate(s?.gate),
+  ]);
+
+  return {
+    key: "arrival",
+    title: "AMS Arrival info",
+    statusChip: chip,
+    line2,
+    line3,
+    line4: "",
+    emptyText: "No additional information available",
+  };
+}
+
+function buildDeparturePanelFromAirportOverlay(row: RawMyFlightRow): OpsPanelModel | null {
+  const ao = row?.airport_overlay_dep ?? null;
+  if (!isRealOverlay(ao)) return null;
+
+  const airportCode = safeUpper(ao?.airport_code || row?.dep_airport);
+  if (!airportCode) return null;
+
+  const scheduled = fmtOverlayLocalTime(ao?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(ao?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(ao?.actual_time_local);
+
+  const chip = normaliseAenaStatus(ao?.status_text, ao?.status_code, "DEP", ao?.source_name);
+
+  const line2 = buildDepartureDelayLine({
+    scheduled,
+    estimated,
+  });
+
+  const line3 = buildDepartureMovementLine({
+    actual,
+    chip,
+  });
+
+  const line4 = compactJoin([
+    normaliseTerminal(ao?.terminal),
+    normaliseCheckin(ao?.checkin_area),
+    normaliseGate(ao?.gate),
+  ]);
+
+  return {
+    key: "departure",
+    title: `${airportCode} Departure info`,
+    statusChip: chip,
+    line2,
+    line3,
+    line4,
+    emptyText: "No additional information available",
+  };
+}
+
+function buildArrivalPanelFromAirportOverlay(row: RawMyFlightRow): OpsPanelModel | null {
+  const ao = row?.airport_overlay_arr ?? null;
+  if (!isRealOverlay(ao)) return null;
+
+  const airportCode = safeUpper(ao?.airport_code || row?.arr_airport);
+  if (!airportCode) return null;
+
+  const scheduled = fmtOverlayLocalTime(ao?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(ao?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(ao?.actual_time_local);
+
+  const chip = normaliseAenaStatus(ao?.status_text, ao?.status_code, "ARR", ao?.source_name);
+
+  const line2 = buildArrivalTimingLine({
+    scheduled,
+    estimated,
+    actual,
+  });
+
+  const line3 = compactJoin([
+    normaliseTerminal(ao?.terminal),
+    normaliseGate(ao?.gate),
+    normaliseBelt(ao?.belt),
+  ]);
+
+  return {
+    key: "arrival",
+    title: `${airportCode} Arrival info`,
+    statusChip: chip,
+    line2,
+    line3,
+    line4: "",
+    emptyText: "No additional information available",
+  };
+}
+
+function buildDeparturePanelFromAirlineFallback(row: RawMyFlightRow): OpsPanelModel | null {
+  // HV two-day departure panels must never fall through to airline/canonical fallback.
+  // Airport source or Unknown only.
+  if (isHvDepartureTwoDayOperationalWindow(row)) return null;
+
+  const info = row?.airline_departure_info ?? null;
+  if (!info || typeof info !== "object") return null;
+
+  const airportCode = safeUpper(info?.airport_code || row?.dep_airport);
+  if (!airportCode) return null;
+
+  const boardingStatus = normalisePublicStatus(info?.boarding_status_text);
+  const flightStatus = normalisePublicStatus(info?.status_text);
+
+  const chip = isCancelledFlag(info?.cancelled)
+    ? "Cancelled"
+    : boardingStatus || flightStatus;
+
+  const scheduled = fmtOverlayLocalTime(info?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(info?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(info?.actual_time_local);
+
+  const line2 = buildDepartureDelayLine({
+    scheduled,
+    estimated,
+  });
+
+  const line3 = buildDepartureMovementLine({
+    actual,
+    movementStatus: flightStatus,
+    chip,
+  });
+
+  const line4 = compactJoin([
+    normaliseTerminal(info?.terminal),
+    normaliseCheckin(info?.checkin_area),
+    normaliseGate(info?.gate),
+  ]);
+
+  return {
+    key: "departure",
+    title: `${airportCode} Departure info`,
+    statusChip: chip,
+    line2,
+    line3,
+    line4,
+    emptyText: "No additional information available",
+  };
+}
+
+function buildArrivalPanelFromAirlineFallback(row: RawMyFlightRow): OpsPanelModel | null {
+  const info = row?.airline_arrival_info ?? null;
+  if (!info || typeof info !== "object") return null;
+
+  const airportCode = safeUpper(info?.airport_code || row?.arr_airport);
+  if (!airportCode) return null;
+
+  // HV no-feed arrival fallback - LOCKED:
+  // If there is no Schiphol/airport_overlay_arr arrival feed, do not present
+  // HV airline/canonical status as airport arrival information.
+  // The arrival panel must remain honest: Unknown + no additional information.
+  if (safeUpper(row?.airline_iata) === "HV") {
+    return {
+      key: "arrival",
+      title: `${airportCode} Arrival info`,
+      statusChip: "Unknown",
+      line2: "",
+      line3: "",
+      line4: "",
+      emptyText: "No additional information available",
+    };
+  }
+
+  const flightStatus = normalisePublicStatus(info?.status_text);
+
+  const chip = isCancelledFlag(info?.cancelled)
+    ? "Cancelled"
+    : flightStatus;
+
+  const scheduled = fmtOverlayLocalTime(info?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(info?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(info?.actual_time_local);
+
+  const line2 = buildArrivalTimingLine({
+    scheduled,
+    estimated,
+    actual,
+  });
+
+  const line3 = compactJoin([
+    normaliseTerminal(info?.terminal),
+    normaliseGate(info?.gate),
+    normaliseBelt(info?.belt),
+  ]);
+
+  return {
+    key: "arrival",
+    title: `${airportCode} Arrival info`,
+    statusChip: chip,
+    line2,
+    line3,
+    line4: "",
+    emptyText: "No additional information available",
+  };
+}
+
+function buildDeparturePanelModel(row: RawMyFlightRow): OpsPanelModel | null {
+  const schipholPanel = buildDeparturePanelFromSchiphol(row);
+  if (schipholPanel) return schipholPanel;
+
+  const airportPanel = buildDeparturePanelFromAirportOverlay(row);
+  if (airportPanel) return airportPanel;
+
+  const hvNoFeedDeparturePanel = buildHvNoFeedDeparturePanel(row);
+  if (hvNoFeedDeparturePanel) return hvNoFeedDeparturePanel;
+
+  return buildDeparturePanelFromAirlineFallback(row);
+}
+
+function buildArrivalPanelModel(row: RawMyFlightRow): OpsPanelModel | null {
+  const schipholPanel = buildArrivalPanelFromSchiphol(row);
+  if (schipholPanel) return schipholPanel;
+
+  const airportPanel = buildArrivalPanelFromAirportOverlay(row);
+  if (airportPanel) return airportPanel;
+
+  // CRITICAL:
+  // This branch is required for no-feed arrival airports such as AMS -> LCY.
+  // It must still render a panel when the airline only provides public status.
+  return buildArrivalPanelFromAirlineFallback(row);
+}
+
+function utcDateKeyFromValue(v: unknown) {
+  const s = toCleanString(v);
+  if (!s) return "";
+
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return dateToUtcDateKey(d);
+}
+
+function shouldShowOperationalPanels(row: RawMyFlightRow) {
+  const now = new Date();
+  const todayUtc = dateToUtcDateKey(now);
+
+  const tomorrow = new Date(now.getTime());
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowUtc = dateToUtcDateKey(tomorrow);
+
+  const stdKey = utcDateKeyFromValue(row?.std_utc);
+  const staKey = utcDateKeyFromValue(row?.sta_utc);
+
+  return (
+    stdKey === todayUtc ||
+    stdKey === tomorrowUtc ||
+    staKey === todayUtc ||
+    staKey === tomorrowUtc
+  );
+}
+
+function routeAccentClass(row: RawMyFlightRow) {
+  const dep = safeUpper(row?.dep_airport);
+  const arr = safeUpper(row?.arr_airport);
+
+  // Deterministic priority: EIN purple wins over RTM orange.
+  if (dep === "EIN" || arr === "EIN") return "myFlights-card--ein";
+  if (dep === "RTM" || arr === "RTM") return "myFlights-card--rtm";
+
+  return "";
+}
+
+function MyFlightsInfoPanelBlock({ model }: { model: OpsPanelModel }) {
+  const hasDetail = Boolean(model.line2 || model.line3 || model.line4);
+
+  return (
+    <div className={`myFlights-opsPanel myFlights-opsPanel--${model.key}`}>
+      <div className="myFlights-opsPanelHeader">
+        <div className="myFlights-opsPanelTitle">{model.title}</div>
+
+        {model.statusChip ? (
+          <div className="myFlights-opsChip">{model.statusChip}</div>
+        ) : null}
+      </div>
+
+      {hasDetail ? (
+        <>
+          {model.line2 ? (
+            <div className="myFlights-opsPanelLine">{model.line2}</div>
+          ) : null}
+
+          {model.line3 ? (
+            <div className="myFlights-opsPanelLine myFlights-opsPanelLine3">{model.line3}</div>
+          ) : null}
+
+          {model.line4 ? (
+            <div className="myFlights-opsPanelLine myFlights-opsPanelLine4">{model.line4}</div>
+          ) : null}
+        </>
+      ) : (
+        <div className="myFlights-opsPanelEmpty">{model.emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function MyFlightsOperationalPanels({ flight }: { flight: CardVM }) {
+  const row = flight?.row0 || {};
+  
+  
+/*  
+console.log("MYFLIGHTS PANEL DEBUG", {
+  flight_instance_id: row?.flight_instance_id,
+  route: `${row?.dep_airport}->${row?.arr_airport}`,
+  show_panels: shouldShowOperationalPanels(row),
+
+  airline_arrival_info_type: typeof row?.airline_arrival_info,
+  airline_arrival_info_present: Boolean(row?.airline_arrival_info),
+  airline_arrival_airport: row?.airline_arrival_info?.airport_code,
+  airline_arrival_status: row?.airline_arrival_info?.status_text,
+
+  airport_overlay_arr_present: Boolean(row?.airport_overlay_arr),
+  schiphol_present: Boolean(row?.schiphol),
+
+  departurePanel: buildDeparturePanelModel(row),
+  arrivalPanel: buildArrivalPanelModel(row),
+});
+ */
+  
+  
+  
+  
+  if (!shouldShowOperationalPanels(row)) return null;
+
+  const departurePanel = buildDeparturePanelModel(row);
+  const arrivalPanel = buildArrivalPanelModel(row);
+
+  if (!departurePanel && !arrivalPanel) return null;
+
+  return (
+    <>
+      {departurePanel ? (
+        <>
+          <div className="myFlights-zoneDivider" />
+          <MyFlightsInfoPanelBlock model={departurePanel} />
+        </>
+      ) : null}
+
+      {arrivalPanel ? (
+        <>
+          <div className="myFlights-zoneDivider" />
+          <MyFlightsInfoPanelBlock model={arrivalPanel} />
+        </>
+      ) : null}
+    </>
+  );
+}
 
 /**
  * Normalise API “my flights” rows into the same screen-level shape as JS.
@@ -162,7 +906,7 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
 
   const requestedAtDisplay = fmtRequestedAt(myRow?.requested_at_utc);
   const securityNumber = String(myRow?.security_number || "").trim() || null;
-  
+
   const listingStatus = normalizeListingStatusForUI(myRow?.booking_status);
 
   const listPos = myRow?.list_position ?? myRow?.listPos ?? null;
@@ -217,30 +961,30 @@ function toCardVMFromMyFlightsRows(rowsForOneFlight: RawMyFlightRow[], currentSt
       isFuture = localMs >= Date.now();
     }
   } catch {
-    // ignore (JS parity)
+    // ignore
   }
 
   return {
     id: flightInstanceId,
     flightInstanceId,
 
-row0: {
-  ...r0,
+    row0: {
+      ...r0,
 
-  // keep op_status key aligned for FlightCard3x3 display
-  op_status: opStatus,
+      // keep op_status key aligned for FlightCard3x3 display
+      op_status: opStatus,
 
-  // IMPORTANT:
-  // MyFlights groups multiple commuter rows per flight.
-  // r0 is only the first row in the group and may NOT be the logged-in user's row.
-  // Unlist capability is user-specific, so promote it from myRow.
-  can_unlist: myRow?.can_unlist === true,
-  unlist_mode: String(myRow?.unlist_mode || "").trim().toLowerCase(),
-},
+      // IMPORTANT:
+      // MyFlights groups multiple commuter rows per flight.
+      // r0 is only the first row in the group and may NOT be the logged-in user's row.
+      // Unlist capability is user-specific, so promote it from myRow.
+      can_unlist: myRow?.can_unlist === true,
+      unlist_mode: String(myRow?.unlist_mode || "").trim().toLowerCase(),
+    },
 
     depDate: fmtDayLabel(stdLocal),
     requestedAtDisplay,
-	securityNumber,
+    securityNumber,
     listingStatus,
 
     listPos,
@@ -265,85 +1009,6 @@ function DetailLine({ label, value }: { label: string; value: any }) {
     <div className="myFlights-detailLine">
       <div className="myFlights-detailLabel">{label}</div>
       <div className="myFlights-detailValue">{String(value)}</div>
-    </div>
-  );
-}
-
-/* ----------------------------- schiphol overlay (LOCKED CONTRACT) ----------------------------- */
-
-/**
- * Idiot guide:
- * - Schiphol overlay is additive-only. It never alters FlightCard3x3 fields.
- * - We show a dedicated zone ONLY when:
- *    - dep_airport === "AMS"  -> "Departure information"
- *    - arr_airport === "AMS"  -> "Arrival information"
- * - If flight.row0.schiphol is null -> render nothing (even if AMS).
- */
-function SchipholOverlayZone({ flight }: { flight: CardVM }) {
-  const r0 = flight?.row0 || {};
-  const dep = safeUpper(r0?.dep_airport);
-  const arr = safeUpper(r0?.arr_airport);
-
-  const isDepAMS = dep === "AMS";
-  const isArrAMS = !isDepAMS && arr === "AMS"; // dep takes priority if somehow both match (shouldn't happen)
-
-  if (!isDepAMS && !isArrAMS) return null;
-
-  const s = r0?.schiphol ?? null;
-  if (!s || typeof s !== "object") return null;
-
-  const title = isDepAMS ? "AMS Departure info" : "AMS Arrival info";
-
-  // Row 1: Location (T · Pier · Gate)
-  const terminalRaw = String((s as any)?.terminal ?? "").trim();
-  const pierRaw = String((s as any)?.pier ?? "").trim();
-  const gateRaw = String((s as any)?.gate ?? "").trim();
-
-  const locationParts: string[] = [];
-  if (terminalRaw) {
-    const t = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
-    locationParts.push(t);
-  }
-  if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
-  if (gateRaw) locationParts.push(`Gate ${gateRaw}`);
-
-  const locationLine = locationParts.join(" · ");
-
-  // Row 2: Times
-  const timeParts: string[] = [];
-
-  if (isDepAMS) {
-    const open = fmtTimeLocal((s as any)?.expected_gate_open_utc);
-    const board = fmtTimeLocal((s as any)?.expected_boarding_time_utc);
-    const close = fmtTimeLocal((s as any)?.expected_gate_closing_utc);
-    const offb = fmtTimeLocal((s as any)?.actual_off_block_time_utc);
-
-    if (open) timeParts.push(`Open: ${open}`);
-    if (board) timeParts.push(`Boarding: ${board}`);
-    if (close) timeParts.push(`Close: ${close}`);
-    if (offb) timeParts.push(`Off-block ${offb}`);
-  } else {
-    const land = fmtTimeLocal((s as any)?.estimated_landing_time_utc);
-    if (land) timeParts.push(`Est. landing ${land}`);
-  }
-
-  const timesLine = timeParts.join(" · ");
-
-  // Optional freshness (tiny)
-  const updated = fmtTimeLocal((s as any)?.updated_at_utc);
-  const showFreshness = Boolean(updated);
-
-  // If there's literally nothing useful, don't show the zone.
-  if (!locationLine && !timesLine && !showFreshness) return null;
-
-  return (
-    <div className="myFlights-zone">
-      <div className="myFlights-zoneTitle">{title}</div>
-
-      {locationLine ? <div className="myFlights-zoneMeta">{locationLine}</div> : null}
-      {timesLine ? <div className="myFlights-zoneMeta">{timesLine}</div> : null}
-
-      {/* {showFreshness ? <div className="myFlights-zoneMeta">Schiphol updated: {updated}</div> : null} */}
     </div>
   );
 }
@@ -375,20 +1040,18 @@ export default function MyFlights() {
   // - MENU toggles per-card collapse/expand
   // - Collapsed:
   //    - Header + 3x3 card visible
-  //    - All zones below 3x3 hidden
+  //    - Departure/Arrival operational panels visible for UTC today/tomorrow flights
   //    - Action button ALWAYS visible when backend capability allows
   // - Expanded:
   //    - Everything visible
   //
   // Additive only:
-  // - No deletions of existing logic or notes
-  // - No refactors
-  // - No API/behaviour changes outside collapse feature
+  // - No API/behaviour changes outside collapse feature and operational panel display
   // =====================================================================================
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
 
   // =====================================================================================
-  // CONFIRM MODAL (THIS CHANGE ONLY)
+  // CONFIRM MODAL
   //
   // PURPOSE
   // - Prevent accidental unlist / cancel taps from My Flights.
@@ -485,7 +1148,7 @@ export default function MyFlights() {
     let alive = true;
     (async () => {
       if (!alive) return;
-      if (!isMember) return; // member-only page
+      if (!isMember) return;
       await loadFlights();
     })();
     return () => {
@@ -555,7 +1218,7 @@ export default function MyFlights() {
         staffNo,
       });
 
-      void res; // JS parity: truth comes from refresh
+      void res;
       await loadFlights();
 
       setActionSuccessByFlight((prev) => ({ ...prev, [flightId]: mode === "list" ? "listed" : "unlisted" }));
@@ -620,18 +1283,18 @@ export default function MyFlights() {
       {!isMember ? (
         <>
           <StickyPageHeaderCard
-		    leftContent={
-            <img
-              src={UI_ICONS.flight_blue}
-              alt="My profile"
-              style={{
-                width: 52,
-                height: 52,
-                objectFit: "contain",
-                borderRadius: 14,
-              }}
-            />
-          }
+            leftContent={
+              <img
+                src={UI_ICONS.flight_blue}
+                alt="My profile"
+                style={{
+                  width: 52,
+                  height: 52,
+                  objectFit: "contain",
+                  borderRadius: 14,
+                }}
+              />
+            }
             title="My flights"
             subtitle="Member-only page."
             onBack={() => nav(-1)}
@@ -648,18 +1311,18 @@ export default function MyFlights() {
       ) : (
         <>
           <StickyPageHeaderCard
-		    leftContent={
-            <img
-              src={UI_ICONS.flight_blue}
-              alt="My profile"
-              style={{
-                width: 52,
-                height: 52,
-                objectFit: "contain",
-                borderRadius: 14,
-              }}
-            />
-          }
+            leftContent={
+              <img
+                src={UI_ICONS.flight_blue}
+                alt="My profile"
+                style={{
+                  width: 52,
+                  height: 52,
+                  objectFit: "contain",
+                  borderRadius: 14,
+                }}
+              />
+            }
             title="My flights"
             onBack={() => nav(-1)}
             backAriaLabel="Back"
@@ -679,7 +1342,6 @@ export default function MyFlights() {
               </div>
             ) : (
               flightsForRender.map((flight) => {
-                // Per-card collapse state (default collapsed)
                 const expanded = expandedMap[String(flight.flightInstanceId || "").trim()] ?? false;
 
                 const footerRight = (() => {
@@ -712,30 +1374,19 @@ export default function MyFlights() {
                   );
                 })();
 
+                const accentClass = routeAccentClass(flight.row0);
+
                 return (
-                  <div
-                    key={flight.id}
-                    className="myFlights-card"
-                    style={
-                      flight.isFuture
-                        ? undefined
-                        : {
-                            background: "#dfe8e4",
-                            borderColor: "#d7dce2",
-                          }
-                    }
-                  >
+					<div
+					  key={flight.id}
+					  className={`myFlights-card ${accentClass}`.trim()}
+					>
                     <FlightCard3x3
                       flight={flight.row0}
                       headerLeftLabel={flight.isFuture ? "Upcoming:" : "Past:"}
                       headerDate={flight.depDate}
                       showHeader={true}
                       footerRightContent={footerRight}
-                      // =================================================================================
-                      // Header right MENU control (per-card collapse engine)
-                      // - Menu icon: UI_ICONS.MENU (menu.webp)
-                      // - Clicking toggles the card between collapsed/expanded.
-                      // =================================================================================
                       headerRightContent={
                         <button
                           type="button"
@@ -749,42 +1400,32 @@ export default function MyFlights() {
                       }
                     />
 
-                    {/* =================================================================================
-                        COLLAPSIBLE ZONES (below 3x3)
-                        Locked behaviour:
-                        - When collapsed: hide ALL zones below the 3x3 card
-                        - When expanded: show them exactly as before
-                        Additive only: we wrap existing zones; we do NOT alter their logic.
-                       ================================================================================= */}
+                    <MyFlightsOperationalPanels flight={flight} />
+
                     {expanded ? (
                       <>
-                        {/* NEW: Schiphol Ultra overlay zone (ADD-ONLY, AMS only) */}
-                        <div className="myFlights-zoneDivider" />
-                        <SchipholOverlayZone flight={flight} />
-
-                        {/* If overlay zone rendered, keep the next divider so zones remain visually separated */}
                         <div className="myFlights-zoneDivider" />
 
-						<div className="myFlights-zone">
-						  <div className="myFlights-zoneTitle">Listing information</div>
+                        <div className="myFlights-zone">
+                          <div className="myFlights-zoneTitle">Listing information</div>
 
-						  <div className="myFlights-zoneMeta">
-							Requested: {flight.requestedAtDisplay || "--"} UTC
-						  </div>
+                          <div className="myFlights-zoneMeta">
+                            Requested: {flight.requestedAtDisplay || "--"} UTC
+                          </div>
 
-						  <div className="myFlights-zoneRow">
-							<div className="myFlights-zoneMeta">
-							  Status: {fmtListingStatusLabel(flight.listingStatus)}
-							</div>
+                          <div className="myFlights-zoneRow">
+                            <div className="myFlights-zoneMeta">
+                              Status: {fmtListingStatusLabel(flight.listingStatus)}
+                            </div>
 
-							<div
-							  className="myFlights-zoneMeta"
-							  style={{ textAlign: "right" }}
-							>
-							  Security No.: {flight.securityNumber || "--"}
-							</div>
-						  </div>
-						</div>
+                            <div
+                              className="myFlights-zoneMeta"
+                              style={{ textAlign: "right" }}
+                            >
+                              Security No.: {flight.securityNumber || "--"}
+                            </div>
+                          </div>
+                        </div>
 
                         <div className="myFlights-zoneDivider" />
 
@@ -838,15 +1479,6 @@ export default function MyFlights() {
                       </>
                     ) : null}
 
-                    {/* =================================================================================
-                        ACTION BUTTON (ALWAYS VISIBLE WHEN BACKEND CAPABILITY ALLOWS)
-                        Locked behaviour:
-                        - Must remain visible when collapsed and expanded if allowed
-                        - Visibility now comes from backend capability flags
-                        - THIS CHANGE ONLY:
-                        - Action now opens a confirmation modal first
-                       ================================================================================= */}
-
                     {canShowUnlistButton(flight) && (
                       <>
                         <div className="myFlights-zoneDivider" />
@@ -866,12 +1498,6 @@ export default function MyFlights() {
                       </>
                     )}
 
-                    {/* =================================================================================
-                        COLLAPSIBLE ZONES CONTINUED (below action button)
-                        Locked behaviour:
-                        - Other information must also collapse
-                        Additive only: wrap, do not edit internals
-                       ================================================================================= */}
                     {expanded ? (
                       <>
                         <div className="myFlights-zoneDivider" />
@@ -905,12 +1531,6 @@ export default function MyFlights() {
         </>
       )}
 
-      {/* =================================================================================
-          CONFIRM MODAL (THIS CHANGE ONLY)
-          - Same wording model as agreed for Day
-          - Type 1 = internal-only unlist warning
-          - Type 2 = destructive cancel + airport notification warning
-         ================================================================================= */}
       {confirmVisible && confirmFlight ? (
         <div
           className="day-overlay"

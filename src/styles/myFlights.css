@@ -57,6 +57,22 @@
   border: 2px solid #d9e2ee;
 }
 
+/*
+   Route accent rule:
+   - The whole card background is always standard white.
+   - RTM/EIN are distinguished by border only.
+   - EIN wins if both EIN and RTM somehow occur on the same card.
+*/
+.myFlights-card--rtm {
+  border-width: 2px;
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.myFlights-card--ein {
+  border-width: 2px;
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
 .myFlights-zoneDivider {
   margin-top: 10px;
   padding-top: 10px;
@@ -136,6 +152,88 @@
   color: rgba(19, 35, 51, 0.7);
   font-size: 12px;
 }
+
+/* ===============================
+   Departure / Arrival Operational Panels
+   =============================== */
+
+/*
+   LOCKED DISPLAY RULE:
+   - Only operational panels receive tinted backgrounds.
+   - Tint is based on panel type only, not airport/source.
+   - My Flights panels remain visible even when the card is collapsed.
+*/
+
+.myFlights-opsPanel {
+  margin-top: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(19, 35, 51, 0.08);
+}
+
+.myFlights-opsPanel--departure {
+  background: rgba(232, 240, 255, 0.92);
+}
+
+.myFlights-opsPanel--arrival {
+  background: rgba(236, 253, 245, 0.92);
+}
+
+.myFlights-opsPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.myFlights-opsPanelTitle {
+  min-width: 0;
+  flex: 1;
+  font-weight: 900;
+  color: #132333;
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.myFlights-opsChip {
+  flex: 0 1 auto;
+  max-width: 58%;
+  min-width: 76px;
+  border: 0;
+  border-radius: 20px;
+  background: rgba(19, 35, 51, 0.08);
+  padding: 4px 12px;
+  font-weight: 900;
+  color: rgba(19, 35, 51, 0.82);
+  font-size: 12px;
+  line-height: 14px;
+  text-align: center;
+  white-space: normal;
+}
+
+.myFlights-opsPanelLine {
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.76);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.myFlights-opsPanelLine3 {
+  color: rgba(19, 35, 51, 0.68);
+}
+
+.myFlights-opsPanelEmpty {
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(19, 35, 51, 0.54);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ===============================
+   Action Button
+   =============================== */
 
 .myFlights-actionWrap {
   padding-top: 0;

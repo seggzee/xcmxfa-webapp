@@ -40,6 +40,28 @@
   gap: 10px;
 }
 
+/* Header help / FAQ button:
+   always visible so users can reach support information from any page */
+.appHeader-infoBtn {
+  width: 50px;
+  height: 50px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Header help / FAQ icon */
+.appHeader-infoImg {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  display: block;
+}
+
 /* Message bell slot:
    fixed footprint so avatar alignment does not jump */
 .appHeader-msgSlot {
@@ -73,6 +95,14 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
+}
+
+/* Message bell asset */
+.appHeader-msgImg {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
 }
 
 /* Unread badge:

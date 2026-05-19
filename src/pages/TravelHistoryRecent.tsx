@@ -8,6 +8,26 @@
 // - Displays actual live listing-history rows for a selected recent period.
 // - Opened from /profile/travel-history landing page presets/custom range.
 //
+// REPORT ROW DISPLAY
+// - Status pill is deliberately not shown.
+// - Rows are displayed as factual historical report lines:
+//
+//   Line 1:
+//   [Date] · [Dep] → [Arr] · [Flight No.]
+//
+//   Line 2:
+//   Requested: [date/time UTC] · Source: [KLM/HV]
+//
+//   Line 3:
+//   Security No: [xxx]
+//   OR Confirmed: [date/time UTC]
+//   OR Confirmed: —
+//
+// DATE DISPLAY
+// - Dates are displayed as DD-MM-YYYY.
+// - Line 1 does not show "UTC" lettering.
+// - Timestamp lines keep "UTC".
+//
 // CURRENT FEATURES
 // - View report rows.
 // - Print via browser print.
@@ -29,21 +49,42 @@ import {
   type TravelHistoryRow,
 } from "../api/travelHistoryApi";
 
-function formatUtcLabel(value: string | null | undefined): string {
-  if (!value) return "—";
-  return String(value).replace("T", " ").replace("Z", " UTC");
-}
-
-function formatLocalLabel(value: string | null | undefined): string {
+function isoDateToDdMmYyyy(value: string | null | undefined): string {
   if (!value) return "—";
 
-  const raw = String(value);
+  const raw = String(value).trim();
 
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw)) {
-    return raw.slice(0, 16);
+  // Expected ISO UTC: YYYY-MM-DDTHH:MM:SSZ
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    const yyyy = raw.slice(0, 4);
+    const mm = raw.slice(5, 7);
+    const dd = raw.slice(8, 10);
+
+    return `${dd}-${mm}-${yyyy}`;
   }
 
   return raw;
+}
+
+function formatUtcLabel(value: string | null | undefined): string {
+  if (!value) return "—";
+
+  const raw = String(value).trim();
+
+  // Expected ISO UTC: YYYY-MM-DDTHH:MM:SSZ
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) {
+    return `${isoDateToDdMmYyyy(raw)} ${raw.slice(11, 16)} UTC`;
+  }
+
+  return raw.replace("T", " ").replace("Z", " UTC");
+}
+
+function formatUtcDateOnly(value: string | null | undefined): string {
+  return isoDateToDdMmYyyy(value);
+}
+
+function formatUtcMinuteLabel(value: string | null | undefined): string {
+  return formatUtcLabel(value);
 }
 
 function sourceLabel(source: string): string {
@@ -64,6 +105,24 @@ function parsePresetRange(value: string | null): 7 | 28 | 90 {
 function TravelHistoryRowCard(props: { row: TravelHistoryRow }) {
   const { row } = props;
 
+  const flightLabel =
+    row.flight_label ||
+    `${row.airline_iata || ""}${row.flight_number || ""}` ||
+    "Flight";
+
+  const dateLabel = formatUtcDateOnly(row.std_utc);
+
+  const routeLabel =
+    row.dep_airport && row.arr_airport
+      ? `${row.dep_airport} → ${row.arr_airport}`
+      : row.route_label || "—";
+
+  const securityNumber = String(row.security_number || "").trim();
+
+  const line3 = securityNumber
+    ? `Security No: ${securityNumber}`
+    : `Confirmed: ${formatUtcMinuteLabel(row.confirmed_at_utc)}`;
+
   return (
     <div
       className="profile-row"
@@ -76,72 +135,38 @@ function TravelHistoryRowCard(props: { row: TravelHistoryRow }) {
     >
       <div
         style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "flex-start",
-          justifyContent: "space-between",
+          fontSize: 16,
+          fontWeight: 900,
+          color: "#111827",
+          lineHeight: 1.35,
+          marginBottom: 8,
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div
-            className="profile-actionTitle"
-            style={{
-              marginBottom: 3,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {row.flight_label || row.flight_number || "Flight"}
-          </div>
-
-          <div className="profile-actionSub">
-            {row.route_label || `${row.dep_airport}-${row.arr_airport}`}
-          </div>
-        </div>
-
-        <div
-          style={{
-            flexShrink: 0,
-            borderRadius: 999,
-            padding: "5px 9px",
-            fontSize: 12,
-            fontWeight: 800,
-            background: "#eef2ff",
-            color: "#1f2937",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {row.booking_status_label || row.booking_status || "Unknown"}
-        </div>
+        {dateLabel} · {routeLabel} · {flightLabel}
       </div>
 
       <div
         style={{
-          marginTop: 10,
-          display: "grid",
-          gridTemplateColumns: "1fr",
-          gap: 5,
-          fontSize: 12,
+          fontSize: 13,
+          fontWeight: 700,
           color: "#4b5563",
-          lineHeight: 1.35,
+          lineHeight: 1.45,
+          marginBottom: 4,
         }}
       >
-        <div>
-          <strong>STD local:</strong> {formatLocalLabel(row.std_local)}
-        </div>
+        Requested: {formatUtcMinuteLabel(row.requested_at_utc)} · Source:{" "}
+        {sourceLabel(row.source_system)}
+      </div>
 
-        <div>
-          <strong>Requested:</strong> {formatUtcLabel(row.requested_at_utc)}
-        </div>
-
-        <div>
-          <strong>Confirmed:</strong> {formatUtcLabel(row.confirmed_at_utc)}
-        </div>
-
-        <div>
-          <strong>Source:</strong> {sourceLabel(row.source_system)}
-        </div>
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: "#4b5563",
+          lineHeight: 1.45,
+        }}
+      >
+        {line3}
       </div>
     </div>
   );

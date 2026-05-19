@@ -36,6 +36,7 @@ export type TravelHistoryRow = {
 
   requested_at_utc: string | null;
   confirmed_at_utc: string | null;
+  security_number: string | null;
 };
 
 export type TravelHistoryResponse = {

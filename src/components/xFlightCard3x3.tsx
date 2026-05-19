@@ -5,7 +5,6 @@ import AIRCRAFT_TYPES from "../assets/aircraftTypes";
 import STATUS_COLOUR_CODES from "../assets/statusColourCodes";
 import STATUS_LABEL_TRANSLATIONS from "../assets/statusLabelTranslations";
 import { AIRLINE_LOGOS } from "../assets";
-import { buildAirport3x3Override } from "../utils/airportStatus";
 
 type Report = { code: string; message: string; context?: any };
 
@@ -137,6 +136,11 @@ function aircraftDisplayFromTypecode(ac_typecode: any) {
   return mapped ? String(mapped) : "N/A";
 }
 
+function normaliseEinOverlayStatus(v: any) {
+  const s = toNonEmptyString(v);
+  return s || "Unknown";
+}
+
 export default function FlightCard3x3({
   flight,
   headerLeftLabel,
@@ -166,12 +170,6 @@ export default function FlightCard3x3({
   // No frontend matching. The backend decides whether an overlay belongs to this row.
   const airportOverlay = f.airport_overlay || null;
 
-  // Airport-controlled 3x3 override from locked operational rules.
-  // - KL/HV AMS departures today/tomorrow UTC use Schiphol status/gate.
-  // - HV departures from other fed airports today/tomorrow UTC use airport_overlay_dep.
-  // - Day 3 onwards remains unchanged.
-  const airport3x3Override = buildAirport3x3Override(f);
-
   const depCode = toNonEmptyString(f.dep_airport);
   const arrCode = toNonEmptyString(f.arr_airport);
 
@@ -181,21 +179,26 @@ export default function FlightCard3x3({
 // =================================================================================
 // 3x3 CARD STATUS RULE - LOCKED
 // =================================================================================
-// Base rule:
-// - FlightCard3x3 uses canonical airline/carded fields unless an explicit locked
-//   airport-controlled override applies.
+// Airport overlay status has priority for the visible 3x3 card badge.
 //
-// AIRPORT-CONTROLLED TODAY/TOMORROW DEPARTURE OVERRIDE - LOCKED:
-// - Applies only when std_utc is UTC today or UTC tomorrow.
-// - KL/HV AMS departures: status/gate controlled by Schiphol public state/gate.
-// - HV departures from other fed airports: status/gate controlled by airport_overlay_dep.
-// - AENA_OFFICIAL status is source-scoped and mapped by airportStatus.ts.
-// - Missing airport status -> Unknown.
-// - Missing airport gate -> N/A.
-// - Arrival overlays must not control departure 3x3 status/gate.
+// Reason:
+// - RTM official overlay can provide trusted operational status such as:
+//     Departed / Arrived / Delayed / Cancelled
+// - EIN official overlay is weaker, but backend guarantees an explicit status_text:
+//     meaningful displayTextPublic label where available, otherwise "Unknown"
+// - Therefore canonical schedule status such as "SCHEDULED" must not override
+//   airport_overlay.status_text.
 //
-// KLM OUTSTATIONS - LOCKED:
-// - KLM flights not departing AMS remain unchanged.
+// Priority:
+// 1. If airport_overlay.status_text is non-empty:
+//      display airport_overlay.status_text
+//
+// 2. If the flight touches EIN and overlay status is missing/blank:
+//      display "Unknown"
+//      Do NOT fall back to canonical op_status / flight_status_text.
+//
+// 3. For all other flights with no airport overlay status:
+//      use canonical op_status mapping.
 //
 // Do NOT derive the 3x3 status from:
 // - check-in status
@@ -204,36 +207,47 @@ export default function FlightCard3x3({
 // - boarding_status_text
 // - raw colour/style fields
 // =================================================================================
+ 
 
-const useAirportStatusOverride = Boolean(airport3x3Override);
+ 
+const touchesEIN = depAirport === "EIN" || arrAirport === "EIN";
 
-const opStatusKey = useAirportStatusOverride ? "" : statusKeyFromApi(f.op_status, onReport);
-const opColour = useAirportStatusOverride ? "" : statusColourFromKey(opStatusKey, onReport);
-const opLabel = useAirportStatusOverride ? "" : statusLabelFromKey(opStatusKey, onReport);
+const overlayStatusLabel = toNonEmptyString(airportOverlay?.status_text);
+const hasOverlayStatus = overlayStatusLabel !== "";
 
-const displayStatusLabel = useAirportStatusOverride
-  ? airport3x3Override?.statusLabel || "Unknown"
+// Airport overlay status has priority for the 3x3 card.
+// - RTM official overlay status overrides canonical Scheduled.
+// - EIN must never fall back to canonical Scheduled; use Unknown if overlay is absent/blank.
+// - Non-overlay, non-EIN flights may still use canonical op_status.
+const useAirportOverlayStatus = hasOverlayStatus || touchesEIN;
+
+const opStatusKey = useAirportOverlayStatus ? "" : statusKeyFromApi(f.op_status, onReport);
+const opColour = useAirportOverlayStatus ? "" : statusColourFromKey(opStatusKey, onReport);
+const opLabel = useAirportOverlayStatus ? "" : statusLabelFromKey(opStatusKey, onReport);
+
+const displayStatusLabel = useAirportOverlayStatus
+  ? overlayStatusLabel || "Unknown"
   : opLabel;
 
-// Neutral colour for airport-feed status overrides.
-// Do not map provider labels like "Departed", "Boarding", "In flight", or "Unknown"
+// Neutral overlay colour for airport-overlay statuses.
+// Do not map RTM/EIN labels like "Departed", "Final call", "Gate closed", or "Unknown"
 // through canonical status colour tables.
-const airportOverrideStatusColor = "rgba(120,120,120,0.85)";
+const overlayStatusColor = "rgba(120,120,120,0.85)";
 
 const displayStatusLower = String(displayStatusLabel || "").toLowerCase();
 
-const isCancelled = useAirportStatusOverride
+const isCancelled = useAirportOverlayStatus
   ? displayStatusLower === "cancelled" || displayStatusLower === "canceled"
   : opStatusKey === "CANCELLED";
 
-const statusBorderColor = useAirportStatusOverride
-  ? airportOverrideStatusColor
+const statusBorderColor = useAirportOverlayStatus
+  ? overlayStatusColor
   : isReportToken(opColour)
     ? "rgba(220,38,38,0.6)"
     : (opColour as string);
 
-const statusTextColor = useAirportStatusOverride
-  ? airportOverrideStatusColor
+const statusTextColor = useAirportOverlayStatus
+  ? overlayStatusColor
   : isReportToken(opColour)
     ? "rgba(220,38,38,0.85)"
     : (opColour as string);
@@ -280,18 +294,12 @@ const statusTextColor = useAirportStatusOverride
 
   // Optional display fields.
   //
-  // Airport-controlled gate authority:
-  // - For KL/HV AMS departures today/tomorrow UTC, gate comes from Schiphol.
-  // - For HV fed outstation departures today/tomorrow UTC, gate comes from airport_overlay_dep.
-  // - Missing airport gate -> N/A.
-  //
-  // Existing Schiphol gate authority remains otherwise unchanged:
+  // Schiphol gate authority:
   // - For AMS departures, prefer Schiphol gate.
   // - Else canonical dep_gate.
   // - Else airport_overlay.gate.
   const schipholGate = toNonEmptyString(f?.schiphol?.gate);
   const gateDisplay =
-    (useAirportStatusOverride ? airport3x3Override?.gateDisplay || "N/A" : "") ||
     (depAirport === "AMS" ? schipholGate : "") ||
     toNonEmptyString(f.dep_gate) ||
     toNonEmptyString(airportOverlay?.gate) ||

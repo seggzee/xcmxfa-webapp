@@ -14,6 +14,11 @@
 // - Bell is shown ONLY for logged-in members who currently have any messages.
 // - Red badge is shown ONLY when unreadMessageCount > 0.
 // - Bell click routes to /messages (or uses onGoMessages if supplied).
+// - Bell icon is loaded from UI_ICONS.bell.
+//
+// HEADER HELP / FAQ CONTRACT:
+// - Info icon is always shown in the header.
+// - Info icon routes to /faq so users can access help from anywhere.
 //
 // PASSKEY PHASE-1 NOTE:
 // - AppHeader accepts optional onPasskeyLogin and passes it through to LoginModal.
@@ -60,30 +65,6 @@ type Props = {
   onCreateAccount?: () => void;
   onForgotPassword?: () => void;
 };
-
-function BellIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M12 3a5 5 0 0 0-5 5v2.17c0 .7-.24 1.38-.68 1.92L4.7 14.08A1 1 0 0 0 5.47 15h13.06a1 1 0 0 0 .77-1.62l-1.62-1.99A3 3 0 0 1 17 10.17V8a5 5 0 0 0-5-5Z"
-        fill="currentColor"
-      />
-      <path
-        d="M9.5 17a2.5 2.5 0 0 0 5 0"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 export default function AppHeader({
   auth,
@@ -189,53 +170,67 @@ export default function AppHeader({
         </button>
 
         <div className="appHeader-actions">
-          <div className="appHeader-msgSlot">
-            {showMessageBell && (
-              <button
-                type="button"
-                className="appHeader-msgBtn"
-                onClick={() => {
-                  if (onGoMessages) onGoMessages();
-                  else navigate("/messages");
-                }}
-                aria-label={
-                  showUnreadBadge
-                    ? `Messages, ${unreadMessageCount} unread`
-                    : "Messages"
-                }
-              >
-                <span className="appHeader-msgIcon" aria-hidden="true">
-                  <BellIcon />
-                </span>
+		  <div className="appHeader-msgSlot">
+			{showMessageBell && (
+			  <button
+				type="button"
+				className="appHeader-msgBtn"
+				onClick={() => {
+				  if (onGoMessages) onGoMessages();
+				  else navigate("/messages");
+				}}
+				aria-label={
+				  showUnreadBadge
+					? `Messages, ${unreadMessageCount} unread`
+					: "Messages"
+				}
+			  >
+				<span className="appHeader-msgIcon" aria-hidden="true">
+				  <img src={UI_ICONS.bell} alt="" className="appHeader-msgImg" />
+				</span>
 
-                {showUnreadBadge && (
-                  <span className="appHeader-msgBadge" aria-hidden="true">
-                    {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
+				{showUnreadBadge && (
+				  <span className="appHeader-msgBadge" aria-hidden="true">
+					{unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+				  </span>
+				)}
+			  </button>
+			)}
+		  </div>
 
-          <button
-            type="button"
-            className="appHeader-avatarBtn"
-            onClick={handleAvatarClick}
-            aria-label={isLoggedIn ? "Account" : "Login"}
-          >
-            <div
-              className={
-                isLoggedIn
-                  ? "appHeader-avatarRing appHeader-avatarRingOn"
-                  : "appHeader-avatarRing"
-              }
-            >
-              <div className="appHeader-avatarInner">
-                <img src={UI_ICONS.avatar} alt="" className="appHeader-avatarImg" />
-              </div>
-            </div>
-          </button>
-        </div>
+		  <button
+			type="button"
+			className="appHeader-infoBtn"
+			onClick={() => navigate("/faq")}
+			aria-label="Help and FAQ"
+		  >
+			<img
+			  src={UI_ICONS.information}
+			  alt=""
+			  className="appHeader-infoImg"
+			  aria-hidden="true"
+			/>
+		  </button>
+
+		  <button
+			type="button"
+			className="appHeader-avatarBtn"
+			onClick={handleAvatarClick}
+			aria-label={isLoggedIn ? "Account" : "Login"}
+		  >
+			<div
+			  className={
+				isLoggedIn
+				  ? "appHeader-avatarRing appHeader-avatarRingOn"
+				  : "appHeader-avatarRing"
+			  }
+			>
+			  <div className="appHeader-avatarInner">
+				<img src={UI_ICONS.avatar} alt="" className="appHeader-avatarImg" />
+			  </div>
+			</div>
+		  </button>
+		</div>
       </header>
 
       {loginOpen && !isLoggedIn && (

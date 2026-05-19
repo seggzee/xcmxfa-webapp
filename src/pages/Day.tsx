@@ -7,6 +7,10 @@ import FlightCard3x3 from "../components/FlightCard3x3";
 import BackButton from "../components/BackButton";
 import AirportInfoModal from "../components/AirportInfoModal";
 import { getAirportLogo, LISTING_STATUS_ICONS } from "../assets";
+import {
+  normaliseAirportStatus as normaliseAirportStatusBySource,
+  normaliseSchipholPublicState as normaliseSchipholPublicStateBySource,
+} from "../utils/airportStatus";
 import "../styles/day.css";
 
 import {
@@ -30,6 +34,13 @@ function dateToLocalDateKey(d: Date) {
   const y = d.getFullYear();
   const m = pad2(d.getMonth() + 1);
   const day = pad2(d.getDate());
+  return `${y}-${m}-${day}`;
+}
+
+function dateToUtcDateKey(d: Date) {
+  const y = d.getUTCFullYear();
+  const m = pad2(d.getUTCMonth() + 1);
+  const day = pad2(d.getUTCDate());
   return `${y}-${m}-${day}`;
 }
 
@@ -105,7 +116,7 @@ type CrewRow = {
 const POLL_MS = 2.5 * 60 * 1000;
 
 /* =====================================================================================
-   AIRPORT OPERATIONAL INFO PANELS - REPLACEABLE BLOCK
+   DEPARTURE / ARRIVAL OPERATIONAL INFO PANELS - REPLACEABLE BLOCK
    =====================================================================================
 
    BACKEND CONTRACT - LOCKED:
@@ -113,19 +124,63 @@ const POLL_MS = 2.5 * 60 * 1000;
        = 3x3 card operational overlay.
        = departure-side preferred.
        = kept for FlightCard3x3 compatibility.
+
    - airport_overlay_dep
        = departure-side airport operational overlay.
-       = source for Departure info panel.
+       = source for Departure info panel when a departure airport feed exists.
+
    - airport_overlay_arr
        = arrival-side airport operational overlay.
-       = source for Arrival info panel.
+       = source for Arrival info panel when an arrival airport feed exists.
+
+   - airline_departure_info
+       = fallback source for Departure info panel when no departure airport feed exists,
+         except HV departures in the two-day operational window.
+
+   - airline_arrival_info
+       = fallback source for KLM Arrival info panel when no arrival airport feed exists.
+       = HV no-feed arrival fallback must show Unknown + no additional information.
+
+   SOURCE PRIORITY - LOCKED:
+   - Departure info:
+       1. Schiphol if dep_airport = AMS
+       2. airport_overlay_dep
+       3. HV today/tomorrow no-feed fallback = Unknown + no additional information
+       4. airline_departure_info for non-HV / non-locked fallback cases
+
+   - Arrival info:
+       1. Schiphol if arr_airport = AMS
+       2. airport_overlay_arr
+       3. KLM airline_arrival_info fallback
+       4. HV no-feed fallback = Unknown + no additional information
 
    DISPLAY CONTRACT - LOCKED:
-   - 3x3 card already shows flight number, route, departure/arrival time, status, type/reg/gate.
-   - Departure/Arrival panels must not simply duplicate the 3x3 card.
-   - Panels show operational context only.
-   - If a panel has a source object but no useful extra detail, show:
-       "No additional information"
+   - 3x3 card remains the overall flight card.
+   - 3x3 status/gate authority is handled inside FlightCard3x3.
+   - Airport panels are airport-process context only.
+   - Panels are shown only when std_utc or sta_utc falls on UTC today or UTC tomorrow.
+   - Panel order is always:
+       Departure info
+       Arrival info
+   - Panels sit directly below the 3x3 card and above all member/listing zones.
+
+   DEPARTURE PANEL LAYOUT - LOCKED:
+   - Line 1: {AIRPORT} Departure info        [status chip]
+   - Line 2: New departure time / delay information
+             Only shown if available. No blank placeholder if unavailable.
+   - Line 3: Timing / movement information
+   - Line 4: Airport handling / location information
+             Terminal · Pier/Check-in · Gate
+   - If no useful detail beyond the chip:
+       "No additional information available"
+
+   ARRIVAL PANEL LAYOUT - CURRENT:
+   - Line 1: {AIRPORT} Arrival info        [status chip]
+   - Line 2: timing / movement information
+   - Line 3: airport handling information
+       Arrival: Terminal · Gate · Belt
+   - If no useful detail beyond the chip:
+       "No additional information available"
 
    FUTURE COLLAPSE WIRING:
    - AirportOperationalPanels accepts expanded.
@@ -136,36 +191,82 @@ const POLL_MS = 2.5 * 60 * 1000;
 type OpsPanelModel = {
   key: "departure" | "arrival";
   title: string;
-  airportCode: string;
-  lines: string[];
+  statusChip: string;
+  line2: string;
+  line3: string;
+  line4: string;
   emptyText: string;
-  tone: "ams" | "rtm" | "ein" | "aena" | "default";
 };
 
-function isUsefulStatus(raw: unknown) {
-  const s = toCleanString(raw);
-  const u = s.toUpperCase();
-
-  if (!s) return false;
-  if (u === "UNKNOWN") return false;
-  if (u === "SCHEDULED") return false;
-
-  return true;
+function isCancelledFlag(v: unknown) {
+  const u = safeUpper(v);
+  return u === "1" || u === "TRUE" || u === "YES" || u === "Y" || u === "CANCELLED";
 }
 
-function isBoardingLikeStatus(raw: unknown) {
-  const u = toCleanString(raw).toUpperCase();
+function compactJoin(parts: string[]) {
+  return parts.map((p) => toCleanString(p)).filter(Boolean).join(" · ");
+}
 
-  if (!u) return false;
+function normalisePublicStatus(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s) return "";
 
-  return (
-    u.includes("BOARD") ||
-    u.includes("GATE") ||
-    u.includes("FINAL") ||
-    u.includes("CLOS") ||
-    u.includes("EMB") ||
-    u.includes("BOR")
-  );
+  const u = s.toUpperCase().replace(/_/g, " ");
+
+  const map: Record<string, string> = {
+    SCHEDULED: "Scheduled",
+    UNKNOWN: "Unknown",
+    CANCELLED: "Cancelled",
+    CANCELED: "Cancelled",
+    DELAYED: "Delayed",
+    DEPARTED: "Departed",
+    ARRIVED: "Arrived",
+    LANDED: "Landed",
+    "IN FLIGHT": "In flight",
+    BOARDING: "Boarding",
+    "GATE OPEN": "Gate open",
+    "GATE CLOSING": "Gate closing",
+    "GATE CLOSED": "Gate closed",
+    "FINAL CALL": "Final call",
+  };
+
+  return map[u] || s;
+}
+
+function normaliseAenaStatus(
+  statusText: unknown,
+  statusCode: unknown,
+  direction: "DEP" | "ARR" = "DEP",
+  sourceName: unknown = "AENA_OFFICIAL"
+) {
+  // Source-scoped airport status display.
+  // AENA raw-code diagnostic mode is closed.
+  // AENA display now uses mapped labels from src/utils/airportStatus.ts.
+  // BOR is direction-sensitive in the helper:
+  // - DEP => Departed
+  // - ARR => Arrived
+  // - missing/unknown direction => Unknown
+  return normaliseAirportStatusBySource({
+    sourceName,
+    statusCode,
+    statusText,
+    direction,
+  });
+}
+
+function normaliseSchipholPublicState(raw: unknown) {
+  return normaliseSchipholPublicStateBySource(raw);
+}
+
+function usefulLineStatus(raw: unknown) {
+  const s = normalisePublicStatus(raw);
+  const u = safeUpper(s);
+
+  if (!s) return "";
+  if (u === "UNKNOWN") return "";
+  if (u === "SCHEDULED") return "";
+
+  return s;
 }
 
 function normaliseTerminal(raw: unknown) {
@@ -192,6 +293,12 @@ function normaliseGate(raw: unknown) {
   return `Gate ${s}`;
 }
 
+function normalisePier(raw: unknown) {
+  const s = toCleanString(raw);
+  if (!s || s.toUpperCase() === "NULL") return "";
+  return `Pier ${s}`;
+}
+
 function normaliseBelt(raw: unknown) {
   const s = toCleanString(raw);
   if (!s || s.toUpperCase() === "NULL") return "";
@@ -204,67 +311,191 @@ function normaliseCheckin(raw: unknown) {
   return `Check-in ${s}`;
 }
 
-function changedEstimatedLine({
-  label,
+function buildDepartureDelayLine({
   scheduled,
   estimated,
 }: {
-  label: "departure" | "arrival";
   scheduled: string;
   estimated: string;
 }) {
-  if (!estimated) return "";
-  if (scheduled && estimated === scheduled) return "";
-
-  if (scheduled) {
-    return `Estimated ${label} ${estimated} instead of ${scheduled}`;
+  if (estimated && (!scheduled || estimated !== scheduled)) {
+    return `New departure ${estimated}`;
   }
 
-  return `Estimated ${label} ${estimated}`;
+  return "";
 }
 
-function actualLine({
-  label,
+function buildDepartureMovementLine({
+  actual,
+  gateOpen,
+  boarding,
+  gateClose,
+  movementStatus,
+  chip,
+}: {
+  actual?: string;
+  gateOpen?: string;
+  boarding?: string;
+  gateClose?: string;
+  movementStatus?: string;
+  chip?: string;
+}) {
+  if (actual) return `Actual dep ${actual}`;
+
+  const processLine = compactJoin([
+    gateOpen ? `Gate opens ${gateOpen}` : "",
+    boarding ? `Boarding ${boarding}` : "",
+    gateClose ? `Gate closes ${gateClose}` : "",
+  ]);
+
+  if (processLine) return processLine;
+
+  const movement = usefulLineStatus(movementStatus);
+  if (movement && movement !== chip) return movement;
+
+  return "";
+}
+
+function buildArrivalTimingLine({
+  scheduled,
+  estimated,
   actual,
 }: {
-  label: "departure" | "arrival";
+  scheduled: string;
+  estimated: string;
   actual: string;
 }) {
-  if (!actual) return "";
-  return `Actual ${label} ${actual}`;
-}
+  if (actual) return `Actual arr ${actual}`;
 
-function panelToneForAirport(airportCode: string): OpsPanelModel["tone"] {
-  if (airportCode === "AMS") return "ams";
-  if (airportCode === "RTM") return "rtm";
-  if (airportCode === "EIN") return "ein";
-  if (["ALC", "AGP", "VLC"].includes(airportCode)) return "aena";
-  return "default";
-}
+  if (estimated && (!scheduled || estimated !== scheduled)) {
+    return `Est arr ${estimated}`;
+  }
 
-function panelStyleForTone(tone: OpsPanelModel["tone"]): React.CSSProperties {
-  const background =
-    tone === "ams"
-      ? "rgba(232, 240, 255, 0.85)"
-      : tone === "rtm"
-      ? "rgba(240, 235, 250, 0.85)"
-      : tone === "ein"
-      ? "rgba(238, 244, 255, 0.88)"
-      : tone === "aena"
-      ? "rgba(245, 248, 255, 0.88)"
-      : "rgba(245, 247, 250, 0.88)";
-
-  return {
-    marginTop: 10,
-    borderRadius: 14,
-    padding: "10px 12px",
-    background,
-    border: "1px solid rgba(19,35,51,0.08)",
-  };
+  return "";
 }
 
 function isRealOverlay(overlay: any) {
   return Boolean(overlay && typeof overlay === "object" && overlay?.is_fallback !== true);
+}
+
+function utcDateKeyFromValue(v: unknown) {
+  const s = toCleanString(v);
+  if (!s) return "";
+
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return dateToUtcDateKey(d);
+}
+
+function isHvDepartureTwoDayOperationalWindow(row: ApiFlightRow) {
+  const airline = safeUpper(row?.airline_iata);
+  if (airline !== "HV") return false;
+
+  const stdKey = utcDateKeyFromValue(row?.std_utc);
+  if (!stdKey) return false;
+
+  const now = new Date();
+  const todayUtc = dateToUtcDateKey(now);
+
+  const tomorrow = new Date(now.getTime());
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowUtc = dateToUtcDateKey(tomorrow);
+
+  return stdKey === todayUtc || stdKey === tomorrowUtc;
+}
+
+function buildHvNoFeedDeparturePanel(row: ApiFlightRow): OpsPanelModel | null {
+  if (!isHvDepartureTwoDayOperationalWindow(row)) return null;
+
+  const airportCode = safeUpper(row?.dep_airport);
+  if (!airportCode) return null;
+
+  // HV two-day departure no-feed fallback - LOCKED:
+  // If Schiphol/airport_overlay_dep is unavailable, do NOT present HV
+  // airline/canonical status as airport departure information.
+  // The departure panel must remain honest: Unknown + no additional information.
+  return {
+    key: "departure",
+    title: `${airportCode} Departure info`,
+    statusChip: "Unknown",
+    line2: "",
+    line3: "",
+    line4: "",
+    emptyText: "No additional information available",
+  };
+}
+
+function buildDeparturePanelFromSchiphol(row: ApiFlightRow): OpsPanelModel | null {
+  const dep = safeUpper(row?.dep_airport);
+  if (dep !== "AMS") return null;
+
+  const s = row?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const chip = normaliseSchipholPublicState(s?.public_flight_state);
+
+  const open = fmtTimeLocal(s?.expected_gate_open_utc);
+  const board = fmtTimeLocal(s?.expected_boarding_time_utc);
+  const close = fmtTimeLocal(s?.expected_gate_closing_utc);
+  const offb = fmtTimeLocal(s?.actual_off_block_time_utc);
+
+  // Schiphol currently does not expose a separate "new departure" field in this object.
+  // Therefore Line 2 is only shown when a future backend field is wired.
+  const line2 = "";
+
+  const line3 = buildDepartureMovementLine({
+    actual: offb,
+    gateOpen: open,
+    boarding: board,
+    gateClose: close,
+    chip,
+  });
+
+  const line4 = compactJoin([
+    normaliseTerminal(s?.terminal),
+    normalisePier(s?.pier),
+    normaliseGate(s?.gate),
+  ]);
+
+  return {
+    key: "departure",
+    title: "AMS Departure info",
+    statusChip: chip,
+    line2,
+    line3,
+    line4,
+    emptyText: "No additional information available",
+  };
+}
+
+function buildArrivalPanelFromSchiphol(row: ApiFlightRow): OpsPanelModel | null {
+  const arr = safeUpper(row?.arr_airport);
+  if (arr !== "AMS") return null;
+
+  const s = row?.schiphol ?? null;
+  if (!s || typeof s !== "object") return null;
+
+  const chip = normaliseSchipholPublicState(s?.public_flight_state);
+  const land = fmtTimeLocal(s?.estimated_landing_time_utc);
+
+  const line2 = land ? `Est arr ${land}` : "";
+
+  const line3 = compactJoin([
+    normaliseTerminal(s?.terminal),
+    normalisePier(s?.pier),
+    normaliseGate(s?.gate),
+  ]);
+
+  return {
+    key: "arrival",
+    title: "AMS Arrival info",
+    statusChip: chip,
+    line2,
+    line3,
+    line4: "",
+    emptyText: "No additional information available",
+  };
 }
 
 function buildDeparturePanelFromAirportOverlay(row: ApiFlightRow): OpsPanelModel | null {
@@ -278,47 +509,32 @@ function buildDeparturePanelFromAirportOverlay(row: ApiFlightRow): OpsPanelModel
   const estimated = fmtOverlayLocalTime(ao?.estimated_time_local);
   const actual = fmtOverlayLocalTime(ao?.actual_time_local);
 
-  const status = toCleanString(ao?.status_text);
-  const terminal = normaliseTerminal(ao?.terminal);
-  const gate = normaliseGate(ao?.gate);
-  const checkin = normaliseCheckin(ao?.checkin_area);
+  const chip = normaliseAenaStatus(ao?.status_text, ao?.status_code, "DEP", ao?.source_name);
 
-  const lines: string[] = [];
-
-  if (terminal) lines.push(terminal);
-
-  if (isUsefulStatus(status)) {
-    if (gate && isBoardingLikeStatus(status)) {
-      lines.push(`${status} · ${gate}`);
-    } else {
-      lines.push(status);
-    }
-  }
-
-  if (checkin) lines.push(checkin);
-
-  const estimatedLine = changedEstimatedLine({
-    label: "departure",
+  const line2 = buildDepartureDelayLine({
     scheduled,
     estimated,
   });
 
-  if (estimatedLine) lines.push(estimatedLine);
-
-  const actualDeparture = actualLine({
-    label: "departure",
+  const line3 = buildDepartureMovementLine({
     actual,
+    chip,
   });
 
-  if (actualDeparture) lines.push(actualDeparture);
+  const line4 = compactJoin([
+    normaliseTerminal(ao?.terminal),
+    normaliseCheckin(ao?.checkin_area),
+    normaliseGate(ao?.gate),
+  ]);
 
   return {
     key: "departure",
     title: `${airportCode} Departure info`,
-    airportCode,
-    lines,
-    emptyText: "No additional information",
-    tone: panelToneForAirport(airportCode),
+    statusChip: chip,
+    line2,
+    line3,
+    line4,
+    emptyText: "No additional information available",
   };
 }
 
@@ -333,191 +549,213 @@ function buildArrivalPanelFromAirportOverlay(row: ApiFlightRow): OpsPanelModel |
   const estimated = fmtOverlayLocalTime(ao?.estimated_time_local);
   const actual = fmtOverlayLocalTime(ao?.actual_time_local);
 
-  const status = toCleanString(ao?.status_text);
-  const terminal = normaliseTerminal(ao?.terminal);
-  const gate = normaliseGate(ao?.gate);
-  const belt = normaliseBelt(ao?.belt);
+  const chip = normaliseAenaStatus(ao?.status_text, ao?.status_code, "ARR", ao?.source_name);
 
-  const lines: string[] = [];
-
-  if (isUsefulStatus(status)) lines.push(status);
-
-  const estimatedLine = changedEstimatedLine({
-    label: "arrival",
+  const line2 = buildArrivalTimingLine({
     scheduled,
     estimated,
-  });
-
-  if (estimatedLine) lines.push(estimatedLine);
-
-  const actualArrival = actualLine({
-    label: "arrival",
     actual,
   });
 
-  if (actualArrival) lines.push(actualArrival);
-
-  if (terminal) lines.push(terminal);
-  if (gate) lines.push(gate);
-  if (belt) lines.push(belt);
+  const line3 = compactJoin([
+    normaliseTerminal(ao?.terminal),
+    normaliseGate(ao?.gate),
+    normaliseBelt(ao?.belt),
+  ]);
 
   return {
     key: "arrival",
     title: `${airportCode} Arrival info`,
-    airportCode,
-    lines,
-    emptyText: "No additional information",
-    tone: panelToneForAirport(airportCode),
+    statusChip: chip,
+    line2,
+    line3,
+    line4: "",
+    emptyText: "No additional information available",
   };
 }
 
-function buildDeparturePanelFromSchiphol(row: ApiFlightRow): OpsPanelModel | null {
-  const dep = safeUpper(row?.dep_airport);
-  if (dep !== "AMS") return null;
+function buildDeparturePanelFromAirlineFallback(row: ApiFlightRow): OpsPanelModel | null {
+  // HV two-day departure panels must never fall through to airline/canonical fallback.
+  // Airport source or Unknown only.
+  if (isHvDepartureTwoDayOperationalWindow(row)) return null;
 
-  const s = row?.schiphol ?? null;
-  if (!s || typeof s !== "object") return null;
+  const info = row?.airline_departure_info ?? null;
+  if (!info || typeof info !== "object") return null;
 
-  const terminalRaw = toCleanString(s?.terminal);
-  const pierRaw = toCleanString(s?.pier);
-  const gateRaw = toCleanString(s?.gate);
+  const airportCode = safeUpper(info?.airport_code || row?.dep_airport);
+  if (!airportCode) return null;
 
-  const locationParts: string[] = [];
+  const boardingStatus = normalisePublicStatus(info?.boarding_status_text);
+  const flightStatus = normalisePublicStatus(info?.status_text);
 
-  if (terminalRaw) {
-    const terminal = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
-    locationParts.push(terminal);
-  }
+  const chip = isCancelledFlag(info?.cancelled)
+    ? "Cancelled"
+    : boardingStatus || flightStatus;
 
-  if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
+  const scheduled = fmtOverlayLocalTime(info?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(info?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(info?.actual_time_local);
 
-  const stateRaw = safeUpper(s?.public_flight_state);
-  const stateLabel = (() => {
-    if (!stateRaw) return "";
-    if (stateRaw.includes("BRD") || stateRaw.includes("BOARD")) return "Boarding";
-    if (stateRaw.includes("GCL") || stateRaw.includes("GATECLOS") || stateRaw.includes("GATE_CLOS")) return "Gate closing";
-    return "";
-  })();
+  const line2 = buildDepartureDelayLine({
+    scheduled,
+    estimated,
+  });
 
-  const gate = normaliseGate(gateRaw);
+  const line3 = buildDepartureMovementLine({
+    actual,
+    movementStatus: flightStatus,
+    chip,
+  });
 
-  const open = fmtTimeLocal(s?.expected_gate_open_utc);
-  const board = fmtTimeLocal(s?.expected_boarding_time_utc);
-  const close = fmtTimeLocal(s?.expected_gate_closing_utc);
-  const offb = fmtTimeLocal(s?.actual_off_block_time_utc);
-
-  const lines: string[] = [];
-
-  if (locationParts.length > 0) lines.push(locationParts.join(" · "));
-
-  if (stateLabel) {
-    if (gate && isBoardingLikeStatus(stateLabel)) {
-      lines.push(`${stateLabel} · ${gate}`);
-    } else {
-      lines.push(stateLabel);
-    }
-  }
-
-  const timeParts: string[] = [];
-  if (open) timeParts.push(`Open ${open}`);
-  if (board) timeParts.push(`Boarding ${board}`);
-  if (close) timeParts.push(`Close ${close}`);
-  if (timeParts.length > 0) lines.push(timeParts.join(" · "));
-
-  if (offb) lines.push(`Off-block ${offb}`);
+  const line4 = compactJoin([
+    normaliseTerminal(info?.terminal),
+    normaliseCheckin(info?.checkin_area),
+    normaliseGate(info?.gate),
+  ]);
 
   return {
     key: "departure",
-    title: "AMS Departure info",
-    airportCode: "AMS",
-    lines,
-    emptyText: "No additional information",
-    tone: "ams",
+    title: `${airportCode} Departure info`,
+    statusChip: chip,
+    line2,
+    line3,
+    line4,
+    emptyText: "No additional information available",
   };
 }
 
-function buildArrivalPanelFromSchiphol(row: ApiFlightRow): OpsPanelModel | null {
-  const arr = safeUpper(row?.arr_airport);
-  if (arr !== "AMS") return null;
+function buildArrivalPanelFromAirlineFallback(row: ApiFlightRow): OpsPanelModel | null {
+  const info = row?.airline_arrival_info ?? null;
+  if (!info || typeof info !== "object") return null;
 
-  const s = row?.schiphol ?? null;
-  if (!s || typeof s !== "object") return null;
+  const airportCode = safeUpper(info?.airport_code || row?.arr_airport);
+  if (!airportCode) return null;
 
-  const terminalRaw = toCleanString(s?.terminal);
-  const pierRaw = toCleanString(s?.pier);
-  const gateRaw = toCleanString(s?.gate);
-  const land = fmtTimeLocal(s?.estimated_landing_time_utc);
-
-  const lines: string[] = [];
-
-  if (land) lines.push(`Estimated arrival ${land}`);
-
-  const locationParts: string[] = [];
-
-  if (terminalRaw) {
-    const terminal = terminalRaw.toUpperCase().startsWith("T") ? terminalRaw.toUpperCase() : `Terminal ${terminalRaw}`;
-    locationParts.push(terminal);
+  // HV no-feed arrival fallback - LOCKED:
+  // If there is no Schiphol/airport_overlay_arr arrival feed, do not present
+  // HV airline/canonical status as airport arrival information.
+  // The arrival panel must remain honest: Unknown + no additional information.
+  if (safeUpper(row?.airline_iata) === "HV") {
+    return {
+      key: "arrival",
+      title: `${airportCode} Arrival info`,
+      statusChip: "Unknown",
+      line2: "",
+      line3: "",
+      line4: "",
+      emptyText: "No additional information available",
+    };
   }
 
-  if (pierRaw) locationParts.push(`Pier ${pierRaw}`);
+  const flightStatus = normalisePublicStatus(info?.status_text);
 
-  const gate = normaliseGate(gateRaw);
-  if (gate) locationParts.push(gate);
+  const chip = isCancelledFlag(info?.cancelled)
+    ? "Cancelled"
+    : flightStatus;
 
-  if (locationParts.length > 0) lines.push(locationParts.join(" · "));
+  const scheduled = fmtOverlayLocalTime(info?.scheduled_time_local);
+  const estimated = fmtOverlayLocalTime(info?.estimated_time_local);
+  const actual = fmtOverlayLocalTime(info?.actual_time_local);
+
+  const line2 = buildArrivalTimingLine({
+    scheduled,
+    estimated,
+    actual,
+  });
+
+  const line3 = compactJoin([
+    normaliseTerminal(info?.terminal),
+    normaliseGate(info?.gate),
+    normaliseBelt(info?.belt),
+  ]);
 
   return {
     key: "arrival",
-    title: "AMS Arrival info",
-    airportCode: "AMS",
-    lines,
-    emptyText: "No additional information",
-    tone: "ams",
+    title: `${airportCode} Arrival info`,
+    statusChip: chip,
+    line2,
+    line3,
+    line4: "",
+    emptyText: "No additional information available",
   };
 }
 
 function buildDeparturePanelModel(row: ApiFlightRow): OpsPanelModel | null {
-  return buildDeparturePanelFromSchiphol(row) || buildDeparturePanelFromAirportOverlay(row);
+  return (
+    buildDeparturePanelFromSchiphol(row) ||
+    buildDeparturePanelFromAirportOverlay(row) ||
+    buildHvNoFeedDeparturePanel(row) ||
+    buildDeparturePanelFromAirlineFallback(row)
+  );
 }
 
 function buildArrivalPanelModel(row: ApiFlightRow): OpsPanelModel | null {
-  return buildArrivalPanelFromSchiphol(row) || buildArrivalPanelFromAirportOverlay(row);
+  return (
+    buildArrivalPanelFromSchiphol(row) ||
+    buildArrivalPanelFromAirportOverlay(row) ||
+    buildArrivalPanelFromAirlineFallback(row)
+  );
+}
+
+function shouldShowOperationalPanels(row: ApiFlightRow) {
+  const now = new Date();
+  const todayUtc = dateToUtcDateKey(now);
+
+  const tomorrow = new Date(now.getTime());
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowUtc = dateToUtcDateKey(tomorrow);
+
+  const stdKey = utcDateKeyFromValue(row?.std_utc);
+  const staKey = utcDateKeyFromValue(row?.sta_utc);
+
+  return (
+    stdKey === todayUtc ||
+    stdKey === tomorrowUtc ||
+    staKey === todayUtc ||
+    staKey === tomorrowUtc
+  );
+}
+
+function routeAccentClass(row: ApiFlightRow) {
+  const dep = safeUpper(row?.dep_airport);
+  const arr = safeUpper(row?.arr_airport);
+
+  // Deterministic priority: EIN purple wins over RTM orange.
+  if (dep === "EIN" || arr === "EIN") return "day-flightCard--ein";
+  if (dep === "RTM" || arr === "RTM") return "day-flightCard--rtm";
+
+  return "";
 }
 
 function AirportInfoPanelBlock({ model }: { model: OpsPanelModel }) {
-  return (
-    <div style={panelStyleForTone(model.tone)}>
-      <div style={{ fontWeight: 900, color: "#132333", fontSize: 13 }}>{model.title}</div>
+  const hasDetail = Boolean(model.line2 || model.line3 || model.line4);
 
-      {model.lines.length > 0 ? (
-        <div style={{ marginTop: 6 }}>
-          {model.lines.map((line, idx) => (
-            <div
-              key={`${model.key}-${idx}-${line}`}
-              style={{
-                marginTop: idx === 0 ? 0 : 5,
-                fontWeight: 800,
-                color: "rgba(19,35,51,0.78)",
-                fontSize: 12,
-                lineHeight: "16px",
-              }}
-            >
-              {line}
-            </div>
-          ))}
-        </div>
+  return (
+    <div className={`day-opsPanel day-opsPanel--${model.key}`}>
+      <div className="day-opsPanelHeader">
+        <div className="day-opsPanelTitle">{model.title}</div>
+
+        {model.statusChip ? (
+          <div className="day-opsChip">{model.statusChip}</div>
+        ) : null}
+      </div>
+
+      {hasDetail ? (
+        <>
+          {model.line2 ? (
+            <div className="day-opsPanelLine">{model.line2}</div>
+          ) : null}
+
+          {model.line3 ? (
+            <div className="day-opsPanelLine day-opsPanelLine3">{model.line3}</div>
+          ) : null}
+
+          {model.line4 ? (
+            <div className="day-opsPanelLine day-opsPanelLine4">{model.line4}</div>
+          ) : null}
+        </>
       ) : (
-        <div
-          style={{
-            marginTop: 6,
-            fontWeight: 800,
-            color: "rgba(19,35,51,0.58)",
-            fontSize: 12,
-            lineHeight: "16px",
-          }}
-        >
-          {model.emptyText}
-        </div>
+        <div className="day-opsPanelEmpty">{model.emptyText}</div>
       )}
     </div>
   );
@@ -531,6 +769,7 @@ function AirportOperationalPanels({
   expanded: boolean;
 }) {
   if (!expanded) return null;
+  if (!shouldShowOperationalPanels(row)) return null;
 
   const departurePanel = buildDeparturePanelModel(row);
   const arrivalPanel = buildArrivalPanelModel(row);
@@ -1267,7 +1506,6 @@ export default function Day() {
           const busyMode = actionBusyByFlight?.[fid] || null;
           const successState = actionSuccessByFlight?.[fid] || null;
 
-          const myBooking = getMyBookingRow(fid);
           const canUnlist = canShowUnlistButton(fid);
           const unlistMode = getUnlistModeForFlight(fid);
 
@@ -1309,42 +1547,17 @@ export default function Day() {
 
           const flightNo = `${String(row?.airline_iata || "").toUpperCase()}${String(row?.flight_number || "").trim()}`.trim();
 
-          const depCode = safeUpper(row?.dep_airport);
-          const arrCode = safeUpper(row?.arr_airport);
-
-          const isAmsLinked = depCode === "AMS" || arrCode === "AMS";
-
-          const backupAirportCode = !isAmsLinked
-            ? depCode === "RTM" || depCode === "EIN"
-              ? depCode
-              : arrCode === "RTM" || arrCode === "EIN"
-              ? arrCode
-              : null
-            : null;
-
-          const backupCardStyle =
-            backupAirportCode === "RTM"
-              ? {
-                  background: "#f0ebfa",
-                  borderColor: "#d6eadb",
-                }
-              : backupAirportCode === "EIN"
-              ? {
-                  background: "#eef4ff",
-                  borderColor: "#d7e3f7",
-                }
-              : undefined;
-
           // Background wiring for later collapsible operational panels.
           // Current agreed behaviour: always expanded.
           // Later this can become per-flight state toggled from the 3x3 status/card area.
           const airportOpsPanelsExpanded = true;
 
+          const accentClass = routeAccentClass(row);
+
           return (
             <div
               key={f.uiKey}
-              className="card day-flightCard"
-              style={backupCardStyle}
+              className={`card day-flightCard ${accentClass}`.trim()}
             >
               <div className="day-publicSection">
                 <FlightCard3x3
@@ -1412,8 +1625,9 @@ export default function Day() {
                                   gap: 10,
                                   padding: "8px 8px",
                                   borderRadius: 12,
-                                  background: "rgba(19,35,51,0.04)",
-                                  border: "1px solid rgba(19,35,51,0.06)",
+                                  background: "transparent",
+                                  border: "0",
+                                  borderBottom: "1px solid rgba(19,35,51,0.06)",
                                   marginBottom: 8,
                                   WebkitTapHighlightColor: "rgba(0,0,0,0)",
                                 }}

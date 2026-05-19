@@ -74,6 +74,7 @@ import message from "../../assets/icons/message.webp";
 import profile_blue from "../../assets/icons/profile_blue.webp";
 import flight_blue from "../../assets/icons/flight_blue.webp";
 import info from "../../assets/icons/info.webp";
+import information from "../../assets/icons/information.webp";
 import close from "../../assets/icons/close.webp";
 import hotel from "../../assets/icons/hotel.webp";
 import standby_room from "../../assets/icons/standby_room.webp";
@@ -82,6 +83,7 @@ import account from "../../assets/icons/account.webp";
 import wip from "../../assets/icons/wip.webp";
 import listing from "../../assets/icons/listing.webp";
 import news from "../../assets/icons/news.webp";
+import bell from "../../assets/icons/bell.webp";
 
 // ? NEW: avatar + calendar are now imported (bundled) so pages/components never use "/assets/..."
 
@@ -116,8 +118,8 @@ export const UI_ICONS = {
   contact_us,
   legal,
   privacy,
-  faq, passkey, hotel, standby_room, account, wip, listing, news,
-  profile, esta, passport, locker, locker_key, logout, message, profile_blue, flight_blue, info, close, 
+  faq, passkey, hotel, standby_room, account, wip, listing, news, bell,
+  profile, esta, passport, locker, locker_key, logout, message, profile_blue, flight_blue, info, information, close, 
   
 } as const;
 
