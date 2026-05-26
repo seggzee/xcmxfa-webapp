@@ -26,7 +26,7 @@
 
 /* Rectangular header logo (already contains text) */
 .appHeader-logo {
-  height: 48px;
+  height: 50px;
   width: auto;
   max-width: 240px;
   object-fit: contain;
@@ -43,8 +43,8 @@
 /* Header help / FAQ button:
    always visible so users can reach support information from any page */
 .appHeader-infoBtn {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   border: 0;
   background: transparent;
   padding: 0;
@@ -56,8 +56,8 @@
 
 /* Header help / FAQ icon */
 .appHeader-infoImg {
-  width: 50px;
-  height: 50px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   display: block;
 }

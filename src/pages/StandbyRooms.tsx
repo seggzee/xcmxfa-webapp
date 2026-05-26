@@ -9,9 +9,10 @@
 // - Keeps StickyPageHeaderCard pattern
 // - Keeps sticky submission card
 // - Keeps StandbyRoomCard as already amended
+// - Shows temporary confirmation after successful advert submission redirect
 
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../app/authStore";
 
@@ -34,18 +35,39 @@ const SORT_OPTIONS: Array<{ value: StandbyRoomSort; label: string }> = [
   { value: "distance_asc", label: "Distance" },
 ];
 
-
+type StandbyRoomsLocationState = {
+  standbyRoomSubmitSuccess?: boolean;
+} | null;
 
 export default function StandbyRooms() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [sort, setSort] = useState<StandbyRoomSort>("recommended");
   const [rooms, setRooms] = useState<StandbyRoomCardData[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
-  
-	const { auth } = useAuth();
-	const isMember = auth?.mode === "member";
+
+  const { auth } = useAuth();
+  const isMember = auth?.mode === "member";
+
+  const locationState = location.state as StandbyRoomsLocationState;
+  const showSubmitSuccess = Boolean(locationState?.standbyRoomSubmitSuccess);
+
+  useEffect(() => {
+    if (!showSubmitSuccess) return;
+
+    const timer = window.setTimeout(() => {
+      navigate("/standby-rooms", {
+        replace: true,
+        state: null,
+      });
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [showSubmitSuccess, navigate]);
 
   useEffect(() => {
     let alive = true;
@@ -142,6 +164,17 @@ export default function StandbyRooms() {
             ))}
           </div>
         </div>
+
+        {showSubmitSuccess ? (
+          <div className="standbyRooms-emptyCard">
+            <div className="standbyRooms-emptyTitle">
+              Room advert submitted
+            </div>
+            <div className="standbyRooms-emptyBody">
+              Thank you. Your room advert has been submitted for review and will not appear immediately.
+            </div>
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="standbyRooms-inlineStatus">

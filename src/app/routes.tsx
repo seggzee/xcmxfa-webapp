@@ -35,6 +35,7 @@
 // - Add passkey sign-in flow through dedicated passkeys API + backend exchange
 // - Add immediate post-password-login passkey enrollment prompt
 // - Add local per-device prompt suppression for passkey setup
+// - Add real standby room advert submission page route
 // - No other behaviour changes.
 // =====================================================================================
 
@@ -90,10 +91,9 @@ import Legal from "../pages/Legal";
 import Contact from "../pages/Contact";
 import Hotels from "../pages/Hotels";
 import StandbyRooms from "../pages/StandbyRooms";
+import StandbyRoomSubmit from "../pages/StandbyRoomSubmit";
 import TravelHistory from "../pages/TravelHistory";
 import TravelHistoryRecent from "../pages/TravelHistoryRecent";
-
-import { UI_ICONS } from "../assets";
 
 /**
  * Idiot-guide:
@@ -1075,61 +1075,10 @@ const {
         <Route path="/legal" element={<Legal />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/hotels" element={<Hotels />} />
-		
-		
-        <Route path="/standby-rooms" element={<StandbyRooms />} />	
-		<Route path="/standby-rooms/:roomId" element={<div>Standby room detail page</div>} />
 
-
-		<Route 
-			path="/standby-rooms/submit" 
-			element={
-						<div className="app-screen">
-						
-							<div className="app-container">
-							
-								{/* Header */}
-								<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-
-								</div>
-
-								{/* Content card */}
-								<div
-								  className="card"
-								  style={{
-									maxWidth: 720,
-									margin: "0 auto",
-									padding: 16,
-									textAlign:"center",
-								  }}
-								>
-								
-									<img
-										src={UI_ICONS.wip}
-										alt="Under Construction"
-										style={{
-										  width: 250,
-										  height: 250,
-										  objectFit: "contain",
-										  borderRadius: 14,
-										}}
-									/>										
-								
-									<p style={{ margin: 0, lineHeight: 1.6, color: "#4b5563" }}>
-										In future, this page will contain the form to self submit rooms to rent.
-									</p>
-									<p> </p>
-									<p style={{ margin: 0, lineHeight: 1.6, color: "#4b5563" }}>
-										For now please email admin@xcmxfa.com with your room availabilities.
-									</p>									
-								</div>
-								
-							</div>
-							
-						</div>
-												
-					} 
-		/>			
+        <Route path="/standby-rooms" element={<StandbyRooms />} />
+        <Route path="/standby-rooms/submit" element={<StandbyRoomSubmit />} />
+        <Route path="/standby-rooms/:roomId" element={<div>Standby room detail page</div>} />
 
         <Route
           path="/week"

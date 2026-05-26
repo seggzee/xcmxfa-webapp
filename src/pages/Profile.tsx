@@ -5,7 +5,7 @@
 //
 // THIS CHANGE ONLY
 // - Move page onto reusable StickyPageHeaderCard pattern
-// - Keep profile tiles, modals, and API behaviour unchanged
+// - Keep profile tiles, modals, and unrelated API behaviour unchanged
 // - Remove old local top-row shell / back button pattern
 // - Keep body content inside the existing card/tile layout
 // - Add a minimal phase-1 passkey setup entry inside the Account section
@@ -13,6 +13,12 @@
 // - Use ConfirmPasswordModal for passkey re-auth
 // - No full passkey management UI in this phase
 // - No other profile behaviour changes
+//
+// THIS CHANGE ONLY (email notification preference wiring)
+// - Read auth_members_v2.email_notify via /api/members/get.php when Profile loads
+// - Display the saved email_notify state in the Email notifications toggle
+// - Save toggle changes via /api/members/member_general.php using yes/no
+// - Keep push notification behaviour unchanged
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +47,9 @@ import {
 
 const CHANGE_PASSWORD_URL = `${API_BASE_URL}/auth/password/change.php`;
 const DELETE_ACCOUNT_URL = `${API_BASE_URL}/api/account/delete_account.php`;
+
+const MEMBER_GET_URL = `${API_BASE_URL}/api/members/get.php`;
+const MEMBER_GENERAL_URL = `${API_BASE_URL}/api/members/member_general.php`;
 
 // PURPOSE:
 // - Verify current password for the already-logged-in member
@@ -135,6 +144,10 @@ function normalizePasskeyReauthError(error: unknown): string {
   }
 
   return "Could not verify your password. Please try again.";
+}
+
+function emailNotifyToChecked(value: unknown): boolean {
+  return String(value || "").trim().toLowerCase() === "yes";
 }
 
 function ToggleRow(props: {
@@ -240,6 +253,7 @@ export default function Profile() {
     .toUpperCase();
 
   const [emailEnabled, setEmailEnabled] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -250,6 +264,39 @@ export default function Profile() {
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      if (!memberPsn) {
+        setEmailEnabled(false);
+        return;
+      }
+
+      try {
+        const resp = await postJson<{
+          ok?: boolean;
+          member?: {
+            email_notify?: string | null;
+          } | null;
+        }>(MEMBER_GET_URL, {
+          psn: memberPsn,
+        });
+
+        if (!alive) return;
+
+        setEmailEnabled(emailNotifyToChecked(resp?.member?.email_notify));
+      } catch {
+        if (!alive) return;
+        setEmailEnabled(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [memberPsn]);
 
   useEffect(() => {
     let alive = true;
@@ -285,6 +332,27 @@ export default function Profile() {
       alive = false;
     };
   }, [memberPsn]);
+
+  const onToggleEmail = async () => {
+    if (!memberPsn || emailBusy) return;
+
+    const next = !emailEnabled;
+
+    setEmailBusy(true);
+
+    try {
+      await postJson(MEMBER_GENERAL_URL, {
+        psn: memberPsn,
+        email_notify: next ? "yes" : "no",
+      });
+
+      setEmailEnabled(next);
+    } catch {
+      window.alert("Could not update email notification preference. Please try again.");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
 
   const onTogglePush = async () => {
     if (!memberPsn || pushBusy) return;
@@ -526,7 +594,8 @@ export default function Profile() {
             <ToggleRow
               label="Email notifications"
               checked={emailEnabled}
-              onChange={() => setEmailEnabled((v) => !v)}
+              disabled={emailBusy || !memberPsn}
+              onChange={() => void onToggleEmail()}
             />
 
             <ToggleRow

@@ -38,6 +38,7 @@ const PHONE_CODES = [
   { code: "+39", label: "Italy (+39)" },
   { code: "+32", label: "Belgium (+32)" },
   { code: "+351", label: "Portugal (+351)" },
+  { code: "+356", label: "Malta (+356)" },  
   { code: "+353", label: "Ireland (+353)" },
   { code: "+41", label: "Switzerland (+41)" },
   { code: "+45", label: "Denmark (+45)" },
