@@ -133,19 +133,51 @@ export default function AppHeader({
   };
   
   
+ 
   const handleInfoClick = () => {
-  const currentPath = `${location.pathname}${location.search || ""}`;
+    const goHome = () => {
+      navigate("/home", { replace: true });
+    };
 
-  if (location.pathname === "/faq") {
-    const returnTo = sessionStorage.getItem("faq:returnTo") || "/";
-    sessionStorage.removeItem("faq:returnTo");
-    navigate(returnTo);
-    return;
-  }
+    const navigateToReturnTarget = (returnTo: any) => {
+      const pathname = String(returnTo?.pathname || "").trim();
 
-  sessionStorage.setItem("faq:returnTo", currentPath);
-  navigate("/faq");
-};
+      if (!pathname || !pathname.startsWith("/") || pathname === "/faq") {
+        goHome();
+        return;
+      }
+
+      navigate(
+        {
+          pathname,
+          search: String(returnTo?.search || ""),
+          hash: String(returnTo?.hash || ""),
+        },
+        {
+          replace: true,
+          state: returnTo?.state ?? null,
+        }
+      );
+    };
+
+    if (location.pathname === "/faq") {
+      const faqState = location.state as any;
+      navigateToReturnTarget(faqState?.faqReturnTo);
+      return;
+    }
+
+    navigate("/faq", {
+      state: {
+        faqReturnTo: {
+          pathname: location.pathname || "/home",
+          search: location.search || "",
+          hash: location.hash || "",
+          state: location.state ?? null,
+        },
+      },
+    });
+  };
+
 
   const loginHandlersOk = Boolean(
     onLoginSubmit && onCancelLogin && onCreateAccount && onForgotPassword

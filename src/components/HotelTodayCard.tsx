@@ -59,7 +59,7 @@ export default function HotelTodayCard({ hotel }: Props) {
             </div>
           )}
 
-          <div className="hotelCard-rateLabel">Crew rate today</div>
+          <div className="hotelCard-rateLabel">Current crew rate</div>
 
           {hotel.today_rate.room_type ? (
             <div className="hotelCard-roomType">{hotel.today_rate.room_type}</div>

@@ -24,7 +24,7 @@
 // =====================================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { DIY_LISTING_SCANS, UI_ICONS } from "../assets";
 import StickyPageHeaderCard from "../components/StickyPageHeaderCard";
@@ -271,7 +271,32 @@ function FaqRow({
 
 export default function Faq() {
   const nav = useNavigate();
+  const location = useLocation();
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  const handleBack = () => {
+    const faqState = location.state as any;
+    const returnTo = faqState?.faqReturnTo;
+    const pathname = String(returnTo?.pathname || "").trim();
+
+    if (!pathname || !pathname.startsWith("/") || pathname === "/faq") {
+      nav("/home", { replace: true });
+      return;
+    }
+
+    nav(
+      {
+        pathname,
+        search: String(returnTo?.search || ""),
+        hash: String(returnTo?.hash || ""),
+      },
+      {
+        replace: true,
+        state: returnTo?.state ?? null,
+      }
+    );
+  };
+
 
   const items: FaqItem[] = useMemo(
     () => [
@@ -878,7 +903,7 @@ export default function Faq() {
         }
         title="FAQ"
         subtitle="Info, rules, and troubleshooting"
-        onBack={() => nav(-1)}
+        onBack={handleBack}
         backAriaLabel="Back"
       />
 

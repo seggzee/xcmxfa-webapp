@@ -187,7 +187,17 @@ export default function LoginModal({
             "Login succeeded, but the post-login checks failed (network/server). Please try again.",
           );
         } else {
-          setAuthError(msg);
+          const lowerMsg = msg.toLowerCase();
+
+          const isUnauthorized =
+            msg.includes("401") ||
+            lowerMsg.includes("unauthorized");
+
+          setAuthError(
+            isUnauthorized
+              ? "You have entered an incorrect username or password."
+              : "Login failed. Please try again."
+          );
         }
         return;
       }
@@ -323,6 +333,18 @@ export default function LoginModal({
             color: "#111827",
           }}
         />
+		
+		<div
+		  style={{
+			marginTop: -4,
+			marginBottom: 12,
+			fontSize: 13,
+			lineHeight: "18px",
+			color: "#6b7280",
+		  }}
+		>
+		  If your original staff number is 5 digits, please enter it as 5 digits. Do not add a leading zero.
+		</div>
 
         <div style={{ position: "relative", marginBottom: 8 }}>
           <input
@@ -492,7 +514,7 @@ export default function LoginModal({
               color: "#111827",
             }}
           >
-            <strong>Auth error:</strong> {authError}
+            {authError}
           </div>
         )}
 

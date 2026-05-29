@@ -125,7 +125,8 @@ export const COUNTRY_AIRPORTS: Record<string, Airport[]> = {
     { code: "GRO", image: "GRO.webp" },	
     { code: "IBZ", image: "IBZ.webp" },
     { code: "BIO", image: "BIO.webp" },
-    { code: "SVQ", image: "SVQ.webp" },
+    { code: "SCQ", image: "SCQ.webp" },
+    { code: "SVQ", image: "SVQ.webp" },	
     { code: "LPA", image: "LPA.webp" },
     { code: "TFS", image: "TFS.webp" },
   ],
@@ -179,6 +180,7 @@ export const COUNTRY_AIRPORTS: Record<string, Airport[]> = {
     { code: "PDX", image: "PDX.webp" },	
     { code: "MCO", image: "MCO.webp" },
     { code: "SEA", image: "SEA.webp" },
+    { code: "SLC", image: "SLC.webp" },	
   ],
 };
 

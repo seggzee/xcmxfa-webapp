@@ -73,6 +73,10 @@ import logout from "../../assets/icons/logout.webp";
 import message from "../../assets/icons/message.webp";
 import profile_blue from "../../assets/icons/profile_blue.webp";
 import flight_blue from "../../assets/icons/flight_blue.webp";
+import flight_blue_2 from "../../assets/icons/flight_blue_2.webp";
+import flight_klm_airplane from "../../assets/icons/flight_klm_airplane.png";
+
+import loading_aircraft from "../../assets/animations/loading_aircraft.gif";
 import info from "../../assets/icons/info.webp";
 import information from "../../assets/icons/information.webp";
 import close from "../../assets/icons/close.webp";
@@ -118,7 +122,7 @@ export const UI_ICONS = {
   contact_us,
   legal,
   privacy,
-  faq, passkey, hotel, standby_room, account, wip, listing, news, bell,
+  faq, passkey, hotel, standby_room, account, wip, listing, news, bell,  loading_aircraft, flight_blue_2, flight_klm_airplane,
   profile, esta, passport, locker, locker_key, logout, message, profile_blue, flight_blue, info, information, close, 
   
 } as const;

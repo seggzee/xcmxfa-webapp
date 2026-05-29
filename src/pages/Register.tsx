@@ -94,10 +94,19 @@ export default function Register() {
     return onlyDigits(staffDigits).slice(0, 6);
   }, [staffDigits]);
 
-  // RN rule: valid if length is 5 OR 6
-  const staffValid = useMemo(() => {
-    return normalizedStaffDigits.length === 5 || normalizedStaffDigits.length === 6;
-  }, [normalizedStaffDigits]);
+// Valid if length is 5 OR 6.
+// Extra rule:
+// - 6 digits starting with 0 is invalid.
+// - A genuine staff number starting with 0 is always 5 digits.
+// - Do not auto-pad 5-digit staff numbers.
+const staffHasInvalidLeadingZero = useMemo(() => {
+  return normalizedStaffDigits.length === 6 && normalizedStaffDigits.startsWith("0");
+}, [normalizedStaffDigits]);
+
+const staffValid = useMemo(() => {
+  const len = normalizedStaffDigits.length;
+  return (len === 5 || len === 6) && !staffHasInvalidLeadingZero;
+}, [normalizedStaffDigits, staffHasInvalidLeadingZero]);
 
   const tvLocal = useMemo(() => transaviaLocalPart(transaviaEmailInput), [transaviaEmailInput]);
 
@@ -132,19 +141,27 @@ export default function Register() {
    * This is only for user clarity (what email they are verifying)
    *
    * RN rules:
-   * - KLM -> derivedUsername@klm.com
+   * - KLM -> derivedUsername (or kxxxxxx if 6 digits) @klm.com
    * - HV  -> tvLocal@transavia.com
    */
   const derivedEmail = useMemo(() => {
     if (!company || !staffValid) return "";
-    if (company === "KLM") {
-      return `${derivedUsername}@klm.com`.toLowerCase();
-    }
+if (company === "KLM") {
+  if (normalizedStaffDigits.length === 5) {
+    return `klm${normalizedStaffDigits}@klm.com`;
+  }
+
+  if (normalizedStaffDigits.length === 6) {
+    return `k${normalizedStaffDigits}@klm.com`;
+  }
+
+  return "";
+}
     if (company === "HV") {
       return `${tvLocal}@transavia.com`;
     }
     return "";
-  }, [company, staffValid, derivedUsername, tvLocal]);
+ }, [company, staffValid, normalizedStaffDigits, tvLocal]);
 
   /**
    * Idiot-guide: Submit handler
@@ -363,16 +380,27 @@ export default function Register() {
           }}
         />
 
-        <div
-          style={{
-            marginTop: 8,
-            fontSize: 13,
-            lineHeight: "18px",
-            color: "#6b7280",
-          }}
-        >
-          Valid length: 5 or 6 digits. Current: {normalizedStaffDigits.length}
-        </div>
+		<div
+		  style={{
+			marginTop: 8,
+			fontSize: 13,
+			lineHeight: "18px",
+			color: staffHasInvalidLeadingZero ? "#b91c1c" : "#6b7280",
+			fontWeight: staffHasInvalidLeadingZero ? 800 : 400,
+		  }}
+		>
+		  {staffHasInvalidLeadingZero ? (
+			<>
+			  This looks like a 5-digit staff number with an added leading zero. Please remove the leading zero.
+			</>
+		  ) : (
+			<>
+			  Valid length: 5 or 6 digits. Current: {normalizedStaffDigits.length}
+			  <br />
+			  If your original staff number is 5 digits, please enter it as 5 digits. Do not add a leading zero.
+			</>
+		  )}
+		</div>
       </div>
 
       {/* HV email local part */}

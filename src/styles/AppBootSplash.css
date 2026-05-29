@@ -1,4 +1,16 @@
-
+/*****************************************
+*	This css gives:
+*	airplane starts hidden just left of container
+*	flies through the middle
+*	exits hidden just right of container
+*	restarts from left
+*	To make the plane bigger, change only:
+*	--plane-width: 100px;
+*	To make it slower/smoother:
+*	animation: appBootSplashFly 2.4s linear infinite;
+*	If the plane feels cramped, increase the track width:
+*	--track-width: 260px;
+******************************************/
 
 .appBootSplash {
   min-height: 100dvh;
@@ -27,24 +39,6 @@
   letter-spacing: 0.04em;
 }
 
-.appBootSplash-planeTrack {
-  position: relative;
-  width: 180px;
-  height: 56px;
-  overflow: hidden;
-}
-
-.appBootSplash-plane {
-  position: absolute;
-  top: 8px;
-  left: 0;
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  display: block;
-  animation: appBootSplashFly 1.8s ease-in-out infinite;
-}
-
 .appBootSplash-text {
   font-size: 13px;
   line-height: 16px;
@@ -52,17 +46,52 @@
   color: rgba(19, 35, 51, 0.58);
 }
 
+
+.appBootSplash-planeTrack {
+  --track-width: 220px;
+  --plane-width: 90px;
+
+  position: relative;
+  width: var(--track-width);
+  height: 80px;
+  overflow: hidden;
+}
+
+.appBootSplash-plane {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  width: var(--plane-width);
+  height: auto;
+  object-fit: contain;
+  display: block;
+  animation: appBootSplashFly 1.8s linear infinite;
+}
+
 @keyframes appBootSplashFly {
   0% {
-    transform: translateX(0) translateY(0);
-    opacity: 0.9;
+    transform: translateX(calc(var(--plane-width) * -1)) translateY(0);
+    opacity: 0;
   }
-  50% {
-    transform: translateX(120px) translateY(-4px);
+
+  10% {
     opacity: 1;
   }
+
+  50% {
+    transform: translateX(calc((var(--track-width) - var(--plane-width)) / 2)) translateY(-4px);
+    opacity: 1;
+  }
+
+  90% {
+    opacity: 1;
+  }
+
   100% {
-    transform: translateX(0) translateY(0);
-    opacity: 0.9;
+    transform: translateX(var(--track-width)) translateY(0);
+    opacity: 0;
   }
 }
+
+
+

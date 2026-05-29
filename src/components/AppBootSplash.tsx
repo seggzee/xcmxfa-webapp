@@ -9,7 +9,7 @@ export default function AppBootSplash() {
 
         <div className="appBootSplash-planeTrack" aria-hidden="true">
           <img
-            src={UI_ICONS.flight_blue}
+            src={UI_ICONS.flight_klm_airplane}
             alt=""
             className="appBootSplash-plane"
           />
