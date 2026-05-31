@@ -43,6 +43,7 @@ import {
 import {
   createPasskeyFromOptions,
   isPasskeySupported,
+  normalizePasskeySetupError,
 } from "../utils/passkeys";
 
 const CHANGE_PASSWORD_URL = `${API_BASE_URL}/auth/password/change.php`;
@@ -75,38 +76,6 @@ function markPasskeyPromptSuppressed(username: string): void {
   }
 }
 
-function normalizePasskeySetupError(error: unknown): string {
-  const raw = String((error as any)?.message || error || "PASSKEY_SETUP_FAILED");
-  const lower = raw.toLowerCase();
-
-  if (
-    lower.includes("duplicate_credential") ||
-    lower.includes("already set up") ||
-    lower.includes("already exists") ||
-    lower.includes("already ready") ||
-    lower.includes("invalidstateerror")
-  ) {
-    return "Passkey is already set up on this device.";
-  }
-
-  if (
-    lower.includes("passkey_creation_cancelled") ||
-    lower.includes("passkey_auth_cancelled") ||
-    lower.includes("notallowederror") ||
-    lower.includes("cancelled")
-  ) {
-    return "Passkey setup was cancelled.";
-  }
-
-  if (
-    lower.includes("passkeys_not_supported") ||
-    lower.includes("not supported")
-  ) {
-    return "Passkeys are not supported on this device/browser.";
-  }
-
-  return "Passkey setup failed. Please try again or use your password.";
-}
 
 function normalizePasskeyReauthError(error: unknown): string {
   const err: any = error as any;
@@ -468,13 +437,13 @@ export default function Profile() {
       markPasskeyPromptSuppressed(memberPsn);
       window.alert("Passkey created for this device.");
     } catch (error) {
-      const message = normalizePasskeySetupError(error);
+      const normalized = normalizePasskeySetupError(error);
 
-      if (message === "Passkey is already set up on this device.") {
+      if (normalized.treatAsReady) {
         markPasskeyPromptSuppressed(memberPsn);
       }
 
-      window.alert(message);
+      window.alert(normalized.message);
     } finally {
       setPasskeyBusy(false);
     }

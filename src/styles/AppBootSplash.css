@@ -49,7 +49,7 @@
 
 .appBootSplash-planeTrack {
   --track-width: 220px;
-  --plane-width: 90px;
+  --plane-width: 100px;
 
   position: relative;
   width: var(--track-width);

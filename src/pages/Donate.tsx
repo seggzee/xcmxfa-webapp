@@ -118,7 +118,7 @@ export default function Donate() {
       bootedRef.current = true;
 
       try {
-        setLoadingText("Loading payment form…");
+        setLoadingText("Loading donation form…");
 
         // 1) Load Stripe.js
         await loadScriptOnce("https://js.stripe.com/v3/");

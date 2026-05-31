@@ -440,20 +440,34 @@ export default function Faq() {
 //************* LOCKERS SECTION ***********************************
 	  
       {
-        id: "locker-setup",
+        id: "locker-order",
         group: "lockers",
-        q: "Crew Lockers — how do I link my locker?",
+        q: "How do I order a locker?",
         a: (
           <FaqAnswer>
-            <p>Legacy flow, best effort:</p>
+            <p>Lockers are provided by KLM CSH. Options are:</p>
             <ol style={{ margin: "0 0 0 18px" }}>
-              <li>Home → My Crew Locker → Locker settings. Check that your email is correct, or submit it if needed.</li>
-              <li>
-                Find your locker email from Keynius, or use a locker-sharing email from a colleague, then follow
-                the linking instructions.
-              </li>
-              <li>If the app offers “find my locker”, use it after linking to display your locker or lockers.</li>
-              <li>Use the keys icon to open the locker management screen.</li>
+              <li>Direct orders → visit https://online.keynius.app/home/a0b72ec9-35cb-4e3b-a661-3bf4890a9493 to order a new locker</li>
+              <li>Via this app - Login and navigate to the crew locker section. Click on the order button to begin the order process.</li>
+              <li>In person - Visit the KLM Crew Service Hub in the Crew Centre and one of the assistants can order a locker for you manually.</li>
+            </ol>
+          </FaqAnswer>
+        ),
+        keywords: ["locker", "crew locker", "keynius", "CSH", "order"],
+      },
+
+	  
+     {
+        id: "locker-setup",
+        group: "lockers",
+        q: "How do I add my locker to the app?",
+        a: (
+          <FaqAnswer>
+            <p>Adding your locker is a 2 step process:</p>
+            <ol style={{ margin: "0 0 0 18px" }}>
+              <li>Step 1 - order a locker from the KLM CSH using one of the options available (see this FAQ for options)</li>
+              <li>Step 2 - After succesful order, you will receive in your klm mailbox an email from Keynius with your locker number and validity. From the same KLM inbox, forward your keynius email to "lockers@xcmxfa.com"</li>
+              <li>Step 3 - The app scans for new lockers every 5 minutes, so allow up to 5 minutes after forwarding the email, then open the app to the lockers page and your locker should be available there.</li>
             </ol>
             <p>If something looks stuck, capture screenshots and contact admin.</p>
           </FaqAnswer>
@@ -461,6 +475,25 @@ export default function Faq() {
         keywords: ["locker", "crew locker", "keynius", "link", "share"],
       },
 
+	  
+     {
+        id: "locker-sharing",
+        group: "lockers",
+        q: "Can I add a shared locker to the app?",
+        a: (
+          <FaqAnswer>
+            <p>Yes, it is possible to add a shared locker to the app.</p>
+            <ol style={{ margin: "0 0 0 18px" }}>
+              <li>ONLY LOCKERS SHARED BY EMAIL LINK (not Whatsapp) can be added in this app</li>
+              <li>Please make sure the locker owner sends your share link to your KLM email inbox, and not your personal email address.</li>
+			  <li>From the same KLM inbox, forward the share email to "lockers@xcmxfa.com"</li>
+              <li>The app scans for new lockers every 5 minutes, so allow up to 5 minutes after forwarding the email, then open the app to the lockers page and your shared locker should be available there.</li>
+            </ol>
+            <p>If something looks stuck, capture screenshots and contact admin.</p>
+          </FaqAnswer>
+        ),
+        keywords: ["locker", "crew locker", "keynius", "link", "sharing"],
+      },	  
 	  
 //************* FLIGHTS SECTION ***********************************
 	  

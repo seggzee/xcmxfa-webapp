@@ -76,7 +76,7 @@ function typeLabel(t: MessageType) {
 function typeIcon(t: MessageType) {
 	
   if (t === "locker") return UI_ICONS.locker_key;
-  if (t === "listing") return UI_ICONS.MENU;
+  if (t === "listing") return UI_ICONS.listing;
   if (t === "flight") return UI_ICONS.departures;
   if (t === "account") return UI_ICONS.account;
   if (t === "admin") return UI_ICONS.account;

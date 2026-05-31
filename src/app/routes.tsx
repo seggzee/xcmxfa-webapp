@@ -62,6 +62,7 @@ import {
   createPasskeyFromOptions,
   getPasskeyAssertionFromOptions,
   isPasskeySupported,
+  normalizePasskeySetupError,
 } from "../utils/passkeys";
 import { messaging } from "./firebase";
 
@@ -154,42 +155,6 @@ function suppressPasskeyPromptForUser(username: string): void {
   }
 }
 
-function normalizePasskeyPromptError(error: unknown): {
-  message: string;
-  treatAsReady: boolean;
-} {
-  const raw = String((error as any)?.message || error || "PASSKEY_REGISTRATION_FAILED");
-  const lower = raw.toLowerCase();
-
-  if (
-    lower.includes("duplicate_credential") ||
-    lower.includes("already set up") ||
-    lower.includes("already exists") ||
-    lower.includes("already ready") ||
-    lower.includes("invalidstateerror")
-  ) {
-    return {
-      message: "This device is already ready for passkey sign-in.",
-      treatAsReady: true,
-    };
-  }
-
-  if (
-    lower.includes("passkey_creation_cancelled") ||
-    lower.includes("notallowederror") ||
-    lower.includes("cancelled")
-  ) {
-    return {
-      message: "Passkey setup was cancelled.",
-      treatAsReady: false,
-    };
-  }
-
-  return {
-    message: raw,
-    treatAsReady: false,
-  };
-}
 
 /**
  * Idiot-guide: what does auth/login return?
@@ -238,6 +203,8 @@ type PasskeyEnrollmentPrompt = {
   expiresIn: number;
   status: "idle" | "working" | "done" | "error";
   error?: string;
+  doneTitle?: string;
+  doneMessage?: string;
 } | null;
 
 // RN parity: Week needs airport passed from Home via nav("/week", { state: { airport } })
@@ -253,18 +220,28 @@ function WeekRoute(props: {
     throw new Error("WeekRoute: missing airport in navigation state");
   }
 
-  return (
-    <Week
-      airportCode={String(airport).toUpperCase()}
-      onBack={() => nav(-1)}
-      onOpenDayArrivals={(item) =>
-        nav(`/day/${item.dateKey}?tab=arrivals`, { state: { airport } })
-      }
-      onOpenDayDepartures={(item) =>
-        nav(`/day/${item.dateKey}?tab=departures`, { state: { airport } })
-      }
-    />
-  );
+	return (
+	  <Week
+		airportCode={String(airport).toUpperCase()}
+		onBack={() => nav(-1)}
+		onOpenDayArrivals={(item, baseFilters) =>
+		  nav(`/day/${item.dateKey}?tab=arrivals`, {
+			state: {
+			  airport,
+			  baseFilters,
+			},
+		  })
+		}
+		onOpenDayDepartures={(item, baseFilters) =>
+		  nav(`/day/${item.dateKey}?tab=departures`, {
+			state: {
+			  airport,
+			  baseFilters,
+			},
+		  })
+		}
+	  />
+	);
 }
 
 export default function AppRoutes() {
@@ -732,16 +709,32 @@ const {
       suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
 
       setPasskeyEnrollmentPrompt((prev) =>
-        prev ? { ...prev, status: "done", error: undefined } : prev
+        prev
+          ? {
+              ...prev,
+              status: "done",
+              error: undefined,
+              doneTitle: "Passkey ready",
+              doneMessage: "You can now sign in with a passkey on this device.",
+            }
+          : prev
       );
     } catch (err) {
-      const normalized = normalizePasskeyPromptError(err);
+      const normalized = normalizePasskeySetupError(err);
 
       if (normalized.treatAsReady) {
         suppressPasskeyPromptForUser(passkeyEnrollmentPrompt.username);
 
         setPasskeyEnrollmentPrompt((prev) =>
-          prev ? { ...prev, status: "done", error: undefined } : prev
+          prev
+            ? {
+                ...prev,
+                status: "done",
+                error: undefined,
+                doneTitle: "Passkey already set up",
+                doneMessage: normalized.message,
+              }
+            : prev
         );
         return;
       }
@@ -959,14 +952,15 @@ const {
           {passkeyEnrollmentPrompt.status === "done" ? (
             <>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>
-                Passkey ready
+                {passkeyEnrollmentPrompt.doneTitle || "Passkey ready"}
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.35, marginBottom: 12 }}>
-                You can now sign in with a passkey on this device.
+                {passkeyEnrollmentPrompt.doneMessage ||
+                  "You can now sign in with a passkey on this device."}
               </div>
               <button
                 type="button"
-                onClick={() => setPasskeyEnrollmentPrompt(null)}
+                onClick={handleDismissPasskeyPrompt}
                 style={{
                   border: 0,
                   borderRadius: 10,

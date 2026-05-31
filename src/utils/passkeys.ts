@@ -33,12 +33,65 @@ export type SerializedCredential = {
   response: Record<string, unknown>;
 };
 
+export type NormalizedPasskeySetupError = {
+  message: string;
+  treatAsReady: boolean;
+};
+
 function isPublicKeyCredentialSupported(): boolean {
   return typeof window !== "undefined" && "PublicKeyCredential" in window;
 }
 
 export function isPasskeySupported(): boolean {
   return isPublicKeyCredentialSupported() && !!navigator.credentials;
+}
+
+export function normalizePasskeySetupError(error: unknown): NormalizedPasskeySetupError {
+  const name = String((error as any)?.name || "").trim();
+  const raw = String((error as any)?.message || error || "PASSKEY_SETUP_FAILED");
+  const lower = `${name} ${raw}`.toLowerCase();
+
+  if (
+    lower.includes("invalidstateerror") ||
+    lower.includes("already set up") ||
+    lower.includes("already exists") ||
+    lower.includes("already ready") ||
+    lower.includes("duplicate_credential")
+  ) {
+    return {
+      message: "Passkey is already set up on this device.",
+      treatAsReady: true,
+    };
+  }
+
+  if (
+    lower.includes("notallowederror") ||
+    lower.includes("passkey_creation_cancelled") ||
+    lower.includes("passkey_auth_cancelled") ||
+    lower.includes("cancelled")
+  ) {
+    return {
+      message: "Passkey setup was cancelled.",
+      treatAsReady: false,
+    };
+  }
+
+  if (
+    lower.includes("passkeys_not_supported") ||
+    lower.includes("not supported") ||
+    lower.includes("passkey_creation_json_parser_unavailable") ||
+    lower.includes("passkey_request_json_parser_unavailable")
+  ) {
+    return {
+      message: "Passkeys are not supported on this device/browser.",
+      treatAsReady: false,
+    };
+  }
+
+  return {
+    message: "Passkey setup failed. Please try again or use your password.",
+    treatAsReady: false,
+  };
 }
 
 export async function canUseConditionalMediation(): Promise<boolean> {
@@ -93,14 +146,6 @@ export async function createPasskeyFromOptions(
   }
 
   const creationOptions = pkc.parseCreationOptionsFromJSON(optionsJson);
-
-  console.log("PASSKEYS_HELPER_VERSION_2", {
-    hasPublicKeyCredential: "PublicKeyCredential" in window,
-    parsedCreationOptions: creationOptions,
-    rp: (creationOptions as any)?.rp,
-    user: (creationOptions as any)?.user,
-    challenge: (creationOptions as any)?.challenge,
-  });
 
   const credential = (await navigator.credentials.create({
     publicKey: creationOptions,

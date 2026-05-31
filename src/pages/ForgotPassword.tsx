@@ -59,7 +59,7 @@ export default function ForgotPassword() {
           <h2 style={{ marginBottom: 12 }}>Forgot your password?</h2>
 
           <p style={{ marginBottom: 16, color: "#6b7280" }}>
-            Enter your staff identity and we’ll send you instructions.
+            Enter your Username in order to receive reset instructions.
           </p>
 
           <input
@@ -124,7 +124,7 @@ export default function ForgotPassword() {
           <h2 style={{ marginBottom: 12 }}>Check your email</h2>
 
           <p style={{ color: "#6b7280", marginBottom: 16 }}>
-            If an account exists for that identity, you’ll receive a password reset link shortly.
+            If an account exists for that username, you will receive a password reset link shortly.
           </p>
 
           <button

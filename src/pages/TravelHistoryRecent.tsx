@@ -102,6 +102,8 @@ function parsePresetRange(value: string | null): 7 | 28 | 90 {
   return 90;
 }
 
+
+
 function TravelHistoryRowCard(props: { row: TravelHistoryRow }) {
   const { row } = props;
 
@@ -119,9 +121,16 @@ function TravelHistoryRowCard(props: { row: TravelHistoryRow }) {
 
   const securityNumber = String(row.security_number || "").trim();
 
-  const line3 = securityNumber
-    ? `Security No: ${securityNumber}`
-    : `Confirmed: ${formatUtcMinuteLabel(row.confirmed_at_utc)}`;
+  const isCancelled =
+    String(row.booking_status || "").trim().toLowerCase() === "cancelled";
+
+  const line3 = isCancelled
+    ? row.cancelled_at_utc
+      ? `Cancelled: ${formatUtcMinuteLabel(row.cancelled_at_utc)}`
+      : "Cancelled"
+    : securityNumber
+      ? `Security No: ${securityNumber}`
+      : `Confirmed: ${formatUtcMinuteLabel(row.confirmed_at_utc)}`;
 
   return (
     <div
@@ -131,46 +140,77 @@ function TravelHistoryRowCard(props: { row: TravelHistoryRow }) {
         alignItems: "stretch",
         display: "block",
         textAlign: "left",
+        position: "relative",
+        overflow: "hidden",
+        background: isCancelled ? "#f3f4f6" : undefined,
+        borderColor: isCancelled ? "#fecaca" : undefined,
       }}
     >
-      <div
-        style={{
-          fontSize: 16,
-          fontWeight: 900,
-          color: "#111827",
-          lineHeight: 1.35,
-          marginBottom: 8,
-        }}
-      >
-        {dateLabel} · {routeLabel} · {flightLabel}
-      </div>
+      {isCancelled ? (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: "-12%",
+            top: "50%",
+            width: "124%",
+            height: 2,
+            background: "#fecaca",
+            transform: "rotate(-12deg)",
+            transformOrigin: "center",
+            opacity: 0.75,
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
 
       <div
         style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: "#4b5563",
-          lineHeight: 1.45,
-          marginBottom: 4,
+          position: "relative",
+          zIndex: 1,
         }}
       >
-        Requested: {formatUtcMinuteLabel(row.requested_at_utc)} · Source:{" "}
-        {sourceLabel(row.source_system)}
-      </div>
+        <div
+          style={{
+            fontSize: 16,
+			fontWeight: isCancelled ? 600 : 900,			
+            color: "#111827",
+            lineHeight: 1.35,
+            marginBottom: 8,
+          }}
+        >
+          {dateLabel} · {routeLabel} · {flightLabel}
+        </div>
 
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: "#4b5563",
-          lineHeight: 1.45,
-        }}
-      >
-        {line3}
+        <div
+          style={{
+            fontSize: 13,
+
+			fontWeight: isCancelled ? 600 : 700,				
+            color: "#4b5563",
+            lineHeight: 1.45,
+            marginBottom: 4,
+          }}
+        >
+          Requested: {formatUtcMinuteLabel(row.requested_at_utc)} · Source:{" "}
+          {sourceLabel(row.source_system)}
+        </div>
+
+        <div
+			style={{
+			  fontSize: 13,
+			  fontWeight: isCancelled ? 400 : 700,
+			  color: isCancelled ? "#f87171" : "#4b5563",
+			  lineHeight: 1.45,
+			}}
+        >
+          {line3}
+        </div>
       </div>
     </div>
   );
 }
+
 
 export default function TravelHistoryRecent() {
   const nav = useNavigate();

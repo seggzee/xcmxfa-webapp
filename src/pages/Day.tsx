@@ -130,6 +130,68 @@ type LinkedCommuterRow = {
 const POLL_MS = 2.5 * 60 * 1000;
 
 /* =====================================================================================
+   DAY BASE FILTERS
+   =====================================================================================
+
+   Week -> Day continuity:
+   - Week passes active AMS / RTM / EIN base filters through route state.
+   - Day initialises from that incoming state so the opened Day list matches
+     the Week count the user tapped.
+   - Day still lets the user change the filter locally.
+   - The shared localStorage key keeps Week and Day base choices aligned.
+
+   Universal behaviour:
+   - Always show AMS / RTM / EIN mini-pills.
+   - Default all ON.
+   - Click ON -> OFF.
+   - Click OFF -> ON.
+   - All OFF is allowed and shows "No bases selected".
+
+   Filtering rule:
+   - Departures tab: selected airport -> active base airports.
+   - Arrivals tab: active base airports -> selected airport.
+   ===================================================================================== */
+
+const BASE_FILTER_STORAGE_KEY = "xcmxfa:week:baseFilters";
+const BASE_FILTER_CODES = ["AMS", "RTM", "EIN"] as const;
+
+type BaseFilterCode = (typeof BASE_FILTER_CODES)[number];
+
+function normaliseBaseFilterArray(value: unknown): BaseFilterCode[] | null {
+  if (!Array.isArray(value)) return null;
+
+  // Empty array is valid: all bases OFF.
+  if (value.length === 0) return [];
+
+  const valid = BASE_FILTER_CODES.filter((baseCode) => value.includes(baseCode));
+
+  // Non-empty but no valid base codes = corrupt/invalid.
+  if (valid.length === 0) return null;
+
+  // Return in fixed display/order: AMS, RTM, EIN.
+  return valid;
+}
+
+function readInitialDayBaseFilters(incomingFromRouteState: unknown): BaseFilterCode[] {
+  const fromRouteState = normaliseBaseFilterArray(incomingFromRouteState);
+  if (fromRouteState !== null) return fromRouteState;
+
+  try {
+    const raw = localStorage.getItem(BASE_FILTER_STORAGE_KEY);
+    if (!raw) return [...BASE_FILTER_CODES];
+
+    const parsed = JSON.parse(raw);
+    const fromStorage = normaliseBaseFilterArray(parsed);
+
+    if (fromStorage !== null) return fromStorage;
+  } catch {
+    // best-effort only
+  }
+
+  return [...BASE_FILTER_CODES];
+}
+
+/* =====================================================================================
    DEPARTURE / ARRIVAL OPERATIONAL INFO PANELS - REPLACEABLE BLOCK
    =====================================================================================
 
@@ -825,11 +887,33 @@ export default function Day() {
   const { auth } = useAuth();
   const { dateKey: dateKeyParam } = useParams();
 
-  const airport = (loc.state as any)?.airport;
-  invariant(Boolean(airport), "Day: missing airport in navigation state");
-  const airportCode = String(airport).toUpperCase();
+	const airport = (loc.state as any)?.airport;
+	invariant(Boolean(airport), "Day: missing airport in navigation state");
+	const airportCode = String(airport).toUpperCase();
 
-  const resolvedIsLoggedIn = auth?.mode === "member";
+	// Inherited from Week when the user opens Day from a filtered Week count.
+	// If absent, Day falls back to the shared persisted base-filter preference.
+	const incomingBaseFilters = (loc.state as any)?.baseFilters;
+
+	const [activeBaseCodes, setActiveBaseCodes] = useState<BaseFilterCode[]>(() =>
+	  readInitialDayBaseFilters(incomingBaseFilters)
+	);
+
+	const activeBaseSet = useMemo(() => new Set<string>(activeBaseCodes), [activeBaseCodes]);
+	const noBasesSelected = activeBaseCodes.length === 0;
+
+	const toggleBaseFilter = (baseCode: BaseFilterCode) => {
+	  setActiveBaseCodes((current) => {
+		if (current.includes(baseCode)) {
+		  return current.filter((item) => item !== baseCode);
+		}
+
+		// Keep output order stable as AMS / RTM / EIN.
+		return BASE_FILTER_CODES.filter((item) => item === baseCode || current.includes(item));
+	  });
+	};
+
+const resolvedIsLoggedIn = auth?.mode === "member";
 
   const psn = useMemo(() => {
     if (!resolvedIsLoggedIn) return null;
@@ -860,6 +944,14 @@ export default function Day() {
 
   const [tab, setTab] = useState<"departures" | "arrivals">(initialTab);
   useEffect(() => setTab(initialTab), [initialTab]);
+  
+	useEffect(() => {
+	  try {
+		localStorage.setItem(BASE_FILTER_STORAGE_KEY, JSON.stringify(activeBaseCodes));
+	  } catch {
+		// best-effort only
+	  }
+	}, [activeBaseCodes]);
 
   const minDateKey = useMemo(() => {
     const d = new Date();
@@ -947,7 +1039,12 @@ export default function Day() {
       }
 
       const qs = tab === "arrivals" ? "tab=arrivals" : "tab=departures";
-      nav(`/day/${nextKey}?${qs}`, { state: { airport: airportCode } });
+		nav(`/day/${nextKey}?${qs}`, {
+		  state: {
+			airport: airportCode,
+			baseFilters: activeBaseCodes,
+		  },
+		});
     } catch {
       // ignore
     }
@@ -1102,44 +1199,59 @@ export default function Day() {
   };
 
   const flights: FlightItem[] = useMemo(() => {
-    const hub = "AMS";
-    const airport = String(airportCode || "").toUpperCase();
+  const airport = String(airportCode || "").toUpperCase();
 
-    const fromApiDepartures = Array.isArray(rawRows?.departures) ? rawRows.departures : null;
-    const fromApiArrivals = Array.isArray(rawRows?.arrivals) ? rawRows.arrivals : null;
+  // All OFF is a valid state. Return no rows.
+  if (activeBaseSet.size === 0) return [];
 
-    let filtered: ApiFlightRow[] = [];
-    if (tab === "departures") filtered = fromApiDepartures || [];
-    else filtered = fromApiArrivals || [];
+  const fromApiDepartures = Array.isArray(rawRows?.departures) ? rawRows.departures : null;
+  const fromApiArrivals = Array.isArray(rawRows?.arrivals) ? rawRows.arrivals : null;
 
-    if ((!fromApiDepartures || !fromApiArrivals) && Array.isArray(rawRows?.flights)) {
-      const legacyRows: ApiFlightRow[] = rawRows.flights;
-      if (tab === "departures") {
-        filtered = legacyRows.filter(
-          (r) =>
-            String(r.dep_airport || "").toUpperCase() === airport &&
-            String(r.arr_airport || "").toUpperCase() === hub
-        );
-      } else {
-        filtered = legacyRows.filter(
-          (r) =>
-            String(r.dep_airport || "").toUpperCase() === hub &&
-            String(r.arr_airport || "").toUpperCase() === airport
-        );
-      }
-    }
+  const matchesDepartureFilter = (r: ApiFlightRow) => {
+    const dep = safeUpper(r?.dep_airport);
+    const arr = safeUpper(r?.arr_airport);
 
-    return filtered.map((r) => {
-      const flightInstanceId = String(r?.flight_instance_id || "").trim();
-      invariant(Boolean(flightInstanceId), "Invariant violation: flight row missing flight_instance_id in Day");
+    // Departures tab: selected airport -> active base.
+    return dep === airport && activeBaseSet.has(arr);
+  };
 
-      return {
-        flightInstanceId,
-        uiKey: `flight-${flightInstanceId}`,
-        row: r,
-      };
-    });
-  }, [rawRows, tab, airportCode]);
+  const matchesArrivalFilter = (r: ApiFlightRow) => {
+    const dep = safeUpper(r?.dep_airport);
+    const arr = safeUpper(r?.arr_airport);
+
+    // Arrivals tab: active base -> selected airport.
+    return arr === airport && activeBaseSet.has(dep);
+  };
+
+  let filtered: ApiFlightRow[] = [];
+
+  if (tab === "departures") {
+    filtered = (fromApiDepartures || []).filter(matchesDepartureFilter);
+  } else {
+    filtered = (fromApiArrivals || []).filter(matchesArrivalFilter);
+  }
+
+  // Legacy / fallback shape: some API responses expose only a flat flights array.
+  if ((!fromApiDepartures || !fromApiArrivals) && Array.isArray(rawRows?.flights)) {
+    const legacyRows: ApiFlightRow[] = rawRows.flights;
+
+    filtered =
+      tab === "departures"
+        ? legacyRows.filter(matchesDepartureFilter)
+        : legacyRows.filter(matchesArrivalFilter);
+  }
+
+  return filtered.map((r) => {
+    const flightInstanceId = String(r?.flight_instance_id || "").trim();
+    invariant(Boolean(flightInstanceId), "Invariant violation: flight row missing flight_instance_id in Day");
+
+    return {
+      flightInstanceId,
+      uiKey: `flight-${flightInstanceId}`,
+      row: r,
+    };
+  });
+}, [rawRows, tab, airportCode, activeBaseSet]);
 
   function formatListedAtDisplay(raw: string | null | undefined): string {
     if (!raw) return "--";
@@ -1497,9 +1609,15 @@ function linkedCommutersForFlight(flightInstanceId: string): LinkedCommuterRow[]
               <button
                 type="button"
                 onClick={() => {
-                  setTab("departures");
-                  nav(`/day/${dateKey}?tab=departures`, { state: { airport: airportCode }, replace: true });
-                }}
+				  setTab("departures");
+				  nav(`/day/${dateKey}?tab=departures`, {
+					state: {
+					  airport: airportCode,
+					  baseFilters: activeBaseCodes,
+					},
+					replace: true,
+				  });
+				}}
                 className={`day-tabBtn ${tab === "departures" ? "day-tabBtnActive" : ""}`}
               >
                 Departures
@@ -1508,15 +1626,42 @@ function linkedCommutersForFlight(flightInstanceId: string): LinkedCommuterRow[]
               <button
                 type="button"
                 onClick={() => {
-                  setTab("arrivals");
-                  nav(`/day/${dateKey}?tab=arrivals`, { state: { airport: airportCode }, replace: true });
-                }}
+				  setTab("arrivals");
+				  nav(`/day/${dateKey}?tab=arrivals`, {
+					state: {
+					  airport: airportCode,
+					  baseFilters: activeBaseCodes,
+					},
+					replace: true,
+				  });
+				}}
                 className={`day-tabBtn ${tab === "arrivals" ? "day-tabBtnActive" : ""}`}
               >
                 Arrivals
               </button>
             </div>
+            <div className="day-baseFilterRow" aria-label="Flight base filters">
+              {BASE_FILTER_CODES.map((baseCode) => {
+                const isActive = activeBaseSet.has(baseCode);
 
+                return (
+                  <button
+                    key={baseCode}
+                    type="button"
+                    className={`day-baseMiniPill ${
+                      isActive ? "day-baseMiniPillActive" : "day-baseMiniPillInactive"
+                    }`}
+                    onClick={() => toggleBaseFilter(baseCode)}
+                    aria-pressed={isActive}
+                    aria-label={`${baseCode} base filter ${isActive ? "on" : "off"}`}
+                  >
+                    {baseCode}
+                  </button>
+                );
+              })}
+            </div>
+
+            {noBasesSelected && <div className="day-baseFilterEmpty">No bases selected</div>}
             <div className="day-dateStepperRow">
               <button
                 type="button"

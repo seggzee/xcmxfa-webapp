@@ -191,6 +191,80 @@
 }
 
 /* ===============================
+   Base mini-pill filters
+   =============================== */
+
+/*
+   Day base filters:
+   - Mirrors the Week AMS / RTM / EIN mini-pill behaviour.
+   - No label; the base codes are self-explanatory.
+   - Equal spacing across the Day header card.
+   - Pill background/border/text indicate ON/OFF state.
+   - All OFF is allowed; Day.tsx then shows "No bases selected".
+*/
+.day-baseFilterRow {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 12px;
+  align-items: center;
+}
+
+.day-baseMiniPill {
+  width: 100%;
+  min-height: 30px;
+  border-radius: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 80ms ease;
+}
+
+.day-baseMiniPill:active {
+  transform: scale(0.98);
+}
+
+.day-baseMiniPill:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
+.day-baseMiniPillActive {
+  background: #e9f1ff;
+  border: 1px solid #8bb8ff;
+  color: #111827;
+  box-shadow: 0 0 0 2px rgba(139, 184, 255, 0.16);
+}
+
+.day-baseMiniPillInactive {
+  background: #f8fafc;
+  border: 1px solid #e6e9ee;
+  color: #9ca3af;
+  box-shadow: none;
+}
+
+.day-baseFilterEmpty {
+  margin-top: 7px;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+
+/* ===============================
    Date Stepper
    =============================== */
 

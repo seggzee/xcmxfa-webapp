@@ -55,6 +55,7 @@ export const COUNTRY_AIRPORTS: Record<string, Airport[]> = {
   ],
   "Germany": [
     { code: "BER", image: "BER.webp" },
+    { code: "BRE", image: "BRE.webp" },	
     { code: "DUS", image: "DUS.webp" },
     { code: "FRA", image: "FRA.webp" },
     { code: "HAM", image: "HAM.webp" },

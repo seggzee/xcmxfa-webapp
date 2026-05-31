@@ -40,6 +40,39 @@ const WINDOW_DAYS = 9;
 const SCHEDULE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
 const WEEK_MODE_STORAGE_KEY = "xcmxfa:week:mode"; // to remember user choice of compact or classic
+const WEEK_BASE_FILTER_STORAGE_KEY = "xcmxfa:week:baseFilters"; // to remember AMS / RTM / EIN pill choices
+
+
+
+
+// =====================================================================================
+// BASE FILTERS
+// =====================================================================================
+//
+// Week screen base filtering is intentionally frontend-only.
+//
+// Universal behaviour:
+// - Always show AMS / RTM / EIN mini-pills.
+// - Default all ON.
+// - Click ON -> OFF.
+// - Click OFF -> ON.
+// - All OFF is allowed.
+// - When all OFF, counts naturally become zero and the UI shows "No bases selected".
+//
+// Filtering rule:
+// - Departures count: selected airport -> active base airports.
+// - Arrivals count: active base airports -> selected airport.
+//
+// Example, selected airport BCN:
+// - AMS ON includes BCN <-> AMS.
+// - RTM ON includes BCN <-> RTM.
+// - EIN ON includes BCN <-> EIN.
+// - If a selected base has no route impact, the readout is simply zero.
+// =====================================================================================
+
+const BASE_FILTER_CODES = ["AMS", "RTM", "EIN"] as const;
+
+export type BaseFilterCode = (typeof BASE_FILTER_CODES)[number];
 
 type WeeklyMode = "classic" | "compact";
 
@@ -74,8 +107,11 @@ type WindowCacheRecord = {
 export default function Week(props: {
   airportCode: string;
   onBack?: () => void;
-  onOpenDayArrivals?: (item: WeeklyDayItem) => void;
-  onOpenDayDepartures?: (item: WeeklyDayItem) => void;
+
+  // Week -> Day carries the active AMS / RTM / EIN base filters
+  // so the Day screen initially matches the Week count that was tapped.
+  onOpenDayArrivals?: (item: WeeklyDayItem, baseFilters: BaseFilterCode[]) => void;
+  onOpenDayDepartures?: (item: WeeklyDayItem, baseFilters: BaseFilterCode[]) => void;
 }) {
   useAuth();
 
@@ -97,26 +133,81 @@ export default function Week(props: {
     schedule_last_updated_utc: null,
   });
   const [refreshedAtMs, setRefreshedAtMs] = React.useState<number | null>(null);
-  const [days, setDays] = React.useState<WeeklyDayItem[]>([]);
+
+  // Raw window flights are retained separately so base-pill changes can recalculate
+  // the existing Week counts immediately without another API call.
+  const [windowFlights, setWindowFlights] = React.useState<WindowFlight[]>([]);
+
+  // Base mini-pills default to all ON, but remember the user's last choice.
+// Empty array is valid because "all OFF" is allowed and shows "No bases selected".
+const [activeBaseCodes, setActiveBaseCodes] = React.useState<BaseFilterCode[]>(() => {
+  try {
+    const raw = localStorage.getItem(WEEK_BASE_FILTER_STORAGE_KEY);
+    if (!raw) return [...BASE_FILTER_CODES];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [...BASE_FILTER_CODES];
+
+    const validSaved = BASE_FILTER_CODES.filter((baseCode) => parsed.includes(baseCode));
+
+    // All OFF is a valid saved state.
+    if (parsed.length === 0) return [];
+
+    // Corrupt/invalid non-empty saved value falls back safely to all ON.
+    if (validSaved.length === 0) return [...BASE_FILTER_CODES];
+
+    return validSaved;
+  } catch {
+    return [...BASE_FILTER_CODES];
+  }
+});
 
   const [airportInfoOpen, setAirportInfoOpen] = React.useState(false);
   const [airportInfoCode, setAirportInfoCode] = React.useState<string | null>(null);
 
   const startLocalDate = React.useMemo(() => dateToLocalDateKey(new Date()), []);
 
+  const activeBaseSet = React.useMemo(() => new Set(activeBaseCodes), [activeBaseCodes]);
+  const noBasesSelected = activeBaseCodes.length === 0;
+
+  const days = React.useMemo(() => {
+    return buildDaysFromFlights({
+      airportCode,
+      startLocalDate,
+      windowDays: WINDOW_DAYS,
+      flights: windowFlights,
+      activeBaseCodes,
+    });
+  }, [airportCode, startLocalDate, windowFlights, activeBaseCodes]);
+
+  const toggleBaseFilter = React.useCallback((baseCode: BaseFilterCode) => {
+    setActiveBaseCodes((current) => {
+      if (current.includes(baseCode)) {
+        return current.filter((item) => item !== baseCode);
+      }
+
+      // Keep output order stable as AMS / RTM / EIN even after repeated toggling.
+      return BASE_FILTER_CODES.filter((item) => item === baseCode || current.includes(item));
+    });
+  }, []);
+
   const openArrivals = React.useCallback(
-    (item: WeeklyDayItem) => {
-      if (typeof props.onOpenDayArrivals === "function") props.onOpenDayArrivals(item);
-    },
-    [props]
-  );
+  (item: WeeklyDayItem) => {
+    if (typeof props.onOpenDayArrivals === "function") {
+      props.onOpenDayArrivals(item, activeBaseCodes);
+    }
+  },
+  [props, activeBaseCodes]
+);
 
   const openDepartures = React.useCallback(
-    (item: WeeklyDayItem) => {
-      if (typeof props.onOpenDayDepartures === "function") props.onOpenDayDepartures(item);
-    },
-    [props]
-  );
+  (item: WeeklyDayItem) => {
+    if (typeof props.onOpenDayDepartures === "function") {
+      props.onOpenDayDepartures(item, activeBaseCodes);
+    }
+  },
+  [props, activeBaseCodes]
+);
 
   const openAirportInfo = React.useCallback((codeLike: string | null | undefined) => {
     const code = String(codeLike || "")
@@ -146,16 +237,9 @@ export default function Week(props: {
         const cacheUsable = cached && !isWindowStale(cached, { maxAgeMs: SCHEDULE_MAX_AGE_MS });
 
         if (cacheUsable) {
-          const nextDays = buildDaysFromFlights({
-            airportCode,
-            startLocalDate,
-            windowDays: WINDOW_DAYS,
-            flights: cached.flights,
-          });
-
           if (!alive) return;
           setWindowMeta({ schedule_last_updated_utc: cached.scheduleLastUpdatedUtc || null });
-          setDays(nextDays);
+          setWindowFlights(cached.flights);
           setLoading(false);
           setRefreshedAtMs(cached.savedAtMs || Date.now());
           return;
@@ -182,16 +266,9 @@ export default function Week(props: {
           scheduleLastUpdatedUtc,
         });
 
-        const nextDays = buildDaysFromFlights({
-          airportCode,
-          startLocalDate,
-          windowDays: WINDOW_DAYS,
-          flights: record.flights,
-        });
-
         if (!alive) return;
         setWindowMeta({ schedule_last_updated_utc: scheduleLastUpdatedUtc });
-        setDays(nextDays);
+        setWindowFlights(record.flights);
         setLoading(false);
         setRefreshedAtMs(Date.now());
       } catch (e: any) {
@@ -236,6 +313,14 @@ export default function Week(props: {
       // best-effort only
     }
   }, [mode]);
+  
+  React.useEffect(() => {
+  try {
+    localStorage.setItem(WEEK_BASE_FILTER_STORAGE_KEY, JSON.stringify(activeBaseCodes));
+  } catch {
+    // best-effort only
+  }
+}, [activeBaseCodes]);
 
   const airportLogoSrc = getAirportLogo(airportCode) || APP_IMAGES.APP_LOGO;
 
@@ -312,6 +397,29 @@ export default function Week(props: {
                 Compact
               </button>
             </div>
+
+            <div className="week-baseFilterRow" aria-label="Flight base filters">
+              {BASE_FILTER_CODES.map((baseCode) => {
+                const isActive = activeBaseSet.has(baseCode);
+
+                return (
+                  <button
+                    key={baseCode}
+                    type="button"
+                    className={`week-baseMiniPill ${
+                      isActive ? "week-baseMiniPillActive" : "week-baseMiniPillInactive"
+                    }`}
+                    onClick={() => toggleBaseFilter(baseCode)}
+                    aria-pressed={isActive}
+                    aria-label={`${baseCode} base filter ${isActive ? "on" : "off"}`}
+                  >
+                    {baseCode}
+                  </button>
+                );
+              })}
+            </div>
+
+            {noBasesSelected && <div className="week-baseFilterEmpty">No bases selected</div>}
           </section>
         </div>
       </div>
@@ -428,8 +536,9 @@ function buildDaysFromFlights(args: {
   startLocalDate: string;
   windowDays: number;
   flights: WindowFlight[];
+  activeBaseCodes: BaseFilterCode[];
 }) {
-  const byDay = groupWindowByDayExactRNFallback(args.flights, args.airportCode);
+  const byDay = groupWindowByDayExactRNFallback(args.flights, args.airportCode, args.activeBaseCodes);
 
   return Array.from({ length: args.windowDays }).map((_, i) => {
     const d = new Date(`${args.startLocalDate}T00:00:00`);
@@ -450,9 +559,24 @@ function buildDaysFromFlights(args: {
   });
 }
 
-function groupWindowByDayExactRNFallback(flights: WindowFlight[], airportCode: string) {
+function groupWindowByDayExactRNFallback(
+  flights: WindowFlight[],
+  airportCode: string,
+  activeBaseCodes: BaseFilterCode[]
+) {
   const byDay: Record<string, { arrivals: WindowFlight[]; departures: WindowFlight[] }> = {};
   if (!Array.isArray(flights)) return byDay;
+
+  const activeBases = new Set(
+    (Array.isArray(activeBaseCodes) ? activeBaseCodes : [])
+      .map((item) => String(item || "").trim().toUpperCase())
+      .filter(Boolean)
+  );
+
+  // All OFF is a valid state. Return an empty grouping so every day renders zero.
+  if (activeBases.size === 0) return byDay;
+
+  const selectedAirport = String(airportCode || "").trim().toUpperCase();
 
   for (const f of flights) {
     if (!f) continue;
@@ -469,21 +593,28 @@ function groupWindowByDayExactRNFallback(flights: WindowFlight[], airportCode: s
 
     if (isCancelled) continue;
 
-    const dep = String(f.dep_airport || "");
-    const arr = String(f.arr_airport || "");
+    const dep = String(f.dep_airport || "").trim().toUpperCase();
+    const arr = String(f.arr_airport || "").trim().toUpperCase();
 
-    const isDeparture = dep === airportCode;
-    const isArrival = arr === airportCode;
-    if (!isDeparture && !isArrival) continue;
+    const isDepartureFromSelectedAirport = dep === selectedAirport;
+    const isArrivalIntoSelectedAirport = arr === selectedAirport;
 
-    const dt = isDeparture ? f.std_local : f.sta_local;
+    // Base filter rule:
+    // - departure count only includes selected airport -> active base.
+    // - arrival count only includes active base -> selected airport.
+    const includeAsDeparture = isDepartureFromSelectedAirport && activeBases.has(arr);
+    const includeAsArrival = isArrivalIntoSelectedAirport && activeBases.has(dep);
+
+    if (!includeAsDeparture && !includeAsArrival) continue;
+
+    const dt = includeAsDeparture ? f.std_local : f.sta_local;
     if (!dt || typeof dt !== "string" || dt.length < 10) continue;
 
     const dayKey = dt.slice(0, 10);
     if (!byDay[dayKey]) byDay[dayKey] = { arrivals: [], departures: [] };
 
-    if (isDeparture) byDay[dayKey].departures.push(f);
-    if (isArrival) byDay[dayKey].arrivals.push(f);
+    if (includeAsDeparture) byDay[dayKey].departures.push(f);
+    if (includeAsArrival) byDay[dayKey].arrivals.push(f);
   }
 
   return byDay;

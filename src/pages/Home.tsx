@@ -113,7 +113,7 @@ import FlightCard3x3 from "../components/FlightCard3x3";
 import GuestPromoCard from "../components/GuestPromoCard";
 import AirportInfoModal from "../components/AirportInfoModal";
 
-import { getCrewLockerNotifications } from "../api/crewLockersApi";
+import { getUnreadMessageCount } from "../api/messagesApi";
 
 import { API_BASE_URL } from "../config/api";
 
@@ -328,23 +328,34 @@ export default function Home() {
     setAirportInfoOpen(false);
     setAirportInfoCode(null);
   }
-
   // =============================================================================
-  // Messages banner (member-only)  unread count (locker notifications for now)
+  // Messages banner (member-only) — general unread message count
+  // =============================================================================
+  //
+  // IMPORTANT:
+  // - This Home banner must use the same general unread-message source as the bell
+  //   and Messages page.
+  // - It must NOT use the locker-specific notification feed.
+  //
+  // Result:
+  // - Locker messages show the Home banner.
+  // - Listing messages show the Home banner.
+  // - Admin notifications show the Home banner.
+  // - Popup/modal display remains separate and still depends on the popup flag.
   // =============================================================================
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
 
   useEffect(() => {
     let alive = true;
 
-    (async () => {
+    async function refreshUnreadMessageCount() {
       // Guest: no banner
       if (!isMember) {
         if (alive) setUnreadMsgCount(0);
         return;
       }
 
-      // Identity: follow your existing Home pattern (staffNo from auth.user.username)
+      // Identity: follow existing Home pattern.
       if (!staffNo) {
         if (alive) setUnreadMsgCount(0);
         return;
@@ -359,26 +370,42 @@ export default function Home() {
       }
 
       try {
-        const resp: any = await getCrewLockerNotifications(staffNo);
-        const rows = Array.isArray(resp?.messages) ? resp.messages : [];
-
-        const unread = rows.filter((r: any) => !r?.read_at).length;
+        const resp: any = await getUnreadMessageCount(staffNo);
+        const unread = Number(resp?.unread_count ?? 0);
 
         if (!alive) return;
         setUnreadMsgCount(Number.isFinite(unread) ? unread : 0);
       } catch {
-        // Silent fail: Home must never look broken because messages endpoint hiccuped
+        // Silent fail: Home must never look broken because messages endpoint hiccuped.
         if (!alive) return;
         setUnreadMsgCount(0);
       }
-    })();
+    }
+
+    refreshUnreadMessageCount();
+
+    // Keep Home banner aligned with bell/message refresh behaviour while Home is open.
+    const onFocus = () => refreshUnreadMessageCount();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshUnreadMessageCount();
+    };
+
+    const onMessagesSummaryRefresh = () => refreshUnreadMessageCount();
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("messages:summary-refresh", onMessagesSummaryRefresh as EventListener);
 
     return () => {
       alive = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("messages:summary-refresh", onMessagesSummaryRefresh as EventListener);
     };
   }, [isMember, staffNo, isOnline]);
   
-
+  
   // =============================================================================
   // Next flight (member-only, real data)
   // =============================================================================
